@@ -1,0 +1,86 @@
+测试记录归档 - 2025-11-01 22:30
+
+一、Windows 端（节选）
+--------------------------------
+启动与帮助：
+ZFeiQ CLI 已启动。输入 /login 上线，/help 查看帮助。
+/help => 按前缀分组显示命令列表
+
+登录：
+/loginwin → 提示输入用户名 → 已上线 win@192.168.137.1
+
+上线/消息：
+[23:10:17] + rk@192.168.137.10 上线
+[23:10:57] <rk@192.168.137.10> Hello from RK
+…
+
+状态切换与调试：
+/set status busy → 状态已设置为 busy
+/set debug on → debug=on
+/set trace on → trace=on
+（其后可见 RECV base=0x1/0x3 调试日志）
+
+退出：
+/logout → 已下线：win
+/exit → 进程正常退出（已修复 Windows 退出时 stdout 锁异常）
+
+二、RK3566 端（节选）
+--------------------------------
+启动：
+ZFeiQ CLI 已启动。输入 /login 上线，/help 查看帮助。
+（自动收到 win 上线）
+
+登录与在线列表：
+/login rk → 已上线 rk@192.168.137.10
+/info → 显示 2 个在线节点（rk、win）
+
+消息与分组：
+/sendall Hello from RK
+/send user:win nima
+/group G1 -add win
+/info group:G1 → 显示 win ONLINE
+
+语言切换：
+/set language enUS → help 切换为英文
+/set language zhCN → help 切回中文
+
+下线检测：
+[23:14:15] - win@192.168.137.1 下线
+/exit 正常退出
+
+三、行为分析与现象解释
+--------------------------------
+1) RK 端自动发现：
+   - 现已在 Linux 上绑定 0.0.0.0 接收广播，且发送仍按选定网卡进行定向广播，
+     因此不再依赖手动 /discover 才能更新节点表。
+
+2) 状态（busy/away）更新：
+   - 之前使用 BR_ENTRY 的扩展字段第一段直接填入 "status=..."，
+     导致部分第三方客户端（如 飞秋2013）把它当作“昵称”展示。
+   - 已调整为：扩展字段第1段放昵称（username），后续段放 "status=..."，
+     本实现会解析所有以 NUL 分隔的段来提取状态，第三方客户端则显示昵称，不会再看到“status=online”。
+   - 同时在收到 BR_ENTRY/ANSENTRY 时，如果同一 IP 的状态发生变化，会打印一条“状态: old -> new”的提示。
+
+3) 退出与重复下线提示：
+   - 修复了 Windows 退出时后台线程仍打印导致的 stdout 锁错误；
+     通过在 stop() 中 join 接收与后台线程，确保优雅终止。
+   - 自身 BR_EXIT 不再打印“下线”，且仅当节点确实存在于在线表中时才打印一次“下线”，避免重复。
+
+4) 与 飞秋2013 兼容性：
+   - 现在 BR_ENTRY/ANSENTRY 的扩展第1段是昵称（本实现默认使用 username），
+     飞秋显示正常；自定义的 status 信息放在后续段，第三方一般忽略，不会污染昵称。
+
+四、建议回归点
+--------------------------------
+- A) 一端执行 /set status busy/away，另一端应自动打印“状态: online -> busy/away”，
+     且 /info 列表对应用户行尾出现 [busy]/[away]。
+- B) 帮助表（/help）应按前缀分组显示，且包含 /send group:<group> <text>。
+- C) RK 端无需 /discover 即能感知对方上线/下线。
+- D) 退出（/exit 或 Ctrl+D）应无异常、无重复“下线”。
+
+五、可能的后续小改进
+--------------------------------
+- 将组信息（/info group:）添加在线状态摘要（多少 busy/away）。
+- 根据 IPMSG 官方 flag 映射“缺席/忙碌”到 ABSCENCE/其他位，提高第三方互通的语义准确性。
+- 更细的 i18n：将 group/user 相关英文输出也统一中文化，或提供完整语言包文件。
+- 在 /discover 后短暂聚合邻居的 ANSENTRY/ANSLIST，再一次性打印更稳定的在线列表。
