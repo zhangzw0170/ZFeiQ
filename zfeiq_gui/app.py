@@ -77,7 +77,7 @@ def launch_gui() -> None:
     window = MainWindow()
     # 设置应用与窗口图标（如存在）
     try:
-        icon_path = os.path.join(os.getcwd(), "zfeiq_icon_128x128.jpg")
+        icon_path = os.path.join(os.getcwd(), "zfeiq_icon_128x128.ico")
         if os.path.isfile(icon_path):
             ico = QtGui.QIcon(icon_path)
             try:
