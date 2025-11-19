@@ -11,7 +11,8 @@ class UdpTransport:
     def __init__(self, bind_ip: str = "0.0.0.0", port: int = DEFAULT_PORT,
                  recv_callback: Optional[Callable[[bytes, tuple], None]] = None,
                  iface_ip: Optional[str] = None,
-                 iface_prefix: Optional[int] = None) -> None:
+                 iface_prefix: Optional[int] = None,
+                 on_debug_log: Optional[Callable[[str], None]] = None) -> None:
         """UDP 传输层
 
         bind_ip: 用于 socket.bind 的地址，建议在 Linux 绑定 0.0.0.0 以可靠接收广播
@@ -26,6 +27,18 @@ class UdpTransport:
         self._thread: Optional[threading.Thread] = None
         self._broadcast_addr = BROADCAST_ADDR
         self._iface_prefix = iface_prefix
+        self._on_debug = on_debug_log
+
+    def _log(self, msg: str) -> None:
+        cb = getattr(self, "_on_debug", None)
+        if cb:
+            try:
+                cb(msg)
+                return
+            except Exception:
+                pass
+        # fallback
+        print(msg)
 
     def start(self) -> None:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -92,16 +105,16 @@ class UdpTransport:
         if not self.sock:
             raise RuntimeError("transport not started")
         # 调试输出：显示广播目标
-        print(f"[DEBUG] send_broadcast: local_ip={self.iface_ip}, bcast={self._broadcast_addr}, port={self.port}")
+        self._log(f"[DEBUG] send_broadcast: local_ip={self.iface_ip}, bcast={self._broadcast_addr}, port={self.port}")
         try:
             self.sock.sendto(data, (self._broadcast_addr, self.port))
         except Exception as e:
-            print(f"[DEBUG] send_broadcast to {self._broadcast_addr} failed: {e}")
+            self._log(f"[DEBUG] send_broadcast to {self._broadcast_addr} failed: {e}")
         if self._broadcast_addr != BROADCAST_ADDR:
             try:
                 self.sock.sendto(data, (BROADCAST_ADDR, self.port))
             except Exception as e:
-                print(f"[DEBUG] send_broadcast to {BROADCAST_ADDR} failed: {e}")
+                self._log(f"[DEBUG] send_broadcast to {BROADCAST_ADDR} failed: {e}")
 
     def send_unicast(self, ip: str, data: bytes) -> None:
         if not self.sock:

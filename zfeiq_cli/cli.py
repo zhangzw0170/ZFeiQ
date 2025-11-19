@@ -6,6 +6,7 @@ import os
 import subprocess
 import re
 import ipaddress
+from zfeiq_version import APP_VERSION, APP_LAST_UPDATE
 
 from .protocol import (
     IPMSG_BR_ENTRY,
@@ -17,6 +18,8 @@ from .protocol import (
     IPMSG_SENDCHECKOPT,
     IPMSG_GETLIST,
     IPMSG_ANSLIST,
+    IPMSG_GETPUBKEY,
+    IPMSG_ANSPUBKEY,
     build_packet,
     build_packet_with_no,
     parse_packet,
@@ -25,10 +28,12 @@ from .protocol import (
     encode_list_entries,
     decode_list_entries,
     IPMSG_GETFILEDATA,
+    IPMSG_RELEASEFILES,
     IPMSG_FILEATTACHOPT,
     encode_fileattach_lines,
     decode_fileattach_lines,
 )
+from .crypto import generate_rsa_keypair, rsa_encrypt, rsa_decrypt, aes_gcm_encrypt, aes_gcm_decrypt, b64e, b64d
 from .transport import UdpTransport, DEFAULT_PORT
 from .filetransfer import create_offer, download_file, IPMsgFileServer, ipmsg_download_file
 from .state import NodeRegistry, PendingAck, ChatHistory
@@ -186,6 +191,8 @@ class ZFeiQCli:
         self.trace: bool = False
         self.time_format: str = "hms"  # hms|full
         self.download_dir: Optional[str] = None
+        # GUI 静音模式：抑制面向用户的控制台输出，仅保留日志
+        self.ui_silent: bool = False
         # timers (configurable)
         self.keepalive_interval: float = 30.0  # seconds
         self.expire_seconds: float = 90.0      # seconds
@@ -195,12 +202,23 @@ class ZFeiQCli:
         self.registry = NodeRegistry()
         self.pending = PendingAck()
         self.history = ChatHistory()
+        # encryption settings
+        self.encrypt_mode: str = "off"  # off|on|strict
+        self._priv_pem: Optional[bytes] = None
+        self._pub_pem: Optional[bytes] = None
+        self._peer_pubkeys: dict = {}  # ip -> pub_pem bytes
         # Linux 上绑定 0.0.0.0 以可靠接收广播，同时通过 iface_ip 指定发送所依据的网卡地址
         listen_ip = self.local_ip if os.name == "nt" else "0.0.0.0"
         self.encoding: str = "utf-8"  # utf-8 | gbk
         self.iface_prefix: Optional[int] = get_prefix_for_ip(self.local_ip)
-        self.transport = UdpTransport(bind_ip=listen_ip, port=port, recv_callback=self._on_recv,
-                                      iface_ip=self.local_ip, iface_prefix=self.iface_prefix)
+        self.transport = UdpTransport(
+            bind_ip=listen_ip,
+            port=port,
+            recv_callback=self._on_recv,
+            iface_ip=self.local_ip,
+            iface_prefix=self.iface_prefix,
+            on_debug_log=self._on_debug,
+        )
 
         self._retrans_stop = threading.Event()
         self._retrans_thread: Optional[threading.Thread] = None
@@ -217,10 +235,21 @@ class ZFeiQCli:
         self._incoming_offers = {}  # offer_id -> {ip, port, name, size}
         self._outgoing_offers = {}  # offer_id -> {port, name, size, path}
         # IPMSG file-attach interop
-        self._attach_map = {}       # (packet_no, attach_id) -> filepath
+        self._attach_map = {}       # (packet_no, attach_id) -> {path, ts}
         self._ipmsg_srv = None      # lazy-start TCP/2425 server
         # auto-bind heuristics
         self._last_auto_rebind_ts: float = 0.0
+        # emotes support (CLI): default directory
+        try:
+            self.emotes_dir = os.path.join(os.getcwd(), "emotes")
+            os.makedirs(self.emotes_dir, exist_ok=True)
+        except Exception:
+            self.emotes_dir = os.getcwd()
+        # load keys if present
+        try:
+            self._load_keys()
+        except Exception:
+            pass
 
     # ============ lifecycle ============
     def start(self) -> None:
@@ -236,19 +265,19 @@ class ZFeiQCli:
             raise
         self._start_retrans()
         self._start_maint()
-        print(self._t("app.started"))
+        self._user_print(self._t("app.started"))
         # 列出本机可用 IP
         try:
             addrs = _win_list_ipv4_addrs() if os.name == "nt" else _linux_list_ipv4_addrs()
             ips = [a for a, _ in addrs]
             if ips:
-                print("本机 IP：")
+                self._user_print("本机 IP：")
                 for ip in ips:
-                    print(ip)
+                    self._user_print(ip)
             # 显示默认下载目录（绝对路径）
             try:
                 default_dir = self.download_dir or os.getcwd()
-                print("下载目录：", os.path.abspath(default_dir))
+                self._user_print("下载目录：", os.path.abspath(default_dir))
             except Exception:
                 pass
         except Exception:
@@ -263,6 +292,51 @@ class ZFeiQCli:
                 self._ipmsg_srv.stop()
         except Exception:
             pass
+
+    # ---- crypto helpers ----
+    def _keys_dir(self) -> str:
+        d = os.path.join(os.getcwd(), "keys")
+        try:
+            os.makedirs(d, exist_ok=True)
+        except Exception:
+            pass
+        return d
+
+    def _load_keys(self) -> None:
+        d = self._keys_dir()
+        prv = os.path.join(d, "priv.pem"); pub = os.path.join(d, "pub.pem")
+        if os.path.isfile(prv) and os.path.isfile(pub):
+            try:
+                with open(prv, "rb") as f:
+                    self._priv_pem = f.read()
+                with open(pub, "rb") as f:
+                    self._pub_pem = f.read()
+            except Exception:
+                self._priv_pem = None; self._pub_pem = None
+
+    def _save_keys(self) -> None:
+        if not self._priv_pem or not self._pub_pem:
+            return
+        d = self._keys_dir()
+        try:
+            with open(os.path.join(d, "priv.pem"), "wb") as f:
+                f.write(self._priv_pem)
+            with open(os.path.join(d, "pub.pem"), "wb") as f:
+                f.write(self._pub_pem)
+        except Exception:
+            pass
+
+    def _ensure_keys(self) -> bool:
+        if self._priv_pem and self._pub_pem:
+            return True
+        try:
+            prv, pub = generate_rsa_keypair(3072)
+            self._priv_pem, self._pub_pem = prv, pub
+            self._save_keys()
+            return True
+        except Exception as e:
+            print(f"[ERR] keygen: {e}")
+            return False
 
     def _rebind(self, new_ip: str, user_initiated: bool = False) -> None:
         """在运行时切换绑定网卡/IP。
@@ -289,8 +363,14 @@ class ZFeiQCli:
             self.iface_prefix = get_prefix_for_ip(self.local_ip)
             listen_ip = self.local_ip if os.name == "nt" else "0.0.0.0"
             port = self.transport.port if hasattr(self.transport, "port") else DEFAULT_PORT
-            self.transport = UdpTransport(bind_ip=listen_ip, port=port, recv_callback=self._on_recv,
-                                          iface_ip=self.local_ip, iface_prefix=self.iface_prefix)
+            self.transport = UdpTransport(
+                bind_ip=listen_ip,
+                port=port,
+                recv_callback=self._on_recv,
+                iface_ip=self.local_ip,
+                iface_prefix=self.iface_prefix,
+                on_debug_log=self._on_debug,
+            )
             self.transport.start()
             print(self._t("set.bind_done", val=new_ip))
             # 仅当用户显式触发时，锁定当前绑定，禁止自动重绑
@@ -421,7 +501,22 @@ class ZFeiQCli:
                     if n.ip != self.local_ip:
                         ts = ts_str_full(time.time()) if self.time_format == "full" else ts_str(time.time())
                         print(f"\n[{ts}] - {n.username}@{n.ip} 超时下线")
-                        self._print_prompt()
+                        self._print_prompt(suppress_next=False)
+                # 清理过期的附件映射，默认保留 10 分钟
+                try:
+                    ttl = 600.0
+                    for key, val in list(self._attach_map.items()):
+                        ts0 = val.get("ts", 0.0) if isinstance(val, dict) else 0.0
+                        if ts0 and (now - ts0) >= ttl:
+                            self._attach_map.pop(key, None)
+                    # 映射空时主动停止 2425 服务以节省资源
+                    if not self._attach_map and self._ipmsg_srv:
+                        try:
+                            self._ipmsg_srv.stop()
+                        finally:
+                            self._ipmsg_srv = None
+                except Exception:
+                    pass
                 t0 = now
             try:
                 time.sleep(1.0)
@@ -471,9 +566,47 @@ class ZFeiQCli:
             try:
                 ts = ts_str_full(time.time()) if self.time_format == "full" else ts_str(time.time())
                 print(f"\n[{ts}] [DBG] RECV base={base:#x} from {src_ip} user={user}")
-                self._print_prompt()
+                self._print_prompt(suppress_next=False)
             except Exception:
                 pass
+
+        # 公钥握手：GETPUBKEY -> 回复 ANSPUBKEY；接收 ANSPUBKEY 存档
+        if base == IPMSG_GETPUBKEY:
+            try:
+                if self._ensure_keys():
+                    # 发送 ANSPUBKEY，扩展放入 PEM 文本；尽量走通用格式
+                    pem_txt = (self._pub_pem or b"").decode("utf-8", errors="ignore")
+                    pkt = build_packet(self.username or "?", self.hostname, IPMSG_ANSPUBKEY, pem_txt, encoding=self.encoding)
+                    self.transport.send_unicast(src_ip, pkt)
+            except Exception:
+                pass
+            return
+        elif base == IPMSG_ANSPUBKEY:
+            try:
+                pem_bytes: Optional[bytes] = None
+                txt = ext or ""
+                if "-----BEGIN PUBLIC KEY-----" in txt:
+                    pem_bytes = txt.encode("utf-8", errors="ignore")
+                else:
+                    # 兼容自定义封装：PEM:<b64> 或纯 base64
+                    s = txt.strip()
+                    if s.upper().startswith("PEM:"):
+                        b64 = s.split(":", 1)[1].strip()
+                    else:
+                        b64 = s
+                    try:
+                        pem_bytes = b64d(b64)
+                    except Exception:
+                        pem_bytes = None
+                if pem_bytes:
+                    self._peer_pubkeys[src_ip] = pem_bytes
+                    if self.debug:
+                        print(f"[DBG] learned pubkey from {src_ip} ({len(pem_bytes)} bytes)")
+                        self._print_prompt(suppress_next=False)
+            except Exception:
+                pass
+            # 不进一步处理为在线/消息
+            return
 
         # BR_ENTRY / BR_ABSENCE: 更新在线并回复 ANSENTRY
         if base == IPMSG_BR_ENTRY or base == IPMSG_BR_ABSENCE:
@@ -485,12 +618,19 @@ class ZFeiQCli:
             self.registry.upsert(src_ip, user, host, st, supports_ack=cap_ack)
             if was is None and src_ip != self.local_ip:
                 ts = ts_str_full(time.time()) if self.time_format == "full" else ts_str(time.time())
-                print(f"\n[{ts}] + {user}@{src_ip} 上线")
-                self._print_prompt()
+                self._user_print(f"\n[{ts}] + {user}@{src_ip} 上线")
+                self._print_prompt(suppress_next=False)
             elif st and old_status and st != old_status and src_ip != self.local_ip:
                 ts = ts_str_full(time.time()) if self.time_format == "full" else ts_str(time.time())
-                print(f"\n[{ts}] * {user}@{src_ip} 状态: {old_status} -> {st}")
-                self._print_prompt()
+                self._user_print(f"\n[{ts}] * {user}@{src_ip} 状态: {old_status} -> {st}")
+                self._print_prompt(suppress_next=False)
+            # 若启用加密且未知对端公钥，主动请求（不影响上面的 if/elif 链）
+            try:
+                if self.encrypt_mode in ("on","strict") and src_ip not in self._peer_pubkeys:
+                    req = build_packet(self.username or "?", self.hostname, IPMSG_GETPUBKEY, "GETPUBKEY", encoding=self.encoding)
+                    self.transport.send_unicast(src_ip, req)
+            except Exception:
+                pass
             if self.username:
                 pkt = build_packet(self.username, self.hostname, IPMSG_ANSENTRY,
                                    f"{self.username}\0\0status={self.status};cap=ack", encoding=self.encoding)
@@ -503,12 +643,19 @@ class ZFeiQCli:
             self.registry.upsert(src_ip, user, host, st, supports_ack=cap_ack)
             if was is None and src_ip != self.local_ip:
                 ts = ts_str_full(time.time()) if self.time_format == "full" else ts_str(time.time())
-                print(f"\n[{ts}] + {user}@{src_ip} 上线")
-                self._print_prompt()
+                self._user_print(f"\n[{ts}] + {user}@{src_ip} 上线")
+                self._print_prompt(suppress_next=False)
             elif st and old_status and st != old_status and src_ip != self.local_ip:
                 ts = ts_str_full(time.time()) if self.time_format == "full" else ts_str(time.time())
-                print(f"\n[{ts}] * {user}@{src_ip} 状态: {old_status} -> {st}")
-                self._print_prompt()
+                self._user_print(f"\n[{ts}] * {user}@{src_ip} 状态: {old_status} -> {st}")
+                self._print_prompt(suppress_next=False)
+            # 若启用加密且未知对端公钥，主动请求（不影响上面的 if/elif 链）
+            try:
+                if self.encrypt_mode in ("on","strict") and src_ip not in self._peer_pubkeys:
+                    req = build_packet(self.username or "?", self.hostname, IPMSG_GETPUBKEY, "GETPUBKEY", encoding=self.encoding)
+                    self.transport.send_unicast(src_ip, req)
+            except Exception:
+                pass
         elif base == IPMSG_BR_EXIT:
             # 忽略自己发出的下线广播以及重复下线事件
             if src_ip == self.local_ip:
@@ -518,7 +665,7 @@ class ZFeiQCli:
                 ts = ts_str_full(time.time()) if self.time_format == "full" else ts_str(time.time())
                 print(f"\n[{ts}] - {user}@{src_ip} 下线")
                 self.registry.remove(src_ip)
-                self._print_prompt()
+                self._print_prompt(suppress_next=False)
         elif base == IPMSG_GETLIST:
             # 对方请求主机列表，回 ANSLIST
             entries = [
@@ -538,6 +685,20 @@ class ZFeiQCli:
                 pass
         elif base == IPMSG_SENDMSG:
             text = ext.split("\0", 1)[0] if ext else ""
+            # 解密加密消息（以 ENC; 开头）
+            if text.startswith("ENC;"):
+                try:
+                    meta, _, payload = text.partition(";b64=")
+                    fields = dict(x.split("=",1) for x in (seg.strip() for seg in meta.split(";")) if "=" in x)
+                    ekey = b64d(fields.get("ekey", ""))
+                    nonce = b64d(fields.get("nonce", ""))
+                    tag = b64d(fields.get("tag", ""))
+                    cipher = b64d(payload.strip()) if payload else b""
+                    sk = rsa_decrypt(self._priv_pem or b"", ekey)
+                    pt = aes_gcm_decrypt(sk, nonce, cipher, tag)
+                    text = pt.decode(self.encoding, errors="ignore")
+                except Exception:
+                    text = "[加密消息解密失败]"
             # 收到消息时也刷新能力位与状态（若有）并更新在线表
             cap_ack = self._parse_cap_ack_from_ext(ext)
             st = self._parse_status_from_ext(ext)
@@ -570,11 +731,12 @@ class ZFeiQCli:
                         ts = ts_str_full(time.time()) if self.time_format == "full" else ts_str(time.time())
                         print(f"\n[{ts}] <{user}@{src_ip}> 提供文件: {meta.get('name','file')} ({size_i} bytes), offer={oid}")
                         print("使用: /file accept "+oid+" 以接收；或 /file list 查看所有待接收；或 /file cancel "+oid+" 放弃")
-                        self._print_prompt()
+                        self._print_prompt(suppress_next=False)
                         # 仍按常规消息路径 ack
-            # 解析 IPMSG 附件（与飞秋互通）
+            # 解析 IPMSG 附件（与飞秋互通）：仅解析首个 NUL 之后的部分
             try:
-                attaches = decode_fileattach_lines(ext)
+                ext_after = ext.split("\0", 1)[1] if "\0" in (ext or "") else ""
+                attaches = decode_fileattach_lines(ext_after)
             except Exception:
                 attaches = []
             if attaches:
@@ -592,9 +754,9 @@ class ZFeiQCli:
                     ts = ts_str_full(time.time()) if self.time_format == "full" else ts_str(time.time())
                     print(f"\n[{ts}] <{user}@{src_ip}> 附件: {a.get('name','file')} ({int(a.get('size',0))} bytes), offer={oid}")
                     print("使用: /file accept "+oid+" 以接收；或 /file list 查看所有待接收；或 /file cancel "+oid+" 放弃")
-                self._print_prompt()
+                self._print_prompt(suppress_next=False)
             # 判定是否仅为附件（无文本）或为 FILE_OFFER 元数据，如果是则不打印原始文本
-            only_attach_no_text = has_attach_opt and attaches and ("\0" not in (ext or ""))
+            only_attach_no_text = has_attach_opt and attaches and (text == "")
             is_file_offer = text.startswith("FILE_OFFER;")
             if text and not (only_attach_no_text or is_file_offer):
                 self.history.add(src_ip, "in", text)
@@ -603,7 +765,20 @@ class ZFeiQCli:
             # ack
             ack = build_packet(self.username or "?", self.hostname, IPMSG_RECVMSG, str(pkt_no), encoding=self.encoding)
             self.transport.send_unicast(src_ip, ack)
-            self._print_prompt()
+            self._print_prompt(suppress_next=False)
+        elif base == IPMSG_RELEASEFILES:
+            # 释放对端请求的附件映射：格式可能为 多行 或 BEL 分隔 的 packetNo:attachId
+            try:
+                lines = []
+                for seg in (ext or "").split("\a"):
+                    lines.extend(seg.splitlines())
+                for ln in lines:
+                    parts = [p for p in ln.split(":") if p]
+                    if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
+                        pno = int(parts[0]); aid = int(parts[1])
+                        self._attach_map.pop((pno, aid), None)
+            except Exception:
+                pass
         elif base == IPMSG_RECVMSG:
             try:
                 ack_no = int(ext.strip() or "0")
@@ -618,13 +793,13 @@ class ZFeiQCli:
     # ============ commands ============
     def cmd_login(self, name_param: Optional[str] = None) -> None:
         if self.username:
-            print(self._t("login.already", user=self.username))
+            self._user_print(self._t("login.already", user=self.username))
             return
         name = (name_param or "").strip()
         if not name:
             name = input(self._t("login.prompt")).strip()
         if not name:
-            print(self._t("login.empty"))
+            self._user_print(self._t("login.empty"))
             return
         self.username = name
         ext = f"{self.username}\0\0status={self.status};cap=ack"
@@ -633,12 +808,12 @@ class ZFeiQCli:
         self.transport.send_broadcast(pkt)
         # 将自己加入在线表，避免依赖系统是否回环接收广播（部分 Linux 不回环）
         self.registry.upsert(self.local_ip, self.username, self.hostname, self.status, supports_ack=True)
-        print(self._t("login.online", user=self.username, ip=self.local_ip))
+        self._user_print(self._t("login.online", user=self.username, ip=self.local_ip))
 
     def cmd_logout(self) -> bool:
         # 仅下线，不退出程序
         if not self.username:
-            print(self._t("logout.notlogged"))
+            self._user_print(self._t("logout.notlogged"))
             return False
         try:
             pkt = build_packet(self.username or "?", self.hostname, IPMSG_BR_EXIT, encoding=self.encoding)
@@ -656,20 +831,20 @@ class ZFeiQCli:
         finally:
             # 从在线表移除自己
             self.registry.remove(self.local_ip)
-            print(self._t("logout.done", user=self.username))
+            self._user_print(self._t("logout.done", user=self.username))
             self.username = None
         return False
 
     def _print_online(self) -> None:
         nodes = sorted(self.registry.list_nodes(), key=lambda n: (n.username, n.ip))
-        print(f"user: {self.username or '-'}  ip: {self.local_ip}  online: {len(nodes)}")
+        self._user_print(f"user: {self.username or '-'}  ip: {self.local_ip}  online: {len(nodes)}")
         for n in nodes:
             st = f" [{n.status}]" if getattr(n, 'status', 'online') != 'online' else ""
-            print(f" - {n.username}@{n.ip} ({n.hostname}){st}")
+            self._user_print(f" - {n.username}@{n.ip} ({n.hostname}){st}")
 
     def cmd_discover(self, target_ip: Optional[str] = None) -> None:
         if not self.username:
-            print(self._t("common.login_first"))
+            self._user_print(self._t("common.login_first"))
             return
         ext = f"{self.username}\0\0status={self.status};cap=ack"
         cmd = IPMSG_BR_ENTRY if self.status != "away" else IPMSG_BR_ABSENCE
@@ -696,9 +871,9 @@ class ZFeiQCli:
                 pass
         ts = ts_str_full(time.time()) if self.time_format == "full" else ts_str(time.time())
         if target_ip:
-            print(f"[{ts}] 向 {target_ip} 发送单播发现")
+            self._user_print(f"[{ts}] 向 {target_ip} 发送单播发现")
         else:
-            print(f"[{ts}] {self._t('discover.sent')}")
+            self._user_print(f"[{ts}] {self._t('discover.sent')}")
         # 聚合等待一段时间以收集 ANSENTRY/ANSLIST，再统一打印
         try:
             time.sleep(1.2)
@@ -733,7 +908,25 @@ class ZFeiQCli:
             pass
         return None
 
+    # 用户输出（GUI 模式可静音）
+    def _user_print(self, *args, **kwargs) -> None:
+        if not getattr(self, "ui_silent", False):
+            try:
+                print(*args, **kwargs)
+            except Exception:
+                pass
+
     # prompt helpers
+    def _on_debug(self, msg: str) -> None:
+        try:
+            if not self.debug:
+                return
+            # 独立一行输出调试信息，并随后重绘提示符
+            self._user_print("\n" + msg)
+            # 调试输出不丢弃用户当前输入，且不压制下一次 input 的提示
+            self._print_prompt(invalidate=False, suppress_next=False)
+        except Exception:
+            pass
 
     def _prompt_header(self) -> str:
         # 未登录：形如 [ZFeiQ] [Debug ON] [Trace ON]
@@ -753,12 +946,21 @@ class ZFeiQCli:
         # 单行提示符：<username> =>
         return f"{self._prompt_header()} => "
 
-    def _print_prompt(self) -> None:
+    def _print_prompt(self, invalidate: bool = True, suppress_next: bool = True) -> None:
         try:
+            if getattr(self, "ui_silent", False):
+                return
             # 异步事件后，丢弃当前输入，并立即打印一行新提示
-            self._invalidate_input = True
-            self._suppress_next_prompt = True
-            # 兼容老旧终端：不做 ANSI 清屏，直接换行并重绘提示
+            # 若已经打印过提示且尚未进入下一次 input，则避免重复打印
+            if getattr(self, "_suppress_next_prompt", False):
+                if invalidate:
+                    self._invalidate_input = True
+                return
+            if invalidate:
+                self._invalidate_input = True
+            if suppress_next:
+                self._suppress_next_prompt = True
+            # 兼容终端：直接换行并重绘提示
             print("\n" + self._make_prompt(), end="", flush=True)
         except Exception:
             pass
@@ -798,12 +1000,33 @@ class ZFeiQCli:
         node = self.registry.get_by_ip(ip)
         need_ack = bool(node and node.supports_ack)
         cmd = IPMSG_SENDMSG | (IPMSG_SENDCHECKOPT if need_ack else 0)
-        # 在扩展字段末尾附带能力声明，帮助对方学习（不影响显示）
+        # 扩展字段：默认仅为文本；不再附加非标准的 cap=ack，避免对端显示为文本
         ext = text
+        # 加密：根据模式与是否有对端公钥决定
         try:
-            ext += "\0cap=ack"
-        except Exception:
-            pass
+            if self.encrypt_mode in ("on","strict"):
+                pub = self._peer_pubkeys.get(ip)
+                if not pub:
+                    # 主动请求对端公钥
+                    try:
+                        req = build_packet(self.username or "?", self.hostname, IPMSG_GETPUBKEY, "GETPUBKEY", encoding=self.encoding)
+                        self.transport.send_unicast(ip, req)
+                    except Exception:
+                        pass
+                    if self.encrypt_mode == "strict":
+                        print("[ENC] 无对端公钥，已请求(GETPUBKEY)，严格模式下不发送。")
+                        return
+                else:
+                    # 使用 RSA-OAEP 包裹随机 AES-256-GCM 密钥
+                    import os
+                    sk = os.urandom(32)
+                    nonce, cipher, tag = aes_gcm_encrypt(sk, text.encode(self.encoding, errors="ignore"))
+                    ekey = rsa_encrypt(pub, sk)
+                    enc_head = f"ENC;alg=aes256gcm;ekey={b64e(ekey)};nonce={b64e(nonce)};tag={b64e(tag)};b64="
+                    ext = enc_head + b64e(cipher)
+        except Exception as e:
+            print(f"[ENC] 加密失败，退回明文: {e}")
+        # 注意：不在 SENDMSG 中拼接自定义扩展键值，避免互通客户端将其当作文本显示
         packet = build_packet_with_no(pkt_no, self.username or "?", self.hostname, cmd, ext, encoding=self.encoding)
         self.transport.send_unicast(ip, packet)
         if need_ack:
@@ -903,55 +1126,228 @@ class ZFeiQCli:
         if not os.path.isfile(path):
             print(self._t("file.path_bad", p=path))
             return
-        # resolve target ip
-        ip: Optional[str] = None
         if target.startswith("ip:"):
             ip = target[3:]
+            self._send_file_ip(ip, path)
         elif target.startswith("user:"):
             name = target[5:]
-            ms = self.registry.find_by_username(name)
-            if not ms:
+            matches = self.registry.find_by_username(name)
+            if not matches:
                 print(self._t("user.notfound", name=name))
                 return
-            if len(ms) > 1:
+            if len(matches) > 1:
                 print(self._t("user.ambiguous"))
-                for n in ms:
+                for n in matches:
                     print(f" - {n.username}@{n.ip}")
                 print(self._t("user.ambiguous_hint"))
                 return
-            ip = ms[0].ip
+            ip = matches[0].ip
+            self._send_file_ip(ip, path)
+        elif target.startswith("group:"):
+            gname = target[6:]
+            members = self.groups.get(gname, set())
+            if not members:
+                print(self._t("group.empty_or_missing", group=gname))
+                return
+            sent = 0
+            for uname in sorted(members):
+                ms = self.registry.find_by_username(uname)
+                if not ms or len(ms) != 1:
+                    continue
+                ip = ms[0].ip
+                if ip == self.local_ip and uname == (self.username or ""):
+                    continue
+                self._send_file_ip(ip, path)
+                sent += 1
+            print(self._t("group.sent_count", group=gname, count=sent))
+        elif target == "all":
+            for n in self.registry.list_nodes():
+                if n.ip == self.local_ip and (n.username == (self.username or "")):
+                    continue
+                self._send_file_ip(n.ip, path)
         else:
             print(self._t("file.send_usage"))
-            return
+
+    def _send_file_ip(self, ip: str, path: str) -> None:
         try:
-            offer = create_offer(path, bind_ip=self.local_ip if os.name=="nt" else "0.0.0.0")
-        except Exception as e:
-            print(self._t("file.offer_fail", e=str(e)))
-            return
-        self._outgoing_offers[offer.offer_id] = {"port": offer.port, "name": offer.filename, "size": offer.size, "path": path, "server": offer.server}
-        meta = f"FILE_OFFER;id={offer.offer_id};name={offer.filename};size={offer.size};port={offer.port}"
-        self._send_text(ip, meta)
-        print(self._t("file.offered", name=offer.filename, size=offer.size, id=offer.offer_id, ip=ip))
-        # 同步发送 IPMSG 文件附件（飞秋互通）
-        try:
-            attach_id = int(time.time()) & 0x7fffffff
+            filename = os.path.basename(path)
+            size = os.path.getsize(path)
+            attach_id = int(time.time() * 1000) & 0x7fffffff
             mtime = int(os.path.getmtime(path))
-            faext = encode_fileattach_lines([{ "id": attach_id, "name": offer.filename, "size": offer.size, "mtime": mtime, "attr": 0 }])
-            pkt_no2 = gen_packet_no()
-            peer = self.registry.get_by_ip(ip)
-            ackopt = IPMSG_SENDCHECKOPT if (peer and getattr(peer, 'supports_ack', False)) else 0
-            pkt2 = build_packet_with_no(pkt_no2, self.username or "?", self.hostname, IPMSG_SENDMSG | IPMSG_FILEATTACHOPT | ackopt, faext, encoding=self.encoding)
-            self.transport.send_unicast(ip, pkt2)
+            # IPMSG 约定：附件行需位于首个 NUL 之后；即使无文本，也要以 NUL 开头
+            faext_body = encode_fileattach_lines([
+                {"id": attach_id, "name": filename, "size": size, "mtime": mtime, "attr": 0}
+            ])
+            faext = "\0" + faext_body + "\0"
+            pkt_no = gen_packet_no()
+            pkt = build_packet_with_no(
+                pkt_no,
+                self.username or "?",
+                self.hostname,
+                IPMSG_SENDMSG | IPMSG_FILEATTACHOPT,
+                faext,
+                encoding=self.encoding,
+            )
+            self.transport.send_unicast(ip, pkt)
             # 登记以供 GETFILEDATA 请求
-            self._attach_map[(pkt_no2, attach_id)] = path
+            self._attach_map[(pkt_no, attach_id)] = {"path": path, "ts": time.time()}
+            # 懒启动 2425 服务
             if not self._ipmsg_srv:
-                self._ipmsg_srv = IPMsgFileServer(lambda p, a: self._attach_map.get((p, a)), bind_ip=self.local_ip if os.name=="nt" else "0.0.0.0")
+                self._ipmsg_srv = IPMsgFileServer(
+                    resolver=lambda p, a: (self._attach_map.get((p, a)) or {}).get("path"),
+                    bind_ip=self.local_ip if os.name == "nt" else "0.0.0.0",
+                    releaser=lambda p, a: self._attach_map.pop((p, a), None),
+                )
                 try:
                     self._ipmsg_srv.start()
-                except Exception:
+                except Exception as e:
+                    print(f"[WARN] 无法启动 2425/TCP GETFILEDATA 服务：{e}")
                     self._ipmsg_srv = None
-        except Exception:
-            pass
+            # 记录一个可取消项，便于 /file cancel
+            offer_id = f"ipmsg-{pkt_no}-{attach_id}"
+            self._outgoing_offers[offer_id] = {
+                "method": "ipmsg",
+                "name": filename,
+                "size": size,
+                "path": path,
+                "pkt_no": pkt_no,
+                "attach_id": attach_id,
+                "server": None,
+            }
+            print(self._t("file.offered", name=filename, size=size, id=offer_id, ip=ip))
+        except Exception as e:
+            print(self._t("file.offer_fail", e=str(e)))
+
+    # ======== CLI emotes ========
+    def cmd_emote_list(self) -> None:
+        try:
+            names = []
+            for n in sorted(os.listdir(self.emotes_dir)):
+                p = os.path.join(self.emotes_dir, n)
+                if os.path.isfile(p) and os.path.splitext(n)[1].lower() in (".png", ".jpg", ".jpeg", ".gif", ".bmp"):
+                    names.append(n)
+            if not names:
+                print("(no emotes)")
+                return
+            print("emotes:")
+            for n in names:
+                print(" -", n)
+        except Exception as e:
+            print(f"[ERR] list emotes: {e}")
+
+    def cmd_emote_send(self, target: str, name: str) -> None:
+        path = os.path.join(self.emotes_dir, name)
+        if not os.path.isfile(path):
+            print(f"emote not found: {name}")
+            return
+        self.cmd_file_send(target, path)
+
+    # ======== CLI screenshot (Windows only full screen BMP) ========
+    def _capture_fullscreen_bmp(self) -> Optional[str]:
+        if os.name != "nt":
+            print("screenshot only supported on Windows in CLI")
+            return None
+        try:
+            # 首选：Pillow 的 ImageGrab（更稳健）
+            try:
+                from PIL import ImageGrab  # type: ignore
+                import tempfile
+                img = ImageGrab.grab(all_screens=True)
+                fd, path = tempfile.mkstemp(suffix=".bmp", prefix="zfeiq_ss_")
+                os.close(fd)
+                img.save(path, format="BMP")
+                return path
+            except Exception:
+                pass
+            # 退路：ctypes + GDI，导出为 BMP（24bpp）
+            import ctypes
+            from ctypes import wintypes
+            user32 = ctypes.WinDLL('user32', use_last_error=True)
+            gdi32 = ctypes.WinDLL('gdi32', use_last_error=True)
+            GetDC = user32.GetDC; ReleaseDC = user32.ReleaseDC
+            CreateCompatibleDC = gdi32.CreateCompatibleDC
+            CreateCompatibleBitmap = gdi32.CreateCompatibleBitmap
+            SelectObject = gdi32.SelectObject
+            BitBlt = gdi32.BitBlt
+            DeleteObject = gdi32.DeleteObject
+            DeleteDC = gdi32.DeleteDC
+            SRCCOPY = 0x00CC0020
+            cx = user32.GetSystemMetrics(0); cy = user32.GetSystemMetrics(1)
+            hdc_screen = GetDC(None)
+            hdc_mem = CreateCompatibleDC(hdc_screen)
+            hbmp = CreateCompatibleBitmap(hdc_screen, cx, cy)
+            SelectObject(hdc_mem, hbmp)
+            BitBlt(hdc_mem, 0, 0, cx, cy, hdc_screen, 0, 0, SRCCOPY)
+            # 准备 DIB 头并通过 GetDIBits 取出像素
+            class BITMAPFILEHEADER(ctypes.Structure):
+                _fields_ = [
+                    ("bfType", wintypes.WORD),
+                    ("bfSize", wintypes.DWORD),
+                    ("bfReserved1", wintypes.WORD),
+                    ("bfReserved2", wintypes.WORD),
+                    ("bfOffBits", wintypes.DWORD),
+                ]
+            class BITMAPINFOHEADER(ctypes.Structure):
+                _fields_ = [
+                    ("biSize", wintypes.DWORD),
+                    ("biWidth", wintypes.LONG),
+                    ("biHeight", wintypes.LONG),
+                    ("biPlanes", wintypes.WORD),
+                    ("biBitCount", wintypes.WORD),
+                    ("biCompression", wintypes.DWORD),
+                    ("biSizeImage", wintypes.DWORD),
+                    ("biXPelsPerMeter", wintypes.LONG),
+                    ("biYPelsPerMeter", wintypes.LONG),
+                    ("biClrUsed", wintypes.DWORD),
+                    ("biClrImportant", wintypes.DWORD),
+                ]
+            BI_RGB = 0
+            bmi = BITMAPINFOHEADER()
+            bmi.biSize = ctypes.sizeof(BITMAPINFOHEADER)
+            bmi.biWidth = cx
+            bmi.biHeight = -cy  # top-down DIB
+            bmi.biPlanes = 1
+            bmi.biBitCount = 24
+            bmi.biCompression = BI_RGB
+            rowbytes = ((cx * 3 + 3) // 4) * 4
+            imgsize = rowbytes * cy
+            buf = (ctypes.c_byte * imgsize)()
+            GetDIBits = gdi32.GetDIBits
+            GetDIBits.argtypes = [wintypes.HDC, wintypes.HBITMAP, wintypes.UINT, wintypes.UINT, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT]
+            GetDIBits(hdc_mem, hbmp, 0, cy, ctypes.byref(buf), ctypes.byref(bmi), 0)
+            import tempfile
+            fd, path = tempfile.mkstemp(suffix=".bmp", prefix="zfeiq_ss_")
+            os.close(fd)
+            bfh = BITMAPFILEHEADER()
+            bfh.bfType = 0x4D42  # 'BM'
+            bfh.bfOffBits = ctypes.sizeof(BITMAPFILEHEADER) + ctypes.sizeof(BITMAPINFOHEADER)
+            bfh.bfSize = bfh.bfOffBits + imgsize
+            bfh.bfReserved1 = 0
+            bfh.bfReserved2 = 0
+            with open(path, 'wb') as f:
+                f.write(bytes(bfh))
+                f.write(bytes(bmi))
+                f.write(bytes(buf))
+            # 清理资源
+            DeleteObject(hbmp)
+            DeleteDC(hdc_mem)
+            ReleaseDC(None, hdc_screen)
+            return path
+        except Exception as e:
+            print(f"[ERR] screenshot: {e}")
+            return None
+
+    def cmd_screenshot_send(self, target: str) -> None:
+        p = self._capture_fullscreen_bmp()
+        if not p:
+            return
+        try:
+            self.cmd_file_send(target, p)
+        finally:
+            try:
+                os.remove(p)
+            except Exception:
+                pass
 
     def cmd_file_list(self) -> None:
         if not self._incoming_offers:
@@ -989,6 +1385,13 @@ class ZFeiQCli:
                 pkt_no = int(meta.get("pkt_no", 0))
                 aid = int(meta.get("attach_id", 0))
                 ipmsg_download_file(ip, pkt_no, aid, save_path, self.username or "?", self.hostname, encoding=self.encoding, on_progress=on_prog)
+                # 按 IPMSG 规范发送 RELEASEFILES 通知释放
+                try:
+                    rel = f"{pkt_no}:{aid}"
+                    pkt = build_packet(self.username or "?", self.hostname, IPMSG_RELEASEFILES, rel, encoding=self.encoding)
+                    self.transport.send_unicast(ip, pkt)
+                except Exception:
+                    pass
             else:
                 port = meta["port"]
                 download_file(ip, port, save_path, on_progress=on_prog, retries=1)
@@ -997,41 +1400,80 @@ class ZFeiQCli:
         except Exception as e:
             print(self._t("file.download_fail", e=str(e)))
 
+    # GUI 专用：接受文件并回调进度（不直接打印进度）
+    def accept_offer_ex(self, oid: str, save_dir: Optional[str] = None, on_progress=None) -> Optional[str]:
+        meta = self._incoming_offers.get(oid)
+        if not meta:
+            return None
+        ip = meta["ip"]
+        name = meta["name"]
+        save_dir = save_dir or self.download_dir or os.getcwd()
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, name)
+        try:
+            cb = on_progress if callable(on_progress) else None
+            if meta.get("method") == "ipmsg":
+                pkt_no = int(meta.get("pkt_no", 0))
+                aid = int(meta.get("attach_id", 0))
+                ipmsg_download_file(ip, pkt_no, aid, save_path, self.username or "?", self.hostname, encoding=self.encoding, on_progress=cb)
+                # 发送 RELEASEFILES
+                try:
+                    rel = f"{pkt_no}:{aid}"
+                    pkt = build_packet(self.username or "?", self.hostname, IPMSG_RELEASEFILES, rel, encoding=self.encoding)
+                    self.transport.send_unicast(ip, pkt)
+                except Exception:
+                    pass
+            else:
+                port = meta["port"]
+                download_file(ip, port, save_path, on_progress=cb, retries=1)
+            self._incoming_offers.pop(oid, None)
+            return save_path
+        except Exception:
+            return None
+
     def cmd_file_cancel(self, oid: str) -> None:
         # 取消入站要约
         if oid in self._incoming_offers:
             self._incoming_offers.pop(oid, None)
-            print(self._t("file.canceled_in", id=oid))
+            self._user_print(self._t("file.canceled_in", id=oid))
             return
         # 取消出站要约：尝试关闭一次性服务器
         out = self._outgoing_offers.get(oid)
         if out:
             srv = out.get("server")
             try:
-                srv.stop()
+                if srv:
+                    srv.stop()
             except Exception:
                 pass
             self._outgoing_offers.pop(oid, None)
             # 清理映射
             try:
-                path = out.get("path")
-                if path:
-                    for k, v in list(self._attach_map.items()):
-                        if v == path:
-                            self._attach_map.pop(k, None)
+                if out.get("method") == "ipmsg":
+                    pkt_no = out.get("pkt_no")
+                    aid = out.get("attach_id")
+                    if pkt_no and aid:
+                        self._attach_map.pop((pkt_no, aid), None)
+                else:
+                    path = out.get("path")
+                    if path:
+                        for k, v in list(self._attach_map.items()):
+                            p = v.get("path") if isinstance(v, dict) else v
+                            if p == path:
+                                self._attach_map.pop(k, None)
             except Exception:
                 pass
-            print(self._t("file.canceled_out", id=oid))
+            self._user_print(self._t("file.canceled_out", id=oid))
         else:
-            print(self._t("file.unknown", id=oid))
+            self._user_print(self._t("file.unknown", id=oid))
 
     def cmd_sendall(self, text: str) -> None:
         if not self.username:
-            print(self._t("common.login_first"))
+            self._user_print(self._t("common.login_first"))
             return
         nodes = self.registry.list_nodes()
         if not nodes:
-            print(self._t("sendall.nopeers"))
+            self._user_print(self._t("sendall.nopeers"))
             return
         for n in nodes:
             # avoid sending to self if discovered
@@ -1046,48 +1488,48 @@ class ZFeiQCli:
         if sub == "add":
             if arg:
                 members.add(arg)
-                print(f"group '{group_name}': added user '{arg}'")
+                self._user_print(f"group '{group_name}': added user '{arg}'")
             else:
                 # create group (no-op if exists)
                 self.groups.setdefault(group_name, members)
-                print(f"group '{group_name}' created (or already exists)")
+                self._user_print(f"group '{group_name}' created (or already exists)")
         elif sub == "delete":
             if arg:
                 if arg in members:
                     members.remove(arg)
-                    print(f"group '{group_name}': removed user '{arg}'")
+                    self._user_print(f"group '{group_name}': removed user '{arg}'")
                 else:
-                    print(f"group '{group_name}': user '{arg}' not in group")
+                    self._user_print(f"group '{group_name}': user '{arg}' not in group")
             else:
                 # delete group
                 if group_name in self.groups:
                     del self.groups[group_name]
-                    print(f"group '{group_name}' deleted")
+                    self._user_print(f"group '{group_name}' deleted")
                 else:
-                    print(f"group '{group_name}' not found")
+                    self._user_print(f"group '{group_name}' not found")
         elif sub == "send":
             # 兼容旧命令：转发为 /send group:<group> <text>
             text = arg or ""
             if not text:
-                print(self._t("group.send_usage_legacy"))
+                self._user_print(self._t("group.send_usage_legacy"))
                 return
             self.cmd_send(f"group:{group_name}", text)
         else:
-            print(self._t("group.unsupported"))
+            self._user_print(self._t("group.unsupported"))
 
     def cmd_info_user(self, name: str) -> None:
         matches = self.registry.find_by_username(name)
         if not matches:
-            print(self._t("user.notfound", name=name))
+            self._user_print(self._t("user.notfound", name=name))
             return
         ips = [n.ip for n in matches]
         for ip in ips:
             msgs = self.history.get(ip)
-            print(f"-- chat with {name}@{ip} --")
+            self._user_print(f"-- chat with {name}@{ip} --")
             for ts, d, t in msgs:
                 arrow = ">>" if d == "out" else "<<"
                 fmt_ts = ts_str_full(ts) if self.time_format == "full" else ts_str(ts)
-                print(f"[{fmt_ts}] {arrow} {t}")
+                self._user_print(f"[{fmt_ts}] {arrow} {t}")
 
     def loop(self) -> None:
         try:
@@ -1292,6 +1734,17 @@ class ZFeiQCli:
                             if v.startswith("ip:"):
                                 v = v[3:]
                             self._rebind(v, user_initiated=True)
+                        elif key == "encrypt":
+                            v = val.lower()
+                            if v in ("off","on","strict"):
+                                if v in ("on","strict") and not self._ensure_keys():
+                                    print("[ENC] 生成或加载密钥失败，仍切换为 off")
+                                    self.encrypt_mode = "off"
+                                else:
+                                    self.encrypt_mode = v
+                                print(f"encrypt={self.encrypt_mode}")
+                            else:
+                                print("usage: /set encrypt <off|on|strict>")
                         else:
                             print(self._t("set.unknown"))
                 elif cmdline.startswith("/file "):
@@ -1322,6 +1775,24 @@ class ZFeiQCli:
                         self.cmd_file_cancel(tokens[2])
                     else:
                         print(self._t("file.usage"))
+                elif cmdline == "/emote":
+                    self.cmd_emote_list()
+                elif cmdline.startswith("/emote list"):
+                    self.cmd_emote_list()
+                elif cmdline.startswith("/emote send "):
+                    # /emote send user:<name>|ip:<addr>|group:<name>|all <emote_name>
+                    rest = cmdline[len("/emote send "):].strip()
+                    if " " not in rest:
+                        print("usage: /emote send user|ip|group|all <emote_name>")
+                    else:
+                        tgt, name = rest.split(" ", 1)
+                        self.cmd_emote_send(tgt, name.strip())
+                elif cmdline.startswith("/screenshot send "):
+                    tgt = cmdline[len("/screenshot send "):].strip()
+                    if tgt:
+                        self.cmd_screenshot_send(tgt)
+                    else:
+                        print("usage: /screenshot send user|ip|group|all")
                 else:
                     print(self._t("common.unknown"))
         except KeyboardInterrupt:
@@ -1349,7 +1820,7 @@ class ZFeiQCli:
     # ======== i18n ========
     def _t(self, key: str, **kwargs) -> str:
         zh = {
-            "app.started": "ZFeiQ - Alpha 2.0 - CLI\n最近更新：2025 / 11 / 02\n- /login <用户名>: 上线\n- /help: 查看命令帮助",
+            "app.started": f"ZFeiQ - {APP_VERSION} - CLI\n最近更新：{APP_LAST_UPDATE}\n- /login <用户名>: 上线\n- /help: 查看命令帮助",
             "login.already": "已在线：{user}",
             "login.prompt": "用户名: ",
             "login.empty": "用户名不能为空",
@@ -1374,7 +1845,7 @@ class ZFeiQCli:
             "info.user_usage": "用法: /info user:<name>",
             "help.head_cmd": "命令",
             "help.head_desc": "说明",
-            "set.usage": "用法: /set <language|status|debug|trace|encoding|keepalive|expire|bind> <value>",
+            "set.usage": "用法: /set <language|status|debug|trace|encoding|keepalive|expire|bind|encrypt> <value>",
             "set.encoding": "编码已设置为 {val}",
             "set.encoding_bad": "encoding 必须是 utf8|gbk",
             "set.language": "语言已切换为 {val}",
@@ -1383,7 +1854,7 @@ class ZFeiQCli:
             "set.status_bad": "status 必须是 online|busy|away",
             "set.debug": "debug={val}",
             "set.trace": "trace={val}",
-            "set.unknown": "未知设置项；可选: language|status|debug|trace|encoding|keepalive|expire|bind",
+            "set.unknown": "未知设置项；可选: language|status|debug|trace|encoding|keepalive|expire|bind|encrypt",
             "set.keepalive": "keepalive 间隔已设置为 {val} 秒",
             "set.keepalive_bad": "keepalive 需为正数（单位秒）",
             "set.expire": "超时下线阈值已设置为 {val} 秒",
@@ -1410,7 +1881,7 @@ class ZFeiQCli:
             "file.canceled_out": "已取消发送要约 {id}",
         }
         en = {
-            "app.started": "ZFeiQ - Alpha 2.0 - CLI\nLast update: 2025 / 11 / 02\n- /login <username>: go online\n- /help: show command help",
+            "app.started": f"ZFeiQ - {APP_VERSION} - CLI\nLast update: {APP_LAST_UPDATE}\n- /login <username>: go online\n- /help: show command help",
             "login.already": "Already logged in as {user}",
             # search
             "search.usage": "用法: /search user:<name>|group:<name>|ip:<addr>",
@@ -1447,7 +1918,7 @@ class ZFeiQCli:
             "info.user_usage": "usage: /info user:<name>",
             "help.head_cmd": "COMMAND",
             "help.head_desc": "DESCRIPTION",
-            "set.usage": "usage: /set <language|status|debug|trace|encoding|keepalive|expire|bind> <value>",
+            "set.usage": "usage: /set <language|status|debug|trace|encoding|keepalive|expire|bind|encrypt> <value>",
             "set.encoding": "encoding set to {val}",
             "set.encoding_bad": "encoding must be utf8|gbk",
             "set.language": "language set to {val}",
@@ -1456,7 +1927,7 @@ class ZFeiQCli:
             "set.status_bad": "status must be online|busy|away",
             "set.debug": "debug={val}",
             "set.trace": "trace={val}",
-            "set.unknown": "unknown setting; keys: language|status|debug|trace|encoding|keepalive|expire|bind",
+            "set.unknown": "unknown setting; keys: language|status|debug|trace|encoding|keepalive|expire|bind|encrypt",
             "set.keepalive": "keepalive interval set to {val} seconds",
             "set.keepalive_bad": "keepalive must be positive seconds",
             "set.expire": "expire threshold set to {val} seconds",
@@ -1509,6 +1980,7 @@ class ZFeiQCli:
             ("/set debug <on|off>", self._t("调试开关（打印收发摘要）") if self.language=="zhCN" else "debug logging on/off"),
             ("/set trace <on|off>", self._t("诊断开关（更详细日志）") if self.language=="zhCN" else "trace logging on/off"),
             ("/set encoding <utf8|gbk>", self._t("设置发送编码（与飞秋兼容可用 gbk）") if self.language=="zhCN" else "set outgoing encoding"),
+            ("/set encrypt <off|on|strict>", self._t("设置加密模式（off|on|strict）") if self.language=="zhCN" else "set encryption mode"),
             ("/set bind <ip>", self._t("切换绑定网卡/IP（多网卡环境）") if self.language=="zhCN" else "switch bound NIC/IP (multi-NIC)"),
             ("/send user:<name> <text>", self._t("按用户名发送消息") if self.language=="zhCN" else "send to username"),
             ("/send ip:<ip> <text>", self._t("按 IP 发送消息") if self.language=="zhCN" else "send to ip"),

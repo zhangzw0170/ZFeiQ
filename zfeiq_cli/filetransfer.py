@@ -4,7 +4,7 @@ import threading
 import uuid
 from dataclasses import dataclass
 from typing import Optional, Callable, Tuple
-from .protocol import build_packet_with_no, parse_packet, IPMSG_GETFILEDATA, base_command
+from .protocol import build_packet_with_no, parse_packet, IPMSG_GETFILEDATA, IPMSG_RELEASEFILES, base_command
 
 BUFFER_SIZE = 64 * 1024
 
@@ -129,8 +129,9 @@ class IPMsgFileServer:
     resolver(pid:int, aid:int) -> filepath or None
     """
 
-    def __init__(self, resolver: Callable[[int, int], Optional[str]], bind_ip: str = "0.0.0.0") -> None:
+    def __init__(self, resolver: Callable[[int, int], Optional[str]], bind_ip: str = "0.0.0.0", releaser: Optional[Callable[[int, int], None]] = None) -> None:
         self.resolver = resolver
+        self.releaser = releaser
         self.bind_ip = bind_ip
         self._sock: Optional[socket.socket] = None
         self._thread: Optional[threading.Thread] = None
@@ -192,7 +193,8 @@ class IPMsgFileServer:
             except Exception:
                 pass
             hdr, ext = parse_packet(raw)
-            if base_command(hdr.get("command", 0)) != IPMSG_GETFILEDATA:
+            base = base_command(hdr.get("command", 0))
+            if base not in (IPMSG_GETFILEDATA, IPMSG_RELEASEFILES):
                 conn.close()
                 return
             pid = 0
@@ -204,6 +206,15 @@ class IPMsgFileServer:
                     aid = int(parts[1])
             except Exception:
                 pass
+            if base == IPMSG_RELEASEFILES:
+                if (pid and aid) and self.releaser:
+                    try:
+                        self.releaser(pid, aid)
+                    except Exception:
+                        pass
+                # nothing to send back; close
+                return
+            # GETFILEDATA
             path = self.resolver(pid, aid) if (pid and aid) else None
             if not path or not os.path.isfile(path):
                 conn.close()
@@ -223,7 +234,7 @@ class IPMsgFileServer:
                 pass
 
 
-def ipmsg_download_file(ip: str, packet_no: int, attach_id: int, save_path: str, username: str, hostname: str, encoding: str = "utf-8", timeout: float = 300.0, on_progress=None) -> None:
+def ipmsg_download_file(ip: str, packet_no: int, attach_id: int, save_path: str, username: str, hostname: str, encoding: str = "utf-8", timeout: float = 300.0, on_progress=None, send_release: bool = True) -> None:
     """Download file via IPMSG_GETFILEDATA from peer's TCP/2425."""
     total = 0
     with socket.create_connection((ip, 2425), timeout=timeout) as s:
@@ -242,3 +253,12 @@ def ipmsg_download_file(ip: str, packet_no: int, attach_id: int, save_path: str,
                         on_progress(total)
                     except Exception:
                         pass
+    # 下载完成后，按规范发送 RELEASEFILES 通知对端（可选）
+    if send_release:
+        try:
+            with socket.create_connection((ip, 2425), timeout=timeout) as s2:
+                s2.settimeout(timeout)
+                rel = build_packet_with_no(packet_no, username, hostname, IPMSG_RELEASEFILES, f"{packet_no}:{attach_id}", encoding=encoding)
+                s2.sendall(rel)
+        except Exception:
+            pass

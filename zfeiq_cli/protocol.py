@@ -10,12 +10,14 @@ IPMSG_BR_ABSENCE = 0x00000004
 IPMSG_SENDMSG = 0x00000020
 IPMSG_RECVMSG = 0x00000021
 IPMSG_GETFILEDATA = 0x00000060
+IPMSG_RELEASEFILES = 0x00000061
 
 # options
 IPMSG_SENDCHECKOPT = 0x00000100  # request recv ack
 # Best-effort guess for file-attach option flag (upper bits beyond CMD_MASK)
 # This value aligns with common implementations using high-bit options.
-IPMSG_FILEATTACHOPT = 0x00002000
+# Per IPMSG spec, file-attach option uses high-bit flag 0x00200000
+IPMSG_FILEATTACHOPT = 0x00200000
 
 VERSION = "1"
 
@@ -24,6 +26,10 @@ VERSION = "1"
 # constants in a future iteration after cross-compat validation.
 IPMSG_GETLIST = 0x00000018
 IPMSG_ANSLIST = 0x00000019
+
+# provisional: public key exchange (align with common IPMSG usage)
+IPMSG_GETPUBKEY = 0x00000016
+IPMSG_ANSPUBKEY = 0x00000017
 
 
 def now_ms() -> int:
