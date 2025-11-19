@@ -29,10 +29,41 @@ class NavigationButton(QtWidgets.QToolButton):
 
 class UserPage(QtWidgets.QWidget):
     sigSend = QtCore.pyqtSignal()
+    sigAnchor = QtCore.pyqtSignal(str)
     def __init__(self, parent=None):
         super().__init__(parent)
         self._build_ui()
         self._local_ip = ""
+        self._logs = {}
+        self._pending_files = []  # type: List[str]
+
+    def eventFilter(self, a0, a1):  # basic passthrough; wrapper installed later may delegate
+        return False
+
+    def _ensure_view(self, key: str) -> QtWidgets.QTextBrowser:
+        if key not in self._chat_views:
+            view = QtWidgets.QTextBrowser(); view.setOpenExternalLinks(False)
+            view.setReadOnly(True)
+            view.setPlaceholderText("消息接收区：显示聊天记录及文件提示")
+            view.anchorClicked.connect(lambda url, self=self: self.sigAnchor.emit(url.toString()))
+            self._chat_views[key] = view
+            self.tabs.addTab(view, key)
+        return self._chat_views[key]
+
+    def _append_log(self, target: str, line: str):
+        try:
+            self._logs.setdefault(target, []).append(line)
+        except Exception:
+            pass
+
+    def set_avatar(self, path: str):
+        try:
+            if path and os.path.isfile(path):
+                pm = QtGui.QPixmap(path)
+                if not pm.isNull():
+                    self.avatar.setPixmap(pm.scaled(80, 80, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
+        except Exception:
+            pass
 
     def _build_ui(self) -> None:
         root = QtWidgets.QVBoxLayout(self)
@@ -53,9 +84,13 @@ class UserPage(QtWidgets.QWidget):
         self.username_label.setStyleSheet("font-size: 16px; font-weight: bold;")
         self.status_label.setStyleSheet("color:#444444; font-size:12px;")
         self.ip_label.setStyleSheet("color: #666666; font-size:12px;")
+        self.encoding_label = QtWidgets.QLabel("编码: -")
+        self.me_info_label = QtWidgets.QLabel("")
         info_box.addWidget(self.username_label)
         info_box.addWidget(self.status_label)
         info_box.addWidget(self.ip_label)
+        info_box.addWidget(self.encoding_label)
+        info_box.addWidget(self.me_info_label)
         info_box.addStretch()
 
         header.addWidget(self.avatar)
@@ -64,7 +99,9 @@ class UserPage(QtWidgets.QWidget):
         # 聊天标签页：每个用户一个独立视图，含一个“全部”汇总
         self.tabs = QtWidgets.QTabWidget()
         self._chat_views = {}  # key(display) -> QTextEdit
-        self._view_all = QtWidgets.QTextEdit(); self._view_all.setReadOnly(True)
+        self._view_all = QtWidgets.QTextBrowser(); self._view_all.setOpenExternalLinks(False)
+        self._view_all.setReadOnly(True)
+        self._view_all.anchorClicked.connect(lambda url: self.sigAnchor.emit(url.toString()))
         self._view_all.setPlaceholderText("消息接收区：显示聊天记录及文件提示")
         self.local_msg_color_light = "#00561F"
         self.local_msg_color_dark = "#29c94f"
@@ -81,11 +118,29 @@ class UserPage(QtWidgets.QWidget):
         # 简易 Emoji 选择器
         self.emoji_unicode_btn = QtWidgets.QPushButton("😀")
         self.emoji_unicode_btn.setFixedWidth(44)
-        m = QtWidgets.QMenu(self)
-        for emo in ["😀","😁","😂","🤣","😊","😍","😎","🤔","👍","🔥","🎉","💯","💡","🙏"]:
-            act = m.addAction(emo)
-            act.triggered.connect(lambda _, e=emo: self.outbox.insertPlainText(e))
-        self.emoji_unicode_btn.setMenu(m)
+        def _show_emoji_grid():
+            dlg = QtWidgets.QDialog(self)
+            dlg.setWindowTitle("选择 Emoji")
+            lay = QtWidgets.QGridLayout(dlg); lay.setContentsMargins(10,10,10,10); lay.setSpacing(6)
+            emojis = [
+                "😀","😁","😂","🤣","😊","😍","😎","🤔","🙃","🙂","😉","😇","😅","😭","😤",
+                "😡","😱","🤩","🤗","🤨","🥳","🥹","🫠","😴","🤤","🤒","🤕","🤧","🤮","😷",
+                "👍","👎","👌","🙏","👏","🙌","🤝","🫶","💪","👀","👋","✌️","🤘","👑","🎩",
+                "🎉","✨","🔥","💥","💯","💡","📎","📌","🖊️","📝","📁","📂","📦","🗂️","🔍",
+                "❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💖","💗","💓","💞","💕","💘",
+                "🍎","🍊","🍋","🍉","🍇","🍓","🍒","🍑","🥝","🥥","🥑","🌶️","🍔","🍕","🍟",
+                "☕","🍵","🍺","🍻","🍷","🍾","🥂","🥤","🧋","🧃","🍰","🎂","🍩","🍪","🍫",
+            ]
+            rows, cols = 7, 15
+            for i, emo in enumerate(emojis[:rows*cols]):
+                r, c = divmod(i, cols)
+                btn = QtWidgets.QPushButton(emo)
+                btn.setFixedSize(28, 28)
+                btn.setStyleSheet("QPushButton{border:1px solid #ddd; border-radius:4px; background:#fff;} QPushButton:hover{background:#f5f5f5}")
+                btn.clicked.connect(lambda _, e=emo: (self.outbox.insertPlainText(e), dlg.accept()))
+                lay.addWidget(btn, r, c)
+            dlg.exec_()
+        self.emoji_unicode_btn.clicked.connect(_show_emoji_grid)
         for b in (self.emoji_btn, self.screenshot_btn, self.quicktext_btn, self.enc_test_btn, self.history_btn, self.send_file_btn):
             b.setFixedHeight(b.fontMetrics().height() + 12)
             b.setStyleSheet("QPushButton{border: none; background: #ededed; padding:4px 8px; border-radius:6px;} QPushButton:hover{background:#e0e0e0}")
@@ -98,124 +153,189 @@ class UserPage(QtWidgets.QWidget):
         actions_row.addWidget(self.send_file_btn)
         actions_row.addStretch()
 
+        # 待发送文件块容器（紧贴输入框上方，支持回退删除最后一个文件）
+        self.file_bar = QtWidgets.QWidget()
+        self.file_bar.setVisible(False)
+        self._file_bar_layout = QtWidgets.QHBoxLayout(self.file_bar)
+        self._file_bar_layout.setContentsMargins(4, 4, 4, 4)
+        self._file_bar_layout.setSpacing(6)
+        self._file_bar_layout.addStretch()
+
         self.outbox = QtWidgets.QTextEdit()
-        self.outbox.setPlaceholderText("在此输入要发送的消息…")
-        self.outbox.setFixedHeight(120)
-        # 安装事件过滤器以支持 Enter 发送、Shift+Enter 换行
-        self.outbox.installEventFilter(self)
+        self.outbox.setPlaceholderText("输入消息，Enter 发送，Shift+Enter 换行")
+        self.outbox.setAcceptRichText(False)
 
-        # target selection (all / user / ip / group)
-        target_row = QtWidgets.QHBoxLayout()
-        self.target_combo = QtWidgets.QComboBox()
-        self.target_combo.addItem("all")
-        self.target_combo.setFixedWidth(200)
-        self.refresh_targets_btn = QtWidgets.QPushButton("刷新列表")
-        self.refresh_targets_btn.setFixedHeight(self.refresh_targets_btn.fontMetrics().height() + 12)
-        target_row.addWidget(self.target_combo)
-        target_row.addWidget(self.refresh_targets_btn)
-        target_row.addStretch()
-
+        # 目标与发送行（保留以兼容现有逻辑；后续可按需隐藏）
         send_row = QtWidgets.QHBoxLayout()
-        # 在发送按钮同行显示当前登录用户的信息（无头像）
-        self.me_info_label = QtWidgets.QLabel("")
-        self.me_info_label.setStyleSheet("color:#666")
-        self.encoding_label = QtWidgets.QLabel("")
-        self.encoding_label.setStyleSheet("color:#999")
-        send_row.addStretch()
-        send_row.addWidget(self.me_info_label)
-        send_row.addWidget(self.encoding_label)
+        self.target_combo = QtWidgets.QComboBox()
+        self.refresh_targets_btn = QtWidgets.QPushButton("刷新")
         self.send_btn = QtWidgets.QPushButton("发送")
-        self.send_btn.setFixedWidth(100)
-        # 发送按钮有 6px padding，上下合计 12px，这里再加 2px 裕量
-        self.send_btn.setFixedHeight(self.send_btn.fontMetrics().height() + 14)
-        self.send_btn.setStyleSheet("QPushButton{background:#4caf50;color:white;border:none;border-radius:6px;padding:6px;} QPushButton:hover{background:#45a045}")
-
-        # apply modern overall stylesheet
-        self.setStyleSheet("""
-        QMainWindow{background: #ffffff}
-        QLineEdit{border:1px solid #d0d0d0;border-radius:6px;padding:6px}
-        QTextEdit{border:1px solid #e6e6e6;border-radius:6px;padding:6px}
-        QToolButton{border:none;padding:6px}
-        """)
+        self.send_btn.setFixedHeight(self.send_btn.fontMetrics().height() + 12)
+        send_row.addWidget(QtWidgets.QLabel("目标"))
+        send_row.addWidget(self.target_combo, 1)
+        send_row.addWidget(self.refresh_targets_btn)
         send_row.addWidget(self.send_btn)
 
-        # 顶部目标选择条已从 UI 移除（仍保留内部数据结构与逻辑）
+        # 组装布局
         root.addLayout(header)
-        root.addWidget(self.tabs, stretch=1)
+        # 接收区更大
+        root.addWidget(self.tabs, 3)
         root.addLayout(actions_row)
-        root.addWidget(self.outbox)
+        root.addWidget(self.file_bar)
+        root.addWidget(self.outbox, 1)
         root.addLayout(send_row)
 
-    def eventFilter(self, obj, ev):
-        try:
-            if obj is self.outbox and ev.type() == QtCore.QEvent.KeyPress:
-                key = ev.key()
-                mods = ev.modifiers()
-                if key in (QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter):
-                    # Shift+Enter 插入换行；其他情况触发发送
-                    if mods & QtCore.Qt.ShiftModifier:
-                        return False
-                    self.sigSend.emit()
-                    return True
-        except Exception:
-            pass
-        return super().eventFilter(obj, ev)
+        # Enter 发送快捷键（Shift+Enter 换行）
+        class _OutboxFilter(QtCore.QObject):
+            def __init__(self, outer):
+                super().__init__(outer)
+                self.outer = outer
+            def eventFilter(self, a0, a1):
+                try:
+                    if a0 is self.outer.outbox and a1.type() == QtCore.QEvent.KeyPress:
+                        # Enter 发送（Shift+Enter 换行）
+                        get_key = getattr(a1, 'key', None)
+                        k = get_key() if callable(get_key) else None
+                        mods = int(QtWidgets.QApplication.keyboardModifiers())
+                        if k == QtCore.Qt.Key_Return and not (mods & int(QtCore.Qt.ShiftModifier)):
+                            self.outer.sigSend.emit()
+                            return True
+                        # Backspace 删除最后一个待发送文件（当输入框为空时）
+                        if k == QtCore.Qt.Key_Backspace:
+                            if not self.outer.outbox.toPlainText().strip() and self.outer._pending_files:
+                                self.outer._remove_last_file_chip()
+                                return True
+                except Exception:
+                    pass
+                return False
+        self._outbox_filter = _OutboxFilter(self)
+        self.outbox.installEventFilter(self._outbox_filter)
 
-    def set_avatar(self, path: str):
-        try:
-            if not path or not os.path.isfile(path):
-                self.avatar.setText("头像")
-                self.avatar.setPixmap(QtGui.QPixmap())
-                return
-            pm = QtGui.QPixmap(path)
-            if pm.isNull():
-                self.avatar.setText("头像")
-                self.avatar.setPixmap(QtGui.QPixmap())
-                return
-            scaled = pm.scaled(self.avatar.width(), self.avatar.height(), QtCore.Qt.KeepAspectRatioByExpanding, QtCore.Qt.SmoothTransformation)
-            self.avatar.setPixmap(scaled)
-            self.avatar.setText("")
-        except Exception:
-            pass
+    # ---- pending file chips api ----
+    def add_pending_file(self, path: str):
+        if not path:
+            return
+        self._pending_files.append(path)
+        chip = QtWidgets.QFrame()
+        chip.setStyleSheet("QFrame{background:#e6f0ff; border:1px solid #b3d1ff; border-radius:6px;}")
+        hl = QtWidgets.QHBoxLayout(chip); hl.setContentsMargins(8,2,6,2); hl.setSpacing(6)
+        lbl = QtWidgets.QLabel(f"📎 {os.path.basename(path)}")
+        btn = QtWidgets.QToolButton(); btn.setText("×"); btn.setAutoRaise(True)
+        def _rm():
+            try:
+                self._pending_files.remove(path)
+            except ValueError:
+                pass
+            self._file_bar_layout.removeWidget(chip)
+            chip.hide(); chip.deleteLater()
+            self.file_bar.setVisible(bool(self._pending_files))
+        btn.clicked.connect(_rm)
+        hl.addWidget(lbl)
+        hl.addWidget(btn)
+        # 将 chip 插入到末尾、但在拉伸之前
+        self._file_bar_layout.insertWidget(max(0, self._file_bar_layout.count()-1), chip)
+        self.file_bar.setVisible(True)
 
-    def _ensure_view(self, key: str) -> QtWidgets.QTextEdit:
-        if key in self._chat_views:
-            return self._chat_views[key]
-        view = QtWidgets.QTextEdit(); view.setReadOnly(True)
-        self._chat_views[key] = view
-        self.tabs.addTab(view, key)
-        return view
+    def get_pending_files(self) -> List[str]:
+        return list(self._pending_files)
 
-    def _append_log(self, key: str, line: str) -> None:
-        try:
-            os.makedirs(os.path.join(os.getcwd(), "chat_logs"), exist_ok=True)
-            safe = key.replace("/","_").replace("\\","_")
-            path = os.path.join(os.getcwd(), "chat_logs", f"{safe}.log")
-            with open(path, "a", encoding="utf-8") as f:
-                f.write(line + "\n")
-        except Exception:
-            pass
+    def clear_pending_files(self):
+        self._pending_files.clear()
+        # 清空 chips
+        for i in reversed(range(self._file_bar_layout.count()-1)):
+            w = self._file_bar_layout.itemAt(i).widget()
+            if w is not None:
+                self._file_bar_layout.removeWidget(w)
+                w.hide(); w.deleteLater()
+        self.file_bar.setVisible(False)
+
+    def _remove_last_file_chip(self):
+        if not self._pending_files:
+            return
+        self._pending_files.pop()
+        # 移除最后一个 chip（拉伸之前的最后一个）
+        idx = self._file_bar_layout.count()-2
+        if idx >= 0:
+            w = self._file_bar_layout.itemAt(idx).widget()
+            if w is not None:
+                self._file_bar_layout.removeWidget(w)
+                w.hide(); w.deleteLater()
+        self.file_bar.setVisible(bool(self._pending_files))
 
     def append_message(self, sender: str, ip: str, text: str) -> None:
         key = f"{sender}[IP:{ip}]"
-        # 简单区分本地与远端颜色（以 IP 匹配本地）
-        color = self._current_local_color if (self._local_ip and ip == self._local_ip) else "#333333"
-        line_html = f"<span style='color:{color}'>&lt;&lt; {sender}@{ip}: {escape(text)}</span>"
-        self._view_all.append(line_html)
-        self._ensure_view(key).append(line_html)
+        is_local = bool(self._local_ip and ip == self._local_ip)
+        bubble_bg = "#DCF8C6" if is_local else "#FFFFFF"
+        align = "right" if is_local else "left"
+        color = "#111" if not is_local else "#0a0a0a"
+        html_bubble = (
+            f"<div style='text-align:{align};'>"
+            f"  <span style='display:inline-block; max-width:70%; background:{bubble_bg}; color:{color}; padding:6px 10px; border-radius:10px; border:1px solid #e6e6e6;'>"
+            f"    <b>{escape(sender)}</b> @ {escape(ip)}<br/>{escape(text)}"
+            f"  </span>"
+            f"</div>"
+        )
+        self._view_all.append(html_bubble)
+        self._ensure_view(key).append(html_bubble)
         self._append_log(key, f"<< {sender}@{ip}: {text}")
 
     def append_file_notice(self, sender: str, file_name: str) -> None:
         color = self._current_local_color if sender == "我" else "#555555"
-        html = f"<span style='color:{color}'>&lt;&lt; [{sender}] 文件: {file_name}</span>"
+        html = f"<span style='color:{color}'>&lt;&lt; [{sender}] 文件: {escape(file_name)}</span>"
         self._view_all.append(html)
 
     def append_outgoing(self, target_display: str, text: str) -> None:
         key = target_display
-        line_html = f"<span style='color:{self._current_local_color}'>&gt;&gt; {escape(text)}</span>"
-        self._view_all.append(line_html)
-        self._ensure_view(key).append(line_html)
+        html_bubble = (
+            f"<div style='text-align:right;'>"
+            f"  <span style='display:inline-block; max-width:70%; background:#DCF8C6; color:#0a0a0a; padding:6px 10px; border-radius:10px; border:1px solid #d8f0c0;'>"
+            f"    <b>我</b> -> {escape(target_display)}<br/>{escape(text)}"
+            f"  </span>"
+            f"</div>"
+        )
+        self._view_all.append(html_bubble)
+        self._ensure_view(key).append(html_bubble)
         self._append_log(key, f">> {text}")
+
+    def append_incoming_offer(self, oid: str, uname: str, ip: str, name: str, size: int):
+        size_txt = f"{size} bytes" if size else "? bytes"
+        html_bubble = (
+            f"<div style='text-align:left;'>"
+            f"  <span style='display:inline-block; max-width:70%; background:#FFFFFF; color:#111; padding:6px 10px; border-radius:10px; border:1px solid #e6e6e6;'>"
+            f"    <b>{escape(uname)}</b> @ {escape(ip)}<br/>文件要约: {escape(name)} ({size_txt}) "
+            f"    <a href='accept:{oid}'>[接收]</a> <a href='cancel:{oid}'>[放弃]</a>"
+            f"  </span>"
+            f"</div>"
+        )
+        self._view_all.append(html_bubble)
+
+    def append_offer_progress(self, oid: str, name: str, done: int, total: int):
+        if total > 0:
+            pct = int(done * 100 / total)
+            txt = f"进度 {pct}% ({done}/{total})"
+        else:
+            txt = f"进度 {done} bytes"
+        self._view_all.append(
+            f"<div style='text-align:left;'><span style='display:inline-block; background:#fff; color:#666; padding:4px 8px; border-radius:8px; border:1px solid #eee;'>[文件进度] {escape(name)} {escape(txt)}</span></div>"
+        )
+
+    def append_offer_saved(self, name: str, path: str):
+        self._view_all.append(
+            f"<div style='text-align:left;'><span style='display:inline-block; background:#e6ffed; color:#065f46; padding:4px 8px; border-radius:8px; border:1px solid #c7f5d9;'>[文件完成] {escape(name)} 保存到 {escape(path)}</span></div>"
+        )
+
+    def append_file_sent(self, target_display: str, path: str):
+        key = target_display
+        name = os.path.basename(path)
+        html_bubble = (
+            f"<div style='text-align:right;'>"
+            f"  <span style='display:inline-block; max-width:70%; background:#DCF8C6; color:#0a0a0a; padding:6px 10px; border-radius:10px; border:1px solid #d8f0c0;'>"
+            f"    <b>我</b> -> {escape(target_display)}<br/>已发送文件: {escape(name)}"
+            f"  </span>"
+            f"</div>"
+        )
+        self._view_all.append(html_bubble)
+        self._ensure_view(key).append(html_bubble)
 
     def set_local_color(self, dark: bool):
         self._current_local_color = self.local_msg_color_dark if dark else self.local_msg_color_light
@@ -326,22 +446,16 @@ class MainWindow(QtWidgets.QMainWindow):
         outer_layout.setContentsMargins(8, 12, 8, 12)
         outer_layout.setSpacing(12)
 
-        # 搜索按钮使用更现代的文本图标，并在导航中垂直居中（位于顶部功能与底部功能之间）
-        search = QtWidgets.QPushButton("🔎")
-        search.setFixedSize(32, 32)
-        search.setToolTip("搜索用户/组")
-        self._nav_search_btn = search
+        # 移除冗余搜索入口，统一从用户页进行搜索
 
         top_box = QtWidgets.QVBoxLayout()
         top_box.setSpacing(8)
         self.btn_chat = NavigationButton("聊天")
         self.btn_users = NavigationButton("用户")
         self.btn_groups = NavigationButton("组")
-        self.btn_files = NavigationButton("文件")
         top_box.addWidget(self.btn_chat)
         top_box.addWidget(self.btn_users)
         top_box.addWidget(self.btn_groups)
-        top_box.addWidget(self.btn_files)
         # 顶部不添加内部拉伸，避免占满空间导致搜索按钮无法居中
 
         bottom_box = QtWidgets.QVBoxLayout()
@@ -354,10 +468,8 @@ class MainWindow(QtWidgets.QMainWindow):
         bottom_box.addWidget(self.btn_keys)
         bottom_box.addWidget(self.btn_profile)
         bottom_box.addWidget(self.btn_settings)
-        # 布局顺序：顶部按钮组 -> 拉伸 -> 搜索按钮(居中) -> 拉伸 -> 底部按钮组
+        # 布局顺序：顶部按钮组 -> 拉伸 -> 底部按钮组
         outer_layout.addLayout(top_box)
-        outer_layout.addStretch()
-        outer_layout.addWidget(search, alignment=QtCore.Qt.AlignHCenter)
         outer_layout.addStretch()
         outer_layout.addLayout(bottom_box)
 
@@ -379,9 +491,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # 组管理页
         self._groups_page = GroupsPage()
         self._stack.addWidget(self._groups_page)
-        # 文件页
-        self._files_page = FilesPage()
-        self._stack.addWidget(self._files_page)
+        # 文件要约在 bind_backend 中处理（此处仅保留页面搭建）
         # 截图页仍保留类以便复用逻辑，但不放入导航
         # 表情页
         self._emotes_page = EmotesPage()
@@ -400,7 +510,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_users.clicked.connect(lambda: self._stack.setCurrentWidget(self._users_page))
         self.btn_chat.clicked.connect(lambda: self._stack.setCurrentWidget(self._user_page))
         self.btn_groups.clicked.connect(lambda: self._stack.setCurrentWidget(self._groups_page))
-        self.btn_files.clicked.connect(lambda: self._stack.setCurrentWidget(self._files_page))
         # 截图不再作为独立页面入口
         self.btn_emotes.clicked.connect(lambda: self._stack.setCurrentWidget(self._emotes_page))
         self.btn_keys.clicked.connect(lambda: self._stack.setCurrentWidget(self._keys_page))
@@ -408,11 +517,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_settings.clicked.connect(lambda: self._stack.setCurrentWidget(self._settings_page))
         # 默认进入聊天页
         self._stack.setCurrentWidget(self._login_page)
-        # 左侧搜索按钮：跳到用户页并聚焦搜索框
-        def on_nav_search_clicked():
-            self._stack.setCurrentWidget(self._users_page)
-            self._users_page.search_edit.setFocus()
-        self._nav_search_btn.clicked.connect(on_nav_search_clicked)
+        # 已移除左侧搜索按钮，保留用户页自身搜索框
         return self._stack
 
     def bind_backend(self, backend):
@@ -421,6 +526,70 @@ class MainWindow(QtWidgets.QMainWindow):
             backend.message_signal.connect(self._user_page.append_message)
             backend.file_offer_signal.connect(lambda sender, name, size: self._user_page.append_file_notice(sender, name))
             backend.start()
+            # ---- 文件要约整合到聊天页 ----
+            self._known_offers = set()
+            def _refresh_offers():
+                try:
+                    offers = backend.list_incoming_offers() or {}
+                except Exception:
+                    offers = {}
+                for oid, meta in offers.items():
+                    if oid not in self._known_offers:
+                        self._known_offers.add(oid)
+                        self._user_page.append_incoming_offer(
+                            oid,
+                            meta.get('uname') or meta.get('ip','?'),
+                            meta.get('ip','?'),
+                            meta.get('name','file'),
+                            int(meta.get('size',0))
+                        )
+            _refresh_offers()
+            try:
+                backend.offers_updated.connect(_refresh_offers)
+            except Exception:
+                pass
+            def _on_file_progress(oid: str, bytes_done: int):
+                try:
+                    meta = backend.list_incoming_offers().get(oid, {})
+                except Exception:
+                    meta = {}
+                name = meta.get('name','file')
+                total = int(meta.get('size',0))
+                self._user_page.append_offer_progress(oid, name, bytes_done, total)
+            try:
+                backend.file_progress.connect(_on_file_progress)
+            except Exception:
+                pass
+            def _on_file_saved(oid: str, path: str):
+                try:
+                    meta = backend.list_incoming_offers().get(oid, {})
+                except Exception:
+                    meta = {}
+                name = meta.get('name','file')
+                self._user_page.append_offer_saved(name, path)
+                self._stack.setCurrentWidget(self._user_page)
+            try:
+                backend.file_saved.connect(_on_file_saved)
+            except Exception:
+                pass
+            def _on_anchor(href: str):
+                try:
+                    if href.startswith('accept:'):
+                        oid = href.split(':',1)[1]
+                        try:
+                            dl_dir = getattr(getattr(backend,'zcli',None),'download_dir','') or os.getcwd()
+                        except Exception:
+                            dl_dir = os.getcwd()
+                        backend.accept_offer(oid, dl_dir)
+                    elif href.startswith('cancel:'):
+                        oid = href.split(':',1)[1]
+                        backend.cancel_offer(oid)
+                except Exception:
+                    pass
+            try:
+                self._user_page.sigAnchor.connect(_on_anchor)
+            except Exception:
+                pass
             # 初始同步设置页 UI 与后端配置
             try:
                 z = getattr(backend, 'zcli', None)
@@ -503,22 +672,29 @@ class MainWindow(QtWidgets.QMainWindow):
             def on_send():
                 target = _resolve_target_for_send()
                 text = self._user_page.outbox.toPlainText().strip()
-                if not text:
+                files = self._user_page.get_pending_files()
+                if not text and not files:
                     return
+                # 计算显示名
+                cb = self._user_page.target_combo
+                disp = cb.currentText()
+                if disp == "all":
+                    if target.startswith("ip:"):
+                        disp = f"[IP:{target[3:]}]"
+                    else:
+                        disp = target
                 try:
-                    backend.send_text(target, text)
-                    # append to local history view
-                    # 将消息追加到当前目标的独立聊天视图
-                    cb = self._user_page.target_combo
-                    disp = cb.currentText()
-                    # 如果是 "all" 用目标 target 替代
-                    if disp == "all":
-                        if target.startswith("ip:"):
-                            disp = f"[IP:{target[3:]}]"
-                        else:
-                            disp = target
-                    self._user_page.append_outgoing(disp, text)
+                    if text:
+                        backend.send_text(target, text)
+                        self._user_page.append_outgoing(disp, text)
+                    for p in files:
+                        try:
+                            backend.send_file(target, p)
+                            self._user_page.append_file_sent(disp, p)
+                        except Exception:
+                            pass
                     self._user_page.outbox.clear()
+                    self._user_page.clear_pending_files()
                 except Exception:
                     pass
 
@@ -529,17 +705,59 @@ class MainWindow(QtWidgets.QMainWindow):
             except Exception:
                 pass
 
+            # 监听输入框粘贴文件（类似微信）：若剪贴板中包含文件 URL，则直接按当前目标发送文件
+            try:
+                def _maybe_send_clipboard_files():
+                    cb = QtWidgets.QApplication.clipboard()
+                    md = cb.mimeData()
+                    if not md or not md.hasUrls():
+                        return False
+                    paths = []
+                    for url in md.urls():
+                        p = url.toLocalFile()
+                        if p:
+                            paths.append(p)
+                    if not paths:
+                        return False
+                    # 将粘贴的文件转为“待发送文件块”，不立即发送
+                    for p in paths:
+                        self._user_page.add_pending_file(p)
+                    return True
+
+                # 在 outbox 的 keyRelease 上挂一个过滤器：检测 Ctrl+V 粘贴是否为文件
+                # 使用独立 QObject 过滤器代替直接覆盖 eventFilter
+                class _PasteFilter(QtCore.QObject):
+                    def __init__(self, outer):
+                        super().__init__(outer)
+                        self.outer = outer
+                    def eventFilter(self, a0, a1):
+                        try:
+                            if a0 is self.outer._user_page.outbox and a1.type() == QtCore.QEvent.KeyRelease:
+                                # 使用快捷键匹配方式：检查键与修饰键
+                                get_key = getattr(a1, 'key', None)
+                                k = get_key() if callable(get_key) else None
+                                mods = int(QtWidgets.QApplication.keyboardModifiers())
+                                if (k == QtCore.Qt.Key_V) and (mods & int(QtCore.Qt.ControlModifier)):
+                                    if _maybe_send_clipboard_files():
+                                        return True
+                        except Exception:
+                            pass
+                        return False
+                self._paste_filter = _PasteFilter(self)
+                self._user_page.outbox.installEventFilter(self._paste_filter)
+            except Exception:
+                pass
+
             # 快捷跳转到表情页；截图使用区域选择对话（不在侧栏单独页面）
             self._user_page.emoji_btn.clicked.connect(lambda: self._stack.setCurrentWidget(self._emotes_page))
             # 早期连接误用 _on_region_capture_send，这里移除并统一到类方法 on_region_capture_send（见后文绑定）
 
             def on_send_file():
-                target = self._user_page.target_combo.currentText()
-                if not target:
+                files, _ = QtWidgets.QFileDialog.getOpenFileNames(self, "选择要发送的文件")
+                if not files:
                     return
-                path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "选择要发送的文件")
-                if path:
-                    backend.send_file(target, path)
+                for p in files:
+                    self._user_page.add_pending_file(p)
 
             # 绑定 UserPage 里预留的发送文件按钮
             try:
@@ -792,41 +1010,59 @@ class MainWindow(QtWidgets.QMainWindow):
                     backend.group_remove(group, user)
                     refresh_groups_page()
 
-            def on_group_send(group: str, text: str):
-                if group and text:
-                    backend.group_send(group, text)
-
-            def on_send_all(text: str):
-                if text:
-                    backend.send_all(text)
-
             self._groups_page.sigAdd.connect(on_group_add)
             self._groups_page.sigRemove.connect(on_group_remove)
-            self._groups_page.sigSend.connect(on_group_send)
-            self._groups_page.sigSendAll.connect(on_send_all)
-
-            # 文件页绑定：入站要约列表、进度与保存目录
-            def refresh_offers():
-                self._files_page.update_offers(backend.list_incoming_offers())
-            refresh_offers()
-            # 显示默认保存目录
-            try:
-                self._files_page.dir_edit.setText(backend.zcli.download_dir or os.getcwd())
-            except Exception:
-                pass
-            backend.offers_updated.connect(refresh_offers)
-            backend.file_progress.connect(self._files_page.update_progress)
-            def on_file_saved(oid: str, path: str):
+            def _enter_group_chat(g: str):
+                if not g:
+                    return
+                # 在聊天页选择目标为 group:g
                 try:
-                    self._files_page.on_saved(oid, path)
-                finally:
-                    # 文件保存完成后，自动回到聊天页方便继续交流
+                    cb = self._user_page.target_combo
+                    # 查找是否已有该 group 目标，没有则添加
+                    found = False
+                    for i in range(cb.count()):
+                        if cb.itemText(i) == g or cb.itemData(i) == f"group:{g}":
+                            cb.setCurrentIndex(i)
+                            found = True
+                            break
+                    if not found:
+                        cb.addItem(g)
+                        cb.setItemData(cb.count()-1, f"group:{g}")
+                        cb.setCurrentIndex(cb.count()-1)
                     self._stack.setCurrentWidget(self._user_page)
-            backend.file_saved.connect(on_file_saved)
-            self._files_page.sigAccept.connect(lambda oid, d: backend.accept_offer(oid, d or None))
-            self._files_page.sigCancel.connect(lambda oid: backend.cancel_offer(oid))
-            self._files_page.sigPickDir.connect(lambda: self._files_page.pick_dir())
-            self._files_page.sigApplyDir.connect(lambda d: backend.set_download_dir(d))
+                except Exception:
+                    self._stack.setCurrentWidget(self._user_page)
+            self._groups_page.sigEnterChat.connect(_enter_group_chat)
+
+            def _rename_group(old: str, new: str):
+                if not old or not new or old == new:
+                    return
+                try:
+                    groups = backend.list_groups() or {}
+                    members = list(groups.get(old, []))
+                    # 新建新组并迁移成员
+                    for u in members:
+                        try:
+                            backend.group_add(new, u)
+                        except Exception:
+                            pass
+                    # 删除旧组
+                    try:
+                        backend.group_remove(old, None)
+                    except Exception:
+                        pass
+                    # 刷新分组页
+                    refresh_groups_page()
+                    # 刷新聊天目标下拉
+                    update_targets()
+                    # 刷新用户页分组列表
+                    if hasattr(self._users_page, "update_nodes"):
+                        self._users_page.update_nodes(backend.get_nodes(), backend.list_groups(), backend.get_net_info().get('local_ip',''))
+                except Exception:
+                    pass
+            self._groups_page.sigRename.connect(_rename_group)
+
+            # 独立文件页已移除；文件要约逻辑已在 bind_backend 中整合到聊天页
 
             # 信息页绑定
             def refresh_info():
@@ -1147,7 +1383,6 @@ class MainWindow(QtWidgets.QMainWindow):
         _set(self, 'btn_chat', t['chat'])
         _set(self, 'btn_users', t['users'])
         _set(self, 'btn_groups', t['groups'])
-        _set(self, 'btn_files', t['files'])
         _set(self, 'btn_emotes', t['emotes'])
         _set(self, 'btn_profile', t['info'])
         _set(self, 'btn_settings', t['settings'])
@@ -1163,8 +1398,6 @@ class MainWindow(QtWidgets.QMainWindow):
         except Exception:
             pass
         _set(self._users_page, 'discover_btn', t['discover'])
-        _set(self._files_page, 'btn_accept', t['accept'])
-        _set(self._files_page, 'btn_cancel', t['cancel'])
         # 登录页占位符 & 组搜索占位符
         try:
             self._login_page.name_edit.setPlaceholderText(t['username_ph'])
@@ -1189,7 +1422,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.statusBar().showMessage("截图模式：拖拽选择区域，Esc 取消", 4000)
             except Exception:
                 pass
-            # 作为独立全屏顶层窗口，避免受父窗口影响
+            # 全屏遮罩选区
             sel = _RegionSelector(None)
             r = sel.exec_()
             if not r or r.width() <= 0 or r.height() <= 0:
@@ -1197,89 +1430,55 @@ class MainWindow(QtWidgets.QMainWindow):
             screen = QtWidgets.QApplication.primaryScreen()
             pm = None
             try:
-                # 优先抓整屏，再裁剪选区
-                desktop = QtWidgets.QApplication.desktop()
-                wid = int(desktop.winId()) if desktop else 0
-                pm_full = screen.grabWindow(wid)
+                # 截取当前屏幕，再裁剪到选区
+                geo = screen.geometry()
+                # 使用 QApplication.desktop().winId() 获取根窗口 ID 进行整屏截图
+                root_wid = QtWidgets.QApplication.desktop().winId()
+                pm_full = screen.grabWindow(root_wid, geo.x(), geo.y(), geo.width(), geo.height())
                 if pm_full and not pm_full.isNull():
-                    pm = pm_full.copy(r.x(), r.y(), r.width(), r.height())
+                    pm = pm_full.copy(r)
             except Exception:
                 pm = None
             if pm is None or pm.isNull():
-                try:
-                    # 回退：仅截当前窗口区域
-                    pm_fallback = self.grab()
-                    pm = pm_fallback.copy(r.x(), r.y(), r.width(), r.height())
-                except Exception:
-                    return  # 无法截屏
-            # preview dialog
-            dlg = QtWidgets.QDialog(self)
-            dlg.setWindowTitle("确认截图")
-            v = QtWidgets.QVBoxLayout(dlg)
-            lbl = QtWidgets.QLabel(); lbl.setAlignment(QtCore.Qt.AlignCenter)
-            scaled = pm.scaled(640, 480, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
-            lbl.setPixmap(scaled)
-            v.addWidget(lbl)
-            btn_row = QtWidgets.QHBoxLayout()
-            btn_ok = QtWidgets.QPushButton("确认")
-            btn_no = QtWidgets.QPushButton("丢弃")
-            # 发送/保存选项
-            opts_row = QtWidgets.QHBoxLayout()
-            chk_send = QtWidgets.QCheckBox("发送")
-            chk_save = QtWidgets.QCheckBox("保存到截图目录")
-            chk_keep = QtWidgets.QCheckBox("发送后保留文件")
-            chk_send.setChecked(True)
-            chk_save.setChecked(True)
-            chk_keep.setChecked(False)
-            lbl_dir = QtWidgets.QLabel(f"目录: {backend.get_screenshot_dir()}")
-            opts_row.addWidget(chk_send)
-            opts_row.addWidget(chk_save)
-            opts_row.addWidget(chk_keep)
-            opts_row.addWidget(lbl_dir, 1)
-            v.addLayout(opts_row)
-            btn_row.addStretch(); btn_row.addWidget(btn_ok); btn_row.addWidget(btn_no)
-            v.addLayout(btn_row)
-            result = {}
-            def _ok():
-                # 统一文件命名：YYYYmmdd_HHMMSS_random.png
-                ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                base = f"shot_{ts}.png"
-                path_tmp = os.path.join(tempfile.gettempdir(), base)
-                pm.save(path_tmp, "PNG")
-                result['path'] = path_tmp
-                dlg.accept()
-            def _no():
-                dlg.reject()
-            btn_ok.clicked.connect(_ok)
-            btn_no.clicked.connect(_no)
-            if dlg.exec_() == QtWidgets.QDialog.Accepted:
-                p = result.get('path')
-                if p:
-                    final_path = p
-                    # 保存到目录
-                    if chk_save.isChecked():
-                        try:
-                            os.makedirs(backend.get_screenshot_dir(), exist_ok=True)
-                            final_path = os.path.join(backend.get_screenshot_dir(), os.path.basename(p))
-                            shutil.copy2(p, final_path)
-                        except Exception:
-                            final_path = p
-                    # 发送
-                    if chk_send.isChecked():
-                        tgt = self._user_page.target_combo.currentText()
-                        if tgt:
-                            backend.send_file(tgt, p)
-                            self._user_page.append_file_notice("我", os.path.basename(p))
-                    # 清理临时文件（若不保留且与最终不同）
-                    if os.path.isfile(p) and (not chk_keep.isChecked()) and (p != final_path):
-                        try:
-                            os.remove(p)
-                        except Exception:
-                            pass
-                    try:
-                        self.statusBar().showMessage("截图完成", 3000)
-                    except Exception:
-                        pass
+                return
+
+            # 在截图边缘绘制 5px 灰白色边框以强调区域
+            painter = QtGui.QPainter(pm)
+            pen = QtGui.QPen(QtGui.QColor(230, 230, 230))
+            pen.setWidth(5)
+            painter.setPen(pen)
+            painter.drawRect(0, 0, pm.width()-1, pm.height()-1)
+            painter.end()
+
+            # 保存到截图目录
+            try:
+                base_dir = backend.get_screenshot_dir() or os.path.join(os.getcwd(), "screenshots")
+            except Exception:
+                base_dir = os.path.join(os.getcwd(), "screenshots")
+            try:
+                os.makedirs(base_dir, exist_ok=True)
+            except Exception:
+                pass
+            ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"shot_{ts}.png"
+            path = os.path.join(base_dir, filename)
+            try:
+                pm.save(path, "PNG")
+            except Exception:
+                pass
+
+            # 写入剪贴板
+            try:
+                cb = QtWidgets.QApplication.clipboard()
+                cb.setPixmap(pm)
+            except Exception:
+                pass
+
+            # 状态栏提示
+            try:
+                self.statusBar().showMessage(f"截图已保存到 {path}，并复制到剪贴板", 5000)
+            except Exception:
+                pass
         except Exception:
             pass
 
@@ -1386,8 +1585,8 @@ class UsersListPage(QtWidgets.QWidget):
 class GroupsPage(QtWidgets.QWidget):
     sigAdd = QtCore.pyqtSignal(str, str)      # (group, username)
     sigRemove = QtCore.pyqtSignal(str, str)   # (group, username)
-    sigSend = QtCore.pyqtSignal(str, str)     # (group, text)
-    sigSendAll = QtCore.pyqtSignal(str)       # (text)
+    sigEnterChat = QtCore.pyqtSignal(str)     # (group)
+    sigRename = QtCore.pyqtSignal(str, str)   # (old, new)
 
     def __init__(self):
         super().__init__()
@@ -1397,96 +1596,51 @@ class GroupsPage(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(10)
-        # 成员搜索
-        filter_row = QtWidgets.QHBoxLayout()
-        self.member_filter = QtWidgets.QLineEdit()
-        self.member_filter.setPlaceholderText("搜索组名/成员…")
-        self.member_filter.textChanged.connect(self._apply_group_filter)
-        filter_row.addWidget(self.member_filter)
-        # 已有分组分区
-        existing_box = QtWidgets.QGroupBox("已有分组")
-        existing_layout = QtWidgets.QVBoxLayout(existing_box)
-        # group picker
-        pick_row = QtWidgets.QHBoxLayout()
-        self.group_combo = QtWidgets.QComboBox()
-        self.group_combo.setEditable(True)  # 可直接输入新组名
-        self.group_combo.setFixedWidth(220)
-        self.refresh_btn = QtWidgets.QPushButton("刷新")
-        self.refresh_btn.setFixedHeight(self.refresh_btn.fontMetrics().height() + 12)
-        pick_row.addWidget(self.group_combo)
-        pick_row.addWidget(self.refresh_btn)
-        pick_row.addStretch()
-        # Settings Page labels (static QFormLayout row labels not easily changed unless stored; we skip full dynamic form relabel for brevity)
+        # 顶部：过滤 + 操作按钮
+        top_row = QtWidgets.QHBoxLayout()
+        self.member_filter = QtWidgets.QLineEdit(); self.member_filter.setPlaceholderText("搜索组名/成员…")
+        self.btn_new_group = QtWidgets.QPushButton("新建分组")
+        self.btn_rename = QtWidgets.QPushButton("重命名")
+        for b in (self.btn_new_group, self.btn_rename):
+            b.setFixedHeight(b.fontMetrics().height() + 12)
+        top_row.addWidget(self.member_filter, 1)
+        top_row.addWidget(self.btn_new_group)
+        top_row.addWidget(self.btn_rename)
+        layout.addLayout(top_row)
 
-        # members list + add/remove
-        members_row = QtWidgets.QHBoxLayout()
+        # 主区：左侧组列表 + 右侧成员与操作
+        main_row = QtWidgets.QHBoxLayout()
+        self.group_list = QtWidgets.QListWidget(); self.group_list.setMinimumWidth(220)
+        main_row.addWidget(self.group_list, 1)
+
+        right = QtWidgets.QVBoxLayout()
         self.members_list = QtWidgets.QListWidget()
-        members_ctrl = QtWidgets.QVBoxLayout()
-        self.member_edit = QtWidgets.QLineEdit()
-        self.member_edit.setPlaceholderText("用户名…")
+        right.addWidget(self.members_list, 1)
+        ctrl = QtWidgets.QHBoxLayout()
+        self.member_edit = QtWidgets.QLineEdit(); self.member_edit.setPlaceholderText("用户名…")
         btn_add = QtWidgets.QPushButton("添加成员")
         btn_del = QtWidgets.QPushButton("移除成员")
-        for b in (btn_add, btn_del):
+        self.btn_enter_chat = QtWidgets.QPushButton("进入聊天")
+        for b in (btn_add, btn_del, self.btn_enter_chat):
             b.setFixedHeight(b.fontMetrics().height() + 12)
-        members_ctrl.addWidget(self.member_edit)
-        members_ctrl.addWidget(btn_add)
-        members_ctrl.addWidget(btn_del)
-        members_ctrl.addStretch()
-        members_row.addWidget(self.members_list, 1)
-        members_row.addLayout(members_ctrl)
-        layout.addLayout(filter_row)
+        ctrl.addWidget(self.member_edit, 1)
+        ctrl.addWidget(btn_add)
+        ctrl.addWidget(btn_del)
+        ctrl.addWidget(self.btn_enter_chat)
+        right.addLayout(ctrl)
+        main_row.addLayout(right, 2)
 
-        # send area
-        send_box = QtWidgets.QGroupBox("群发")
-        send_layout = QtWidgets.QVBoxLayout(send_box)
-        self.group_send_text = QtWidgets.QTextEdit()
-        self.group_send_text.setFixedHeight(100)
-        btn_send_group = QtWidgets.QPushButton("发送到组")
-        btn_send_group.setFixedHeight(btn_send_group.fontMetrics().height() + 12)
-        send_layout.addWidget(self.group_send_text)
-        send_layout.addWidget(btn_send_group)
-
-        # send all
-        send_all_row = QtWidgets.QHBoxLayout()
-        self.all_text_edit = QtWidgets.QLineEdit()
-        self.all_text_edit.setPlaceholderText("发送给所有在线用户…")
-        btn_send_all = QtWidgets.QPushButton("全部群发")
-        btn_send_all.setFixedHeight(btn_send_all.fontMetrics().height() + 12)
-        send_all_row.addWidget(self.all_text_edit, 1)
-        send_all_row.addWidget(btn_send_all)
-        # 将已有分组相关 UI 收纳进 existing_box
-        existing_layout.addLayout(pick_row)
-        existing_layout.addLayout(members_row, 1)
-        existing_layout.addWidget(send_box)
-        existing_layout.addLayout(send_all_row)
-
-        # 新建组分区
-        new_box = QtWidgets.QGroupBox("新建组")
-        ng_layout = QtWidgets.QVBoxLayout(new_box)
-        ng_row = QtWidgets.QHBoxLayout()
-        self.new_group_edit = QtWidgets.QLineEdit(); self.new_group_edit.setPlaceholderText("组名…")
-        self.btn_create_group = QtWidgets.QPushButton("新建组")
-        self.btn_create_group.setFixedHeight(self.btn_create_group.fontMetrics().height() + 12)
-        ng_row.addWidget(self.new_group_edit, 1)
-        ng_row.addWidget(self.btn_create_group)
-        self.new_group_members = QtWidgets.QTextEdit(); self.new_group_members.setFixedHeight(80)
-        self.new_group_members.setPlaceholderText("初始成员（每行一个用户名，可留空）")
-        ng_layout.addLayout(ng_row)
-        ng_layout.addWidget(self.new_group_members)
-
-        # 页面布局顺序：已有分组 -> 新建组
-        layout.addWidget(existing_box, 1)
-        layout.addWidget(new_box)
+        layout.addLayout(main_row)
 
         # wiring
         def on_add():
-            g = self.group_combo.currentText().strip()
+            g = self._current_group()
             u = self.member_edit.text().strip()
             if g and u:
                 self.sigAdd.emit(g, u)
 
         def on_del():
-            g = self.group_combo.currentText().strip()
+            g = self._current_group()
             item = self.members_list.currentItem()
             if item is not None:
                 u = item.text()
@@ -1495,59 +1649,68 @@ class GroupsPage(QtWidgets.QWidget):
             if g and u:
                 self.sigRemove.emit(g, u)
 
-        def on_send_group():
-            g = self.group_combo.currentText().strip()
-            t = self.group_send_text.toPlainText().strip()
-            if g and t:
-                self.sigSend.emit(g, t)
-                self.group_send_text.clear()
-
-        def on_send_all():
-            t = self.all_text_edit.text().strip()
-            if t:
-                self.sigSendAll.emit(t)
-                self.all_text_edit.clear()
-
         btn_add.clicked.connect(on_add)
         btn_del.clicked.connect(on_del)
-        btn_send_group.clicked.connect(on_send_group)
-        btn_send_all.clicked.connect(on_send_all)
-        self.refresh_btn.clicked.connect(lambda: self.update_groups(getattr(self, "_cached_groups", {})))
-        # 创建组：对每行成员发出添加信号；若无成员则仅刷新
+        self.group_list.currentTextChanged.connect(lambda _: self._update_members())
+        self.member_filter.textChanged.connect(self._apply_group_filter)
+        self.btn_enter_chat.clicked.connect(lambda: (self.sigEnterChat.emit(self._current_group() or "")))
+
         def _create_group():
-            g = self.new_group_edit.text().strip()
-            if not g:
+            # 生成唯一默认名 New Group N
+            base = "New Group "
+            n = 1
+            names = set((self._cached_groups or {}).keys())
+            while f"{base}{n}" in names:
+                n += 1
+            g = f"{base}{n}"
+            # 在本地视图中先创建空组，真正持久化需添加成员后由后端保存
+            self._cached_groups = self._cached_groups or {}
+            self._cached_groups[g] = set()
+            self.update_groups(self._cached_groups)
+            # 选中该组
+            items = self.group_list.findItems(g, QtCore.Qt.MatchExactly)
+            if items:
+                self.group_list.setCurrentItem(items[0])
+        self.btn_new_group.clicked.connect(_create_group)
+
+        def _rename_group():
+            old = self._current_group()
+            if not old:
                 return
-            members = [ln.strip() for ln in self.new_group_members.toPlainText().splitlines() if ln.strip()]
-            if not members:
-                # 无成员时仅刷新，使组名出现在下拉（需在后续真正添加成员后才会被持久）
-                self.update_groups(getattr(self, "_cached_groups", {}))
-                return
-            for u in members:
-                self.sigAdd.emit(g, u)
-            self.new_group_edit.clear(); self.new_group_members.clear()
-        self.btn_create_group.clicked.connect(_create_group)
+            new, ok = QtWidgets.QInputDialog.getText(self, "重命名分组", "新名称：", text=old)
+            new = (new or "").strip()
+            if ok and new and new != old:
+                self.sigRename.emit(old, new)
+        self.btn_rename.clicked.connect(_rename_group)
 
     def update_groups(self, groups: dict):
         # groups: {group: set(usernames)}
-        self._cached_groups = groups or {}
-        current = self.group_combo.currentText()
-        self.group_combo.blockSignals(True)
-        self.group_combo.clear()
+        # 合并本地空组（可能由“新建分组”创建）
+        local = getattr(self, "_cached_groups", {}) or {}
+        merged = dict(local)
+        for g, m in (groups or {}).items():
+            merged[g] = set(m)
+        self._cached_groups = merged
+        current = self._current_group()
+        self.group_list.blockSignals(True)
+        self.group_list.clear()
         for g in sorted(self._cached_groups.keys()):
-            self.group_combo.addItem(g)
-        # restore
+            cnt = len(self._cached_groups.get(g, []))
+            it = QtWidgets.QListWidgetItem(f"{g} ({cnt})")
+            it.setData(QtCore.Qt.UserRole, g)
+            self.group_list.addItem(it)
+        # restore selection
         if current:
-            idx = self.group_combo.findText(current)
-            if idx >= 0:
-                self.group_combo.setCurrentIndex(idx)
-        self.group_combo.blockSignals(False)
+            for i in range(self.group_list.count()):
+                it = self.group_list.item(i)
+                if it and it.data(QtCore.Qt.UserRole) == current:
+                    self.group_list.setCurrentRow(i)
+                    break
+        self.group_list.blockSignals(False)
         self._update_members()
 
-        self.group_combo.currentTextChanged.connect(lambda _: self._update_members())
-
     def _update_members(self):
-        g = self.group_combo.currentText().strip()
+        g = self._current_group()
         members = sorted(list(self._cached_groups.get(g, []))) if g else []
         self.members_list.clear()
         for u in members:
@@ -1555,19 +1718,32 @@ class GroupsPage(QtWidgets.QWidget):
 
     def _apply_group_filter(self):
         q = self.member_filter.text().strip().lower()
-        current = self.group_combo.currentText()
+        current = self._current_group()
         all_groups = sorted(self._cached_groups.keys())
-        self.group_combo.blockSignals(True)
-        self.group_combo.clear()
+        self.group_list.blockSignals(True)
+        self.group_list.clear()
         for g in all_groups:
             members = self._cached_groups.get(g, [])
             blob = g.lower() + ' ' + ' '.join(m.lower() for m in members)
             if not q or q in blob:
-                self.group_combo.addItem(g)
-        if current and self.group_combo.findText(current) >= 0:
-            self.group_combo.setCurrentText(current)
-        self.group_combo.blockSignals(False)
+                it = QtWidgets.QListWidgetItem(f"{g} ({len(members)})")
+                it.setData(QtCore.Qt.UserRole, g)
+                self.group_list.addItem(it)
+        # restore selection
+        if current:
+            for i in range(self.group_list.count()):
+                it = self.group_list.item(i)
+                if it and it.data(QtCore.Qt.UserRole) == current:
+                    self.group_list.setCurrentRow(i)
+                    break
+        self.group_list.blockSignals(False)
         self._update_members()
+
+    def _current_group(self) -> str:
+        it = self.group_list.currentItem()
+        if it:
+            return it.data(QtCore.Qt.UserRole)
+        return ""
 
 
 class FilesPage(QtWidgets.QWidget):
@@ -2057,8 +2233,15 @@ class _RegionSelector(QtWidgets.QWidget):
     """Full-screen transparent overlay to let user rubber-band select a region."""
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint | QtCore.Qt.FramelessWindowHint)
+        # 顶层全屏半透明遮罩，阻止点击穿透
+        self.setWindowFlags(
+            QtCore.Qt.WindowStaysOnTopHint
+            | QtCore.Qt.FramelessWindowHint
+            | QtCore.Qt.Tool
+        )
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+        # 背景略微变暗以强调“正在截图”
+        self._overlay_color = QtGui.QColor(0, 0, 0, 120)
         self._rubber = QtWidgets.QRubberBand(QtWidgets.QRubberBand.Rectangle, self)
         self._start = QtCore.QPoint()
         self._rect = QtCore.QRect()
@@ -2084,6 +2267,11 @@ class _RegionSelector(QtWidgets.QWidget):
         self._loop = loop
         loop.exec_()
         return self._selected
+
+    def paintEvent(self, a0: QtGui.QPaintEvent) -> None:  # rename param for linter compatibility
+        painter = QtGui.QPainter(self)
+        painter.fillRect(self.rect(), self._overlay_color)
+        painter.end()
 
     def mousePressEvent(self, a0):
         self._start = a0.pos()

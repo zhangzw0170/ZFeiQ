@@ -396,6 +396,94 @@
 "ip": "172.26.88.222",
 "target": "all",
 "text": "稍等一下～"
+},
+{
+"ts": 1763562102.9449513,
+"direction": "out",
+"user": "win",
+"ip": "172.26.48.1",
+"target": "all",
+"text": "[FILE]shot_20251119_221151.png"
+},
+{
+"ts": 1763564786.5362978,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "all",
+"text": "[FILE]shot_20251119_221151.png"
+},
+{
+"ts": 1763564798.244598,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "all",
+"text": "[FILE]shot_20251119_221151.png"
+},
+{
+"ts": 1763565259.7486606,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "ip:172.26.88.222",
+"text": "编码自检：中文✓ English✓ Emoji😀 αßé"
+},
+{
+"ts": 1763566570.3814952,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "all",
+"text": "[FILE]zfeiq_icon_128x128.ico"
+},
+{
+"ts": 1763566579.7889745,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "all",
+"text": "😭"
+},
+{
+"ts": 1763566715.472366,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "all",
+"text": "[FILE]zfeiq_icon_128x128.ico"
+},
+{
+"ts": 1763566717.6235054,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "all",
+"text": "[FILE]zfeiq_icon_128x128.ico"
+},
+{
+"ts": 1763566719.7263832,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "all",
+"text": "[FILE]zfeiq_icon_128x128.ico"
+},
+{
+"ts": 1763566787.9805803,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "ip:172.26.88.222",
+"text": "编码自检：中文✓ English✓ Emoji😀 αßé"
+},
+{
+"ts": 1763566787.9815798,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "编码自检：中文✓ English✓ Emoji😀 αßé"
 }
 ]
 }
