@@ -1,53 +1,162 @@
-# ZFeiQ CLI（IPMSG 兼容子集）
+# ZFeiQ（IPMSG/飞秋 互通 · CLI + GUI） — Alpha 3.2
 
-一个轻量、纯标准库的“飞秋”命令行实现（Python 3.8+），支持与飞秋/IPMSG 的基础互通：上线/离线、文本消息、在线发现、附件式文件互传等。
+ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG 协议要点（BR_ENTRY/ANSENTRY/BR_EXIT/ABSECE、SENDMSG/RECVMSG、FILEATTACH/GETFILEDATA 等）。
 
-## 亮点
+提供两种形态：
 
-- 互通：兼容 BR_ENTRY/ANSENTRY/BR_EXIT/BR_ABSENCE、SENDMSG/RECVMSG；FILEATTACH/GETFILEDATA 基础互传
-- 体验：单行提示“&lt;username&gt; =>”；外部事件到来时自动换行并重绘提示符（兼容老终端）
-- 多网卡：自动选择本地网卡；运行期 `/set bind <ip>`（兼容 `ip:<ip>`）锁定绑定；未锁定时可“同子网自动切换”
-- 跨子网：`/discover ip:<addr>` 单播发现；保活时对已知节点单播 keepalive；`/info net` 网络诊断
-- 稳定：送达确认与自动重传（仅对声明 cap=ack 的对端请求回执）；可调保活/过期（`/set keepalive|expire`）
+- CLI：轻量、纯标准库实现核心协议与指令；可脚本化
+- GUI：PyQt5 现代化界面，登录页 IP 选择、分组与私聊、表情/截图、文件要约接收、加密模式管理、主题与语言、截图与下载目录配置
 
-## 快速开始（PowerShell / Linux）
+> 适配 Windows / Linux / aarch64（RK3566 等）。
 
-```powershell
-cd e:\Main\JuniorI\Course_Linux_RK3566\CLI251101
-python .\main.py   # 默认 UDP/2425；自动选网卡；防火墙请允许专用网络 UDP
+---
+
+## 功能总览（Alpha 3.2 更新）
+
+- 互通协议：上线/应答/离线、文本消息、在线发现、附件式文件传输（GETFILEDATA 拉取）、RELEASEFILES
+- 多网卡/多子网：自动选择网卡；支持锁定绑定 IP；支持单播发现；设置页可配置子网掩码（用于广播地址计算）
+- 聊天体验（GUI）：
+  - 登录页：用户名输入 + 本机 IP 下拉选择；Enter 快捷登录
+  - 聊天页：移除冗余顶部目标下拉；采用用户/组页入口；消息标签按用户拆分 + “全部”汇总；Enter 发送（Shift+Enter 换行）
+  - 本地用户信息：两行显示（用户名 + 在线状态 / 下方 IP），动态刷新；发送区不再重复显示 `[LOCAL]`
+  - 表情/截图：Emoji 快捷按钮加宽；区域截图后有确认对话（发送 / 保存 / 保留）；截图目录可配置
+  - 编码提示：发送区显示当前编码；“编码自检”(Encoding Self-Test) 按钮发送多语言+Emoji 测试
+  - 文件：展示 用户名[IP:...] 文件名 时间/大小/来源；接收进度与保存完成提示；自动回到聊天页
+  - 分组：成员增删、组内群发、全部群发；显示成员数量；支持组名/成员模糊搜索
+  - 在线统计：用户页 / 信息页 显示在线节点计数
+  - 主题/语言：深色/浅色；中英双语切换（Settings/所有按钮、占位符与标签已全面适配）
+  - 状态：online/busy/away 显示在用户信息区
+  - 平台 & 架构检测：Windows 11 / Linux aarch64 等
+  - RK3566 适配：自动启用软件 OpenGL、Emoji 字体加载与本地 ./fonts 目录回退
+- 加密：RSA-3072 + AES-256-GCM 混合；模式 off/on/strict；指纹展示；一键重生成与公钥导出；严格模式缺少对端公钥时拒绝发送
+- 历史：基于 ip:/group:/all/显示名[IP:...] 目标聚合；GUI 历史对话框可查看
+- 持久化：语言/状态/编码/主题/绑定 IP/下载目录/截图目录/头像/加密模式 保存在 `zfeiq_state.json`
+- CLI 能力：
+  - 登录/退出、在线发现/诊断、私聊/群发、分组管理、文件要约收发、可调保活/过期
+  - 运行期绑定 `/set bind <ip>`，快速切换生效
+
+---
+
+## 环境要求
+
+
+ 依赖：建议安装 `cryptography`（首选）或 `pycryptodome`（后备）。
+
+### 安装依赖
+
+使用已配置的 Python 环境安装：
+
+ ```pwsh
+pip install -r requirements.txt
+ ```
+
+本项目的 `zfeiq_cli/crypto.py` 会优先使用 `cryptography`，若不可用则自动回退使用 `pycryptodome`。
+
+```pwsh
+pip install "PyQt5==5.15.0"
 ```
 
-常见参数：
+---
 
-- 端口：`python .\main.py --port 2426`
-- 启动绑定：`python .\main.py --bind 192.168.137.1`（一般不必用）
+## 快速开始
 
-## 常用命令（精要）
+GUI 启动（推荐）：
+
+```pwsh
+python .\main.py --gui
+```
+
+CLI 启动：
+
+```pwsh
+python .\main.py              # 默认 UDP/2425；自动选网卡
+python .\main.py --port 2426  # 自定义端口
+python .\main.py --bind 192.168.1.100  # 指定绑定 IP（通常不需要）
+```
+
+> Windows 防火墙请允许专用网络 UDP；如端口被占用，改用其它端口或关闭占用程序。
+
+---
+
+## GUI 使用说明（核心交互）
+
+1. 登录页：用户名 + IP 下拉；Enter 登录；成功后显示左侧导航。
+2. 用户页 / 组页：选择聊天对象并自动切换到聊天页；显示在线计数与分组成员数量。
+3. 聊天页：
+   - 顶部头像区：用户名(加粗) + 状态；下方 IP；本地消息绿色高亮。
+   - 输入框：Enter 发送，Shift+Enter 换行；Emoji / 表情管理 / 截图 / 常用语 / 历史 / 发送文件 按钮。
+   - 截图：区域拖拽后弹确认对话框（发送 / 保存 / 保留）。
+4. 文件页：列出入站要约（时间/大小/来源），接收进度条，完成后提示。
+5. 信息页：本机网络信息、在线节点列表与数量、定向/广播发现。
+6. 密钥页：加密模式切换、指纹刷新、重生成、导出公钥。
+7. 设置页：语言 / 状态 / 编码 / 主题 / 网卡 IP / 绑定 IP / 子网掩码 / 下载 & 截图目录 / 头像 / Keepalive / Expire / 日志开关；自动同步当前配置。
+
+---
+
+## CLI 常用命令（精要）
 
 - 账号：`/login [name]`、`/logout`、`/exit`
 - 发现：`/discover`、`/discover ip:<addr>`、`/info`、`/info net`
-- 查询：`/search user|group|ip`、`/info user:<name>`、`/info group:<name>`、`/group`（列出组）
+- 查询：`/search user|group|ip`、`/info user:<name>`、`/info group:<name>`、`/group`
 - 发送：`/send user:<name>|ip:<addr>|group:<group>|all <text>`
-- 分组：`/group <group> -add| -delete [username]`（兼容 `-send <text>`）
+- 分组：`/group <group> -add|-delete [username]`
 - 文件：`/file send user|ip <path>`、`/file list`、`/file accept <id>`、`/file cancel <id>`
 - 设置：`/set language|status|debug|trace|encoding|keepalive|expire|bind <val>`、`/clear`
 
-提示：启动时会打印本机 IPv4 列表与默认下载目录；`/set bind ip:<addr>` 与 `/set bind <addr>` 等价。
+---
 
-## 文件互通（概要）
+## 文件与加密说明
 
-- 本实现之间：基于 `FILE_OFFER` 的一次性 TCP 端口直传
-- 与飞秋/IPMSG：发送端随 `SENDMSG` 携带 FILEATTACH；接收端用 2425/TCP `GETFILEDATA` 拉取
-- 接收：`/file list` 查看要约；`/file accept <id>` 保存到下载目录（可设置 `/set download_dir`）
+### 文件
 
-## 故障排查（速查）
+- 默认采用 IPMSG 附件（FILEATTACH）+ 2425/TCP GETFILEDATA 方式；接收后自动发送 RELEASEFILES
+- GUI 以要约形式展示，可接收/放弃；下载目录可在设置或文件页设定
+- 兼容旧式一次性直连要约（自建临时 TCP 服务器）
 
-- 看不到对端：检查端口一致（默认 2425）、防火墙允许 UDP/广播、是否同一二层网；跨子网用 `/discover ip:<addr>`
-- 多网卡困扰：通常无需 `--bind`；必要时运行期 `/set bind <ip>` 锁定；`/info net` 查看绑定与广播地址
-- 端口占用：Windows 报 `[WinError 10013]` → 关闭占用或更换端口；也可用“Windows + WSL”双端避免冲突
+### 加密
 
-## 限制与规划
+- 混合加密：RSA-3072 OAEP-SHA256 包裹 AES-256-GCM 会话密钥
+- 发送路径：若 on/strict 模式且已有对端公钥，则加密文本；否则 strict 模式下拒绝发送并主动请求公钥
+- 指纹：SHA-256(pubkey) 十六进制两字符分组显示；便于比对
+- 模式：off（明文）/ on（有公钥则加密）/ strict（无公钥不发送）
 
-- 当前以文本消息为主（表情/富文本/加密待扩展）
-- GETLIST/ANSLIST 仅用于同实现间共享在线列表
-- 路线图：更完善的群聊、目录/多文件传输、TLS/加密、历史持久化、UI 插件化
+---
+
+## 故障排查
+
+- 无法发现对端：确认端口一致（默认 2425）、同一二层网、允许 UDP/广播；跨子网请使用单播发现
+- 多网卡切换：通常不必绑定；必要时在 GUI 设置“网卡 IP”或 CLI `/set bind <ip>`
+- 端口占用：Windows 出现 `[WinError 10013]` 可更换端口或关闭占用程序
+
+---
+
+## 开发与目录结构
+
+```text
+ZFeiQ/
+  main.py                # 入口；--gui 启动 GUI，否则启动 CLI
+  zfeiq_cli/             # CLI 实现（传输/协议/文件等）
+  zfeiq_gui/             # GUI（PyQt5）
+    main_window.py       # 主窗体与各页面
+    backend.py           # GUI 后端桥接 CLI 能力
+    app.py, __init__.py  # 启动封装
+  tests/                 # 一些快速检查与演示脚本
+```
+
+建议在 Windows PowerShell/Conda 环境中运行；Linux/aarch64 需要合适的 Python 与 PyQt5。
+
+---
+
+## 项目背景（课程 Project3）
+
+- 在瑞芯微板子麒麟系统实现局域网飞秋功能
+- 无需服务器：私聊/群聊；搜索用户/组；群发所有在线；表情包与区域截图；文件要约与加密通信
+
+---
+
+## 版权与协议
+
+本项目用于学习与交流，遵循相关协议与当地法律法规；请合理使用，勿用于任何违法场景。
+
+欢迎提交 Issue / PR 反馈互通与功能优化建议。
+
