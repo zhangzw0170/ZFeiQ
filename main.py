@@ -31,7 +31,13 @@ def parse_port_and_bind(argv):
     return port, bind_ip
 
 def main():
-    if "--gui" in sys.argv:
+    if "--cli" in sys.argv: # CLI mode
+        port, bind_ip = parse_port_and_bind(sys.argv[1:])
+        from zfeiq_cli.cli import ZFeiQCli
+        app = ZFeiQCli(port=port if port else 2425, bind_ip=bind_ip if bind_ip else None)
+        app.start()
+        app.loop()
+    else: # GUI mode
         try:
             from zfeiq_gui import launch_gui
         except ImportError as exc:
@@ -39,12 +45,6 @@ def main():
             print(f"详细: {exc}")
             sys.exit(1)
         launch_gui()
-    else:
-        port, bind_ip = parse_port_and_bind(sys.argv[1:])
-        from zfeiq_cli.cli import ZFeiQCli
-        app = ZFeiQCli(port=port if port else 2425, bind_ip=bind_ip if bind_ip else None)
-        app.start()
-        app.loop()
 
 
 if __name__ == "__main__":

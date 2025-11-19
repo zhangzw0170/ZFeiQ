@@ -484,6 +484,14 @@
 "ip": "172.26.88.222",
 "target": "me",
 "text": "编码自检：中文✓ English✓ Emoji😀 αßé"
+},
+{
+"ts": 1763568562.757735,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "all",
+"text": "[FILE]工程应用实践-202509.pptx"
 }
 ]
 }
