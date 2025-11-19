@@ -1195,8 +1195,23 @@ class MainWindow(QtWidgets.QMainWindow):
             if not r or r.width() <= 0 or r.height() <= 0:
                 return
             screen = QtWidgets.QApplication.primaryScreen()
-            pm_full = screen.grabWindow(0)
-            pm = pm_full.copy(r.x(), r.y(), r.width(), r.height())
+            pm = None
+            try:
+                # 优先抓整屏，再裁剪选区
+                desktop = QtWidgets.QApplication.desktop()
+                wid = int(desktop.winId()) if desktop else 0
+                pm_full = screen.grabWindow(wid)
+                if pm_full and not pm_full.isNull():
+                    pm = pm_full.copy(r.x(), r.y(), r.width(), r.height())
+            except Exception:
+                pm = None
+            if pm is None or pm.isNull():
+                try:
+                    # 回退：仅截当前窗口区域
+                    pm_fallback = self.grab()
+                    pm = pm_fallback.copy(r.x(), r.y(), r.width(), r.height())
+                except Exception:
+                    return  # 无法截屏
             # preview dialog
             dlg = QtWidgets.QDialog(self)
             dlg.setWindowTitle("确认截图")
