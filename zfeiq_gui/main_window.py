@@ -32,29 +32,91 @@ class UserPage(QtWidgets.QWidget):
     sigAnchor = QtCore.pyqtSignal(str)
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._build_ui()
         self._local_ip = ""
         self._logs = {}
         self._pending_files = []  # type: List[str]
+        self._current_language = "zhCN"
+        self._localization = {
+            "status_prefix": "状态：",
+            "all_tab": "全部",
+            "me_label": "我",
+            "file_sent_prefix": "已发送文件: ",
+        }
+        self._status_token = ""
+        self._status_colors = {
+            "online": "#2ecc71",
+            "busy": "#f97316",
+            "away": "#9ca3af",
+            "在线": "#2ecc71",
+            "忙碌": "#f97316",
+            "离开": "#9ca3af",
+        }
+        self._build_ui()
 
     def eventFilter(self, a0, a1):  # basic passthrough; wrapper installed later may delegate
         return False
 
-    def _ensure_view(self, key: str) -> QtWidgets.QTextBrowser:
+    def _ensure_view(self, key: str, label: str) -> QtWidgets.QTextBrowser:
+        label = label or self._target_labels.get(key) or key
         if key not in self._chat_views:
             view = QtWidgets.QTextBrowser(); view.setOpenExternalLinks(False)
             view.setReadOnly(True)
             view.setPlaceholderText("消息接收区：显示聊天记录及文件提示")
             view.anchorClicked.connect(lambda url, self=self: self.sigAnchor.emit(url.toString()))
             self._chat_views[key] = view
-            self.tabs.addTab(view, key)
-        return self._chat_views[key]
+            self._view_targets[view] = key
+            self.tabs.addTab(view, label)
+        else:
+            view = self._chat_views[key]
+            idx = self.tabs.indexOf(view)
+            if idx >= 0 and key != "all":
+                self.tabs.setTabText(idx, label)
+        if key != "all":
+            self._target_labels[key] = label
+        return view
 
     def _append_log(self, target: str, line: str):
         try:
             self._logs.setdefault(target, []).append(line)
         except Exception:
             pass
+
+    def target_for_index(self, idx: int) -> Optional[str]:
+        if idx < 0:
+            return None
+        if idx == 0:
+            return "all"
+        widget = self.tabs.widget(idx)
+        return self._view_targets.get(widget)
+
+    def current_target_id(self) -> Optional[str]:
+        return self.target_for_index(self.tabs.currentIndex())
+
+    def focus_chat_tab(self, target_id: str, label: str) -> None:
+        view = self._ensure_view(target_id, label)
+        idx = self.tabs.indexOf(view)
+        if idx >= 0:
+            self.tabs.setCurrentIndex(idx)
+
+    def remove_chat_tab(self, target_id: str) -> None:
+        if target_id == "all":
+            return
+        view = self._chat_views.pop(target_id, None)
+        if not view:
+            return
+        self._target_labels.pop(target_id, None)
+        self._view_targets.pop(view, None)
+        idx = self.tabs.indexOf(view)
+        if idx >= 0:
+            self.tabs.removeTab(idx)
+        view.deleteLater()
+
+    def _close_chat_tab(self, idx: int) -> None:
+        if idx <= 0:
+            return
+        target_id = self.target_for_index(idx)
+        if target_id:
+            self.remove_chat_tab(target_id)
 
     def set_avatar(self, path: str):
         try:
@@ -81,15 +143,22 @@ class UserPage(QtWidgets.QWidget):
         self.username_label = QtWidgets.QLabel("用户名：未登录")
         self.status_label = QtWidgets.QLabel("状态：-")
         self.ip_label = QtWidgets.QLabel("IP：-.-.-.-")
-        self.username_label.setStyleSheet("font-size: 16px; font-weight: bold;")
-        self.status_label.setStyleSheet("color:#444444; font-size:12px;")
-        self.ip_label.setStyleSheet("color: #666666; font-size:12px;")
-        self.encoding_label = QtWidgets.QLabel("编码: -")
+        self.status_indicator = QtWidgets.QLabel()
+        self.status_indicator.setFixedSize(10, 10)
+        self.status_indicator.setStyleSheet("background:#c4c4c4; border-radius:5px;")
+        self.username_label.setStyleSheet("font-size:18px; font-weight:600;")
+        self.status_label.setStyleSheet("color:#333333; font-size:13px;")
+        self.ip_label.setStyleSheet("color:#555555; font-size:13px;")
         self.me_info_label = QtWidgets.QLabel("")
+        self.me_info_label.setStyleSheet("color:#777777; font-size:12px;")
         info_box.addWidget(self.username_label)
-        info_box.addWidget(self.status_label)
+        status_row = QtWidgets.QHBoxLayout()
+        status_row.setSpacing(6)
+        status_row.addWidget(self.status_indicator, 0, QtCore.Qt.AlignVCenter)
+        status_row.addWidget(self.status_label, 0, QtCore.Qt.AlignVCenter)
+        status_row.addStretch()
+        info_box.addLayout(status_row)
         info_box.addWidget(self.ip_label)
-        info_box.addWidget(self.encoding_label)
         info_box.addWidget(self.me_info_label)
         info_box.addStretch()
 
@@ -98,7 +167,11 @@ class UserPage(QtWidgets.QWidget):
 
         # 聊天标签页：每个用户一个独立视图，含一个“全部”汇总
         self.tabs = QtWidgets.QTabWidget()
-        self._chat_views = {}  # key(display) -> QTextEdit
+        self.tabs.setTabsClosable(True)
+        self.tabs.tabCloseRequested.connect(self._close_chat_tab)
+        self._chat_views = {}  # target_id -> QTextBrowser
+        self._view_targets = {}  # QTextBrowser -> target_id
+        self._target_labels = {}  # target_id -> tab label
         self._view_all = QtWidgets.QTextBrowser(); self._view_all.setOpenExternalLinks(False)
         self._view_all.setReadOnly(True)
         self._view_all.anchorClicked.connect(lambda url: self.sigAnchor.emit(url.toString()))
@@ -106,18 +179,41 @@ class UserPage(QtWidgets.QWidget):
         self.local_msg_color_light = "#00561F"
         self.local_msg_color_dark = "#29c94f"
         self._current_local_color = self.local_msg_color_light
-        self.tabs.addTab(self._view_all, "全部")
+        all_label = self._localization.get("all_tab", "全部")
+        self.tabs.addTab(self._view_all, all_label)
+        self._chat_views["all"] = self._view_all
+        self._view_targets[self._view_all] = "all"
+        self._target_labels["all"] = all_label
+        try:
+            tabbar = self.tabs.tabBar()
+            if tabbar:
+                for side in (QtWidgets.QTabBar.LeftSide, QtWidgets.QTabBar.RightSide):
+                    btn = tabbar.tabButton(0, side)
+                    if btn:
+                        btn.hide()
+                        tabbar.setTabButton(0, side, btn)
+        except Exception:
+            pass
 
+        # 聊天操作按钮行：风格统一采用侧边栏 NavigationButton 样式
         actions_row = QtWidgets.QHBoxLayout()
-        self.emoji_btn = QtWidgets.QPushButton("表情管理")
-        self.screenshot_btn = QtWidgets.QPushButton("截图")
-        self.quicktext_btn = QtWidgets.QPushButton("常用语")
-        self.enc_test_btn = QtWidgets.QPushButton("编码自检")
-        self.history_btn = QtWidgets.QPushButton("历史")
-        self.send_file_btn = QtWidgets.QPushButton("发送文件")
-        # 简易 Emoji 选择器
-        self.emoji_unicode_btn = QtWidgets.QPushButton("😀")
+        def _make_action_btn(text: str) -> NavigationButton:
+            btn = NavigationButton(text)
+            # 避免在该行被拉伸过宽
+            btn.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+            return btn
+        self.emoji_btn = _make_action_btn("表情管理")
+        self.screenshot_btn = _make_action_btn("截图")
+        self.quicktext_btn = _make_action_btn("常用语")
+        self.enc_test_btn = _make_action_btn("编码自检")
+        self.history_btn = _make_action_btn("历史")
+        self.send_file_btn = _make_action_btn("发送文件")
+        # 简易 Emoji 选择器（采用 QToolButton 保持与侧栏一致）
+        self.emoji_unicode_btn = QtWidgets.QToolButton()
+        self.emoji_unicode_btn.setText("😀")
+        self.emoji_unicode_btn.setToolButtonStyle(QtCore.Qt.ToolButtonTextOnly)
         self.emoji_unicode_btn.setFixedWidth(44)
+        self.emoji_unicode_btn.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         def _show_emoji_grid():
             dlg = QtWidgets.QDialog(self)
             dlg.setWindowTitle("选择 Emoji")
@@ -141,9 +237,7 @@ class UserPage(QtWidgets.QWidget):
                 lay.addWidget(btn, r, c)
             dlg.exec_()
         self.emoji_unicode_btn.clicked.connect(_show_emoji_grid)
-        for b in (self.emoji_btn, self.screenshot_btn, self.quicktext_btn, self.enc_test_btn, self.history_btn, self.send_file_btn):
-            b.setFixedHeight(b.fontMetrics().height() + 12)
-            b.setStyleSheet("QPushButton{border: none; background: #ededed; padding:4px 8px; border-radius:6px;} QPushButton:hover{background:#e0e0e0}")
+        # 高度已由 NavigationButton 统一设置；暗色/浅色样式在全局 QSS 中通过 QToolButton 控制
         actions_row.addWidget(self.emoji_btn)
         actions_row.addWidget(self.screenshot_btn)
         actions_row.addWidget(self.quicktext_btn)
@@ -165,15 +259,11 @@ class UserPage(QtWidgets.QWidget):
         self.outbox.setPlaceholderText("输入消息，Enter 发送，Shift+Enter 换行")
         self.outbox.setAcceptRichText(False)
 
-        # 目标与发送行（保留以兼容现有逻辑；后续可按需隐藏）
+        # 目标由子选项卡决定，发送行仅保留编码提示与发送按钮
         send_row = QtWidgets.QHBoxLayout()
-        self.target_combo = QtWidgets.QComboBox()
-        self.refresh_targets_btn = QtWidgets.QPushButton("刷新")
         self.send_btn = QtWidgets.QPushButton("发送")
         self.send_btn.setFixedHeight(self.send_btn.fontMetrics().height() + 12)
-        send_row.addWidget(QtWidgets.QLabel("目标"))
-        send_row.addWidget(self.target_combo, 1)
-        send_row.addWidget(self.refresh_targets_btn)
+        send_row.addStretch(1)
         send_row.addWidget(self.send_btn)
 
         # 组装布局
@@ -262,12 +352,23 @@ class UserPage(QtWidgets.QWidget):
                 w.hide(); w.deleteLater()
         self.file_bar.setVisible(bool(self._pending_files))
 
+    def apply_localization(self, lang: str, data: Dict[str, str]) -> None:
+        self._current_language = lang
+        for key, val in data.items():
+            if val:
+                self._localization[key] = val
+        all_label = self._localization.get("all_tab", "全部")
+        idx = self.tabs.indexOf(self._view_all)
+        if idx >= 0:
+            self.tabs.setTabText(idx, all_label)
+        self._target_labels["all"] = all_label
+
     def append_message(self, sender: str, ip: str, text: str) -> None:
-        key = f"{sender}[IP:{ip}]"
-        is_local = bool(self._local_ip and ip == self._local_ip)
-        bubble_bg = "#DCF8C6" if is_local else "#FFFFFF"
-        align = "right" if is_local else "left"
-        color = "#111" if not is_local else "#0a0a0a"
+        key = f"ip:{ip}" if ip else sender
+        label = f"{sender}@{ip}" if ip else sender
+        bubble_bg = "#FFFFFF"
+        align = "left"
+        color = "#111"
         html_bubble = (
             f"<div style='text-align:{align};'>"
             f"  <span style='display:inline-block; max-width:70%; background:{bubble_bg}; color:{color}; padding:6px 10px; border-radius:10px; border:1px solid #e6e6e6;'>"
@@ -276,7 +377,7 @@ class UserPage(QtWidgets.QWidget):
             f"</div>"
         )
         self._view_all.append(html_bubble)
-        self._ensure_view(key).append(html_bubble)
+        self._ensure_view(key, label).append(html_bubble)
         self._append_log(key, f"<< {sender}@{ip}: {text}")
 
     def append_file_notice(self, sender: str, file_name: str) -> None:
@@ -284,17 +385,20 @@ class UserPage(QtWidgets.QWidget):
         html = f"<span style='color:{color}'>&lt;&lt; [{sender}] 文件: {escape(file_name)}</span>"
         self._view_all.append(html)
 
-    def append_outgoing(self, target_display: str, text: str) -> None:
-        key = target_display
+    def append_outgoing(self, target_id: str, target_display: str, text: str, tab_label: Optional[str] = None) -> None:
+        key = target_id or target_display
+        me_label = escape(self._localization.get("me_label", "我"))
         html_bubble = (
             f"<div style='text-align:right;'>"
             f"  <span style='display:inline-block; max-width:70%; background:#DCF8C6; color:#0a0a0a; padding:6px 10px; border-radius:10px; border:1px solid #d8f0c0;'>"
-            f"    <b>我</b> -> {escape(target_display)}<br/>{escape(text)}"
+            f"    <b>{me_label}</b> -> {escape(target_display)}<br/>{escape(text)}"
             f"  </span>"
             f"</div>"
         )
-        self._view_all.append(html_bubble)
-        self._ensure_view(key).append(html_bubble)
+        view = self._ensure_view(key, tab_label or target_display)
+        if view is not self._view_all:
+            self._view_all.append(html_bubble)
+        view.append(html_bubble)
         self._append_log(key, f">> {text}")
 
     def append_incoming_offer(self, oid: str, uname: str, ip: str, name: str, size: int):
@@ -324,18 +428,20 @@ class UserPage(QtWidgets.QWidget):
             f"<div style='text-align:left;'><span style='display:inline-block; background:#e6ffed; color:#065f46; padding:4px 8px; border-radius:8px; border:1px solid #c7f5d9;'>[文件完成] {escape(name)} 保存到 {escape(path)}</span></div>"
         )
 
-    def append_file_sent(self, target_display: str, path: str):
-        key = target_display
+    def append_file_sent(self, target_id: str, target_display: str, path: str, tab_label: Optional[str] = None):
+        key = target_id or target_display
         name = os.path.basename(path)
         html_bubble = (
             f"<div style='text-align:right;'>"
             f"  <span style='display:inline-block; max-width:70%; background:#DCF8C6; color:#0a0a0a; padding:6px 10px; border-radius:10px; border:1px solid #d8f0c0;'>"
-            f"    <b>我</b> -> {escape(target_display)}<br/>已发送文件: {escape(name)}"
+            f"    <b>{escape(self._localization.get('me_label','我'))}</b> -> {escape(target_display)}<br/>{escape(self._localization.get('file_sent_prefix','已发送文件: '))}{escape(name)}"
             f"  </span>"
             f"</div>"
         )
-        self._view_all.append(html_bubble)
-        self._ensure_view(key).append(html_bubble)
+        view = self._ensure_view(key, tab_label or target_display)
+        if view is not self._view_all:
+            self._view_all.append(html_bubble)
+        view.append(html_bubble)
 
     def set_local_color(self, dark: bool):
         self._current_local_color = self.local_msg_color_dark if dark else self.local_msg_color_light
@@ -347,12 +453,25 @@ class UserPage(QtWidgets.QWidget):
         except Exception:
             pass
 
-    def set_user_status(self, uname: str, status: str):
+    def set_user_status(self, uname: str, status: str, status_tag: Optional[str] = None):
         try:
             if uname:
                 self.username_label.setText(f"{uname}")
             if status:
-                self.status_label.setText(f"状态：{status}")
+                prefix = self._localization.get("status_prefix", "状态：")
+                self.status_label.setText(f"{prefix}{status}")
+            token = (status_tag or "").lower()
+            if not token and status:
+                token = status.lower()
+            color = self._status_colors.get(token) or self._status_colors.get(status) or "#c4c4c4"
+            self._apply_status_color(color)
+            self._status_token = token or status or ""
+        except Exception:
+            pass
+
+    def _apply_status_color(self, color: str):
+        try:
+            self.status_indicator.setStyleSheet(f"background:{color}; border-radius:5px;")
         except Exception:
             pass
 
@@ -417,6 +536,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.resize(500, 800)
         self._build_ui()
         self._current_theme = "light"
+        self._current_language = "zhCN"
+        self._current_translations = {}
 
     def _build_ui(self) -> None:
         central = QtWidgets.QWidget()
@@ -462,11 +583,9 @@ class MainWindow(QtWidgets.QMainWindow):
         bottom_box.setSpacing(8)
         self.btn_emotes = NavigationButton("表情管理")
         self.btn_keys = NavigationButton("密钥")
-        self.btn_profile = NavigationButton("信息")
         self.btn_settings = NavigationButton("设置")
         bottom_box.addWidget(self.btn_emotes)
         bottom_box.addWidget(self.btn_keys)
-        bottom_box.addWidget(self.btn_profile)
         bottom_box.addWidget(self.btn_settings)
         # 布局顺序：顶部按钮组 -> 拉伸 -> 底部按钮组
         outer_layout.addLayout(top_box)
@@ -496,9 +615,6 @@ class MainWindow(QtWidgets.QMainWindow):
         # 表情页
         self._emotes_page = EmotesPage()
         self._stack.addWidget(self._emotes_page)
-        # 信息页
-        self._info_page = InfoPage()
-        self._stack.addWidget(self._info_page)
         # 密钥页
         self._keys_page = KeyPage()
         self._stack.addWidget(self._keys_page)
@@ -513,7 +629,6 @@ class MainWindow(QtWidgets.QMainWindow):
         # 截图不再作为独立页面入口
         self.btn_emotes.clicked.connect(lambda: self._stack.setCurrentWidget(self._emotes_page))
         self.btn_keys.clicked.connect(lambda: self._stack.setCurrentWidget(self._keys_page))
-        self.btn_profile.clicked.connect(lambda: self._stack.setCurrentWidget(self._info_page))
         self.btn_settings.clicked.connect(lambda: self._stack.setCurrentWidget(self._settings_page))
         # 默认进入聊天页
         self._stack.setCurrentWidget(self._login_page)
@@ -598,10 +713,6 @@ class MainWindow(QtWidgets.QMainWindow):
                     self._settings_page.cmb_status.setCurrentText(getattr(z, 'status', 'online'))
                     self._settings_page.cmb_enc.setCurrentText(getattr(z, 'encoding', 'utf-8'))
                     try:
-                        self._user_page.encoding_label.setText(f"编码: {getattr(z,'encoding','utf-8')}")
-                    except Exception:
-                        pass
-                    try:
                         dld = getattr(z, 'download_dir', '') or ''
                         if dld:
                             self._settings_page.edit_dir.setText(dld)
@@ -622,75 +733,108 @@ class MainWindow(QtWidgets.QMainWindow):
                     pass
             except Exception:
                 pass
-            # 初始不预设用户信息，由目标变化与登录事件更新
-            # populate target combo
-            def update_targets():
+            # 聊天目标由子选项卡驱动
+            def _find_node_by_ip(ip: str):
+                for n in backend.get_nodes():
+                    if getattr(n, 'ip', None) == ip:
+                        return n
+                return None
+
+            def _tab_label_for_target(target_id: str) -> str:
+                if not target_id:
+                    return ""
+                if target_id == "all":
+                    return self._current_translations.get("all_tab", "全部")
+                if target_id.startswith("ip:"):
+                    ip = target_id[3:]
+                    node = _find_node_by_ip(ip)
+                    name = getattr(node, 'username', ip)
+                    return f"{name}@{ip}"
+                if target_id.startswith("group:"):
+                    g = target_id[6:]
+                    return f"群:{g}"
+                return target_id
+
+            def _display_for_target(target_id: str) -> str:
+                if not target_id:
+                    return ""
+                if target_id == "all":
+                    return self._current_translations.get("all_display", "所有在线")
+                if target_id.startswith("ip:"):
+                    ip = target_id[3:]
+                    node = _find_node_by_ip(ip)
+                    name = getattr(node, 'username', ip)
+                    return f"{name}@{ip}"
+                if target_id.startswith("group:"):
+                    g = target_id[6:]
+                    return f"群组:{g}"
+                return target_id
+
+            def _refresh_target_header(target_id: Optional[str]):
                 try:
-                    cb = self._user_page.target_combo
-                    cb.blockSignals(True)
-                    cb.clear()
-                    cb.addItem("all")
-                    cb.setItemData(0, "all")
-                    # 本地用户显示为 用户名[IP:xxx][LOCAL]
-                    local_ip = ""
-                    try:
-                        local_ip = backend.get_net_info().get('local_ip','')
-                        uname = getattr(getattr(backend, 'zcli', None), 'username', '') or '我'
-                        if local_ip:
-                            local_disp = f"{uname}[IP:{local_ip}][LOCAL]"
-                            cb.addItem(local_disp)
-                            cb.setItemData(cb.count()-1, f"ip:{local_ip}")
-                    except Exception:
-                        pass
-                    for n in backend.get_nodes():
-                        # 跳过已作为本地的节点条目（IP 相同）
-                        try:
-                            if local_ip and n.ip == local_ip:
-                                continue
-                        except Exception:
-                            pass
-                        disp = f"{n.username}[IP:{n.ip}]"
-                        cb.addItem(disp)
-                        cb.setItemData(cb.count()-1, f"ip:{n.ip}")
-                    cb.blockSignals(False)
+                    if not self.nav_panel.isVisible():
+                        self.setWindowTitle("ZFeiQ")
                 except Exception:
                     pass
-            # refresh on button
-            self._user_page.refresh_targets_btn.clicked.connect(update_targets)
-            # periodic refresh
-            timer = QtCore.QTimer(self)
-            timer.timeout.connect(update_targets)
-            timer.start(3000)
+                if not target_id:
+                    self._user_page.username_label.setText("聊天对象：未选择")
+                    self._user_page.ip_label.setText("IP：-.-.-.-")
+                    self._user_page.send_btn.setEnabled(False)
+                    if getattr(self, 'nav_panel', None):
+                        self.setWindowTitle("ZFeiQ")
+                    return
+                self._user_page.send_btn.setEnabled(True)
+                title = "ZFeiQ"
+                if target_id.startswith("ip:"):
+                    ip = target_id[3:]
+                    node = _find_node_by_ip(ip)
+                    name = getattr(node, 'username', ip)
+                    self._user_page.username_label.setText(name)
+                    self._user_page.ip_label.setText(f"IP：{ip}")
+                    title = f"{name}[IP:{ip}] - ZFeiQ"
+                elif target_id.startswith("group:"):
+                    g = target_id[6:]
+                    self._user_page.username_label.setText(f"群组：{g}")
+                    self._user_page.ip_label.setText("")
+                    title = f"群组:{g} - ZFeiQ"
+                else:
+                    self._user_page.username_label.setText(target_id)
+                    self._user_page.ip_label.setText("")
+                    title = f"{target_id} - ZFeiQ"
+                self.setWindowTitle(title)
 
-            # wire send button
-            def _resolve_target_for_send():
-                cb = self._user_page.target_combo
-                idx = cb.currentIndex()
-                data = cb.itemData(idx)
-                return data or cb.currentText()
+            def _on_tabs_changed(_: int):
+                _refresh_target_header(self._user_page.current_target_id())
+
+            self._user_page.tabs.currentChanged.connect(_on_tabs_changed)
+            _refresh_target_header(self._user_page.current_target_id())
+
+            def _focus_target(target_id: str):
+                if not target_id:
+                    return
+                self._user_page.focus_chat_tab(target_id, _tab_label_for_target(target_id))
+                _refresh_target_header(target_id)
 
             def on_send():
-                target = _resolve_target_for_send()
+                target = self._user_page.current_target_id()
                 text = self._user_page.outbox.toPlainText().strip()
                 files = self._user_page.get_pending_files()
+                if not target:
+                    if text or files:
+                        QtWidgets.QMessageBox.information(self, "未选择目标", "请先在用户或组页面选择聊天对象。")
+                    return
                 if not text and not files:
                     return
-                # 计算显示名
-                cb = self._user_page.target_combo
-                disp = cb.currentText()
-                if disp == "all":
-                    if target.startswith("ip:"):
-                        disp = f"[IP:{target[3:]}]"
-                    else:
-                        disp = target
+                tab_label = _tab_label_for_target(target)
+                display = _display_for_target(target)
                 try:
                     if text:
                         backend.send_text(target, text)
-                        self._user_page.append_outgoing(disp, text)
+                        self._user_page.append_outgoing(target, display, text, tab_label=tab_label)
                     for p in files:
                         try:
                             backend.send_file(target, p)
-                            self._user_page.append_file_sent(disp, p)
+                            self._user_page.append_file_sent(target, display, p, tab_label=tab_label)
                         except Exception:
                             pass
                     self._user_page.outbox.clear()
@@ -699,7 +843,6 @@ class MainWindow(QtWidgets.QMainWindow):
                     pass
 
             self._user_page.send_btn.clicked.connect(on_send)
-            # Enter 触发发送
             try:
                 self._user_page.sigSend.connect(on_send)
             except Exception:
@@ -771,7 +914,10 @@ class MainWindow(QtWidgets.QMainWindow):
                     tgt = f"ip:{ip}" if ip else "all"
                     sample = "编码自检：中文✓ English✓ Emoji😀 αßé"
                     backend.send_text(tgt, sample)
-                    self._user_page.append_outgoing(self._user_page.target_combo.currentText() or tgt, sample)
+                    tab_label = _tab_label_for_target(tgt)
+                    display = _display_for_target(tgt) or tgt
+                    self._user_page.append_outgoing(tgt, display, sample, tab_label=tab_label)
+                    _focus_target(tgt)
                 self._user_page.enc_test_btn.clicked.connect(_enc_self_test)
             except Exception:
                 pass
@@ -789,20 +935,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         pass
                     backend.login(name)
                     backend.discover()
-                    update_targets()
-                    # 默认选中 LOCAL 目标
-                    try:
-                        local_ip = backend.get_net_info().get('local_ip','')
-                        cb = self._user_page.target_combo
-                        # 找到 itemData 为 ip:local_ip 的项
-                        found = -1
-                        for i in range(cb.count()):
-                            if (cb.itemData(i) or "") == (f"ip:{local_ip}"):
-                                found = i; break
-                        if found >= 0:
-                            cb.setCurrentIndex(found)
-                    except Exception:
-                        pass
+                    refresh_users_page()
                     # 显示左侧导航
                     try:
                         self.nav_panel.setVisible(True)
@@ -820,7 +953,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         }
                         status_disp = status_map.get(lang, status_map['zhCN']).get(status_raw, status_raw)
                         self._user_page.set_local_ip(local_ip)
-                        self._user_page.set_user_status(uname, status_disp)
+                        self._user_page.set_user_status(uname, status_disp, status_raw)
                         # 设置页网卡 IP 下拉选中登录时选择的 IP
                         try:
                             if local_ip:
@@ -839,17 +972,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # discover 来自用户列表页的发现按钮
             try:
-                self._users_page.sigDiscover.connect(lambda ip: (backend.discover(ip or None), update_targets()))
+                self._users_page.sigDiscover.connect(lambda ip: (backend.discover(ip or None), refresh_users_page()))
             except Exception:
                 pass
 
-            # 历史查看（基于当前目标）
+            # 历史查看（基于当前选中子选项卡）
             def on_show_history():
-                # 使用 itemData 解析底层 target(ip:/group:/all)，兼容本地与显示名变体
-                cb = self._user_page.target_combo
-                idx = cb.currentIndex()
-                target_raw = cb.itemData(idx) or cb.currentText()
+                target_raw = self._user_page.current_target_id()
                 if not target_raw:
+                    QtWidgets.QMessageBox.information(self, "未选择目标", "请选择一个聊天对象后再查看历史。")
                     return
                 dlg = QtWidgets.QDialog(self)
                 dlg.setWindowTitle("历史记录")
@@ -891,14 +1022,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             arrow = ">>" if d == "out" else "<<"
                             lines.append(f"[{QtCore.QDateTime.fromSecsSinceEpoch(int(ts)).toString('yyyy-MM-dd hh:mm:ss')}] {uname}@{ip} {arrow} {t}")
                     else:
-                        # 形如 显示名[IP:...] 或 本地显示；提取 IP
-                        if "[IP:" in target_raw:
-                            ip = target_raw.split("[IP:",1)[1].split("]",1)[0]
-                            msgs = getattr(backend.zcli, 'history', {}).get(ip, [])
-                            uname = target_raw.split("[IP:",1)[0]
-                            for ts, d, t in msgs:
-                                arrow = ">>" if d == "out" else "<<"
-                                lines.append(f"[{QtCore.QDateTime.fromSecsSinceEpoch(int(ts)).toString('yyyy-MM-dd hh:mm:ss')}] {uname}@{ip} {arrow} {t}")
+                        pass
                 except Exception:
                     pass
                 text.setPlainText("\n".join(lines) if lines else "(无记录)")
@@ -910,7 +1034,76 @@ class MainWindow(QtWidgets.QMainWindow):
             # 用户列表页交互
             def refresh_users_page():
                 try:
-                    self._users_page.update_nodes(backend.get_nodes(), backend.list_groups(), backend.get_net_info().get('local_ip',''))
+                    info = backend.get_net_info()
+                except Exception:
+                    info = {}
+                try:
+                    self._users_page.set_net_info(info)
+                except Exception:
+                    pass
+                try:
+                    self._users_page.update_nodes(backend.get_nodes(), backend.list_groups(), info.get('local_ip',''))
+                except Exception:
+                    pass
+                try:
+                    mask = None
+                    if hasattr(backend, 'get_subnet_mask'):
+                        mask = backend.get_subnet_mask() or None
+                    if not mask:
+                        pre = info.get('iface_prefix','')
+                        if isinstance(pre, str) and '/' in pre:
+                            try:
+                                bits = int(pre.split('/',1)[1])
+                                if 0 <= bits <= 32:
+                                    m = (0xffffffff << (32 - bits)) & 0xffffffff
+                                    mask = '.'.join(str((m >> (8*i)) & 0xff) for i in [3,2,1,0])
+                            except Exception:
+                                pass
+                    if mask:
+                        self._settings_page.edit_mask.setText(mask)
+                except Exception:
+                    pass
+                try:
+                    ifaces = backend.get_local_ifaces()
+                    self._settings_page.cmb_iface.blockSignals(True)
+                    cur_iface = self._settings_page.cmb_iface.currentText()
+                    self._settings_page.cmb_iface.clear()
+                    for ip_addr, pre in ifaces:
+                        self._settings_page.cmb_iface.addItem(f"{ip_addr}")
+                    if cur_iface:
+                        idx = self._settings_page.cmb_iface.findText(cur_iface)
+                        if idx >= 0:
+                            self._settings_page.cmb_iface.setCurrentIndex(idx)
+                    self._settings_page.cmb_iface.blockSignals(False)
+                except Exception:
+                    pass
+                try:
+                    uname = getattr(getattr(backend, 'zcli', None), 'username', '')
+                    local_ip = info.get('local_ip','')
+                    status_raw = getattr(getattr(backend, 'zcli', None), 'status', 'online')
+                    lang = getattr(getattr(backend, 'zcli', None), 'language', 'zhCN')
+                    status_map = {
+                        'zhCN': {'online':'在线','busy':'忙碌','away':'离开'},
+                        'enUS': {'online':'online','busy':'busy','away':'away'},
+                    }
+                    status_disp = status_map.get(lang, status_map['zhCN']).get(status_raw, status_raw)
+                    if uname:
+                        self._user_page.set_local_ip(local_ip)
+                        self._user_page.set_user_status(uname, status_disp, status_raw)
+                except Exception:
+                    pass
+                try:
+                    ifaces = backend.get_local_ifaces()
+                    self._login_page.ip_combo.blockSignals(True)
+                    cur_ip = self._login_page.ip_combo.currentText()
+                    self._login_page.ip_combo.clear()
+                    for ip_addr, pre in ifaces:
+                        self._login_page.ip_combo.addItem(f"{ip_addr}")
+                    if cur_ip:
+                        idx = self._login_page.ip_combo.findText(cur_ip)
+                        if idx >= 0:
+                            self._login_page.ip_combo.setCurrentIndex(idx)
+                    self._login_page.ip_combo.blockSignals(False)
                 except Exception:
                     pass
 
@@ -922,71 +1115,13 @@ class MainWindow(QtWidgets.QMainWindow):
             def on_pick_target(text: str):
                 try:
                     if text:
-                        # 选择后切到聊天页，并按 itemData(ip:...) 匹配项
-                        cb = self._user_page.target_combo
-                        found = -1
-                        for i in range(cb.count()):
-                            if (cb.itemData(i) or "") == text:
-                                found = i; break
-                        if found >= 0:
-                            cb.setCurrentIndex(found)
-                        else:
-                            cb.setCurrentText("all")
+                        _focus_target(text)
                         self._stack.setCurrentWidget(self._user_page)
                 except Exception:
                     pass
 
             self._users_page.targetPicked.connect(on_pick_target)
 
-            # 目标改变时，更新聊天页顶部与窗口标题
-            def _refresh_target_header_from_targettext(tgt: str):
-                # 未登录（侧栏隐藏）时，标题固定为 ZFeiQ
-                try:
-                    if not self.nav_panel.isVisible():
-                        self.setWindowTitle("ZFeiQ")
-                        return
-                except Exception:
-                    pass
-                name_disp = "-"; ip_disp = "-"
-                try:
-                    if tgt.startswith("ip:"):
-                        ip_disp = tgt[3:]
-                        for n in backend.get_nodes():
-                            if n.ip == ip_disp:
-                                name_disp = n.username; break
-                    elif "[IP:" in tgt:
-                        name_disp = tgt.split("[IP:",1)[0]
-                        ip_disp = tgt.split("[IP:",1)[1].rstrip("]")
-                    elif tgt.startswith("group:"):
-                        name_disp = tgt
-                    elif tgt == "all":
-                        name_disp = "all"
-                except Exception:
-                    pass
-                try:
-                    head = name_disp if ip_disp in ("-", "") else f"{name_disp}[IP:{ip_disp}]"
-                    # 若为本地 IP，追加 [LOCAL]
-                    try:
-                        local_ip = backend.get_net_info().get('local_ip','')
-                        if ip_disp == local_ip and ip_disp not in ("-", ""):
-                            head += "[LOCAL]"
-                    except Exception:
-                        pass
-                    self._user_page.username_label.setText(head)
-                    self._user_page.ip_label.setText("")
-                    self.setWindowTitle(f"{head} - ZFeiQ" if name_disp != "-" else "ZFeiQ")
-                except Exception:
-                    pass
-
-            try:
-                def _on_target_changed(idx: int):
-                    cb = self._user_page.target_combo
-                    data = cb.itemData(idx) or cb.itemText(idx)
-                    _refresh_target_header_from_targettext(data)
-                self._user_page.target_combo.currentIndexChanged.connect(_on_target_changed)
-                _on_target_changed(self._user_page.target_combo.currentIndex())
-            except Exception:
-                pass
 
             # 组管理页绑定
             def refresh_groups_page():
@@ -1015,22 +1150,9 @@ class MainWindow(QtWidgets.QMainWindow):
             def _enter_group_chat(g: str):
                 if not g:
                     return
-                # 在聊天页选择目标为 group:g
                 try:
-                    cb = self._user_page.target_combo
-                    # 查找是否已有该 group 目标，没有则添加
-                    found = False
-                    for i in range(cb.count()):
-                        if cb.itemText(i) == g or cb.itemData(i) == f"group:{g}":
-                            cb.setCurrentIndex(i)
-                            found = True
-                            break
-                    if not found:
-                        cb.addItem(g)
-                        cb.setItemData(cb.count()-1, f"group:{g}")
-                        cb.setCurrentIndex(cb.count()-1)
-                    self._stack.setCurrentWidget(self._user_page)
-                except Exception:
+                    _focus_target(f"group:{g}")
+                finally:
                     self._stack.setCurrentWidget(self._user_page)
             self._groups_page.sigEnterChat.connect(_enter_group_chat)
 
@@ -1053,8 +1175,8 @@ class MainWindow(QtWidgets.QMainWindow):
                         pass
                     # 刷新分组页
                     refresh_groups_page()
-                    # 刷新聊天目标下拉
-                    update_targets()
+                    # 刷新用户页/分组视图
+                    refresh_users_page()
                     # 刷新用户页分组列表
                     if hasattr(self._users_page, "update_nodes"):
                         self._users_page.update_nodes(backend.get_nodes(), backend.list_groups(), backend.get_net_info().get('local_ip',''))
@@ -1063,88 +1185,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self._groups_page.sigRename.connect(_rename_group)
 
             # 独立文件页已移除；文件要约逻辑已在 bind_backend 中整合到聊天页
-
-            # 信息页绑定
-            def refresh_info():
-                info = backend.get_net_info()
-                self._info_page.set_net_info(info)
-                self._info_page.update_nodes(backend.get_nodes())
-                # 同步子网掩码到设置页（若后端提供或可从前缀推导）
-                try:
-                    mask = None
-                    if hasattr(backend, 'get_subnet_mask'):
-                        mask = backend.get_subnet_mask() or None
-                    if not mask:
-                        pre = info.get('iface_prefix','')
-                        if isinstance(pre, str) and '/' in pre:
-                            try:
-                                bits = int(pre.split('/',1)[1])
-                                if 0 <= bits <= 32:
-                                    m = (0xffffffff << (32 - bits)) & 0xffffffff
-                                    mask = '.'.join(str((m >> (8*i)) & 0xff) for i in [3,2,1,0])
-                            except Exception:
-                                pass
-                    if mask:
-                        self._settings_page.edit_mask.setText(mask)
-                except Exception:
-                    pass
-                # 刷新网卡下拉
-                try:
-                    ifaces = backend.get_local_ifaces()
-                    self._settings_page.cmb_iface.blockSignals(True)
-                    cur = self._settings_page.cmb_iface.currentText()
-                    self._settings_page.cmb_iface.clear()
-                    for ip, pre in ifaces:
-                        self._settings_page.cmb_iface.addItem(f"{ip}")
-                    # 还原选择
-                    if cur:
-                        idx = self._settings_page.cmb_iface.findText(cur)
-                        if idx >= 0:
-                            self._settings_page.cmb_iface.setCurrentIndex(idx)
-                    self._settings_page.cmb_iface.blockSignals(False)
-                except Exception:
-                    pass
-                # 同步发送行本地用户信息
-                try:
-                    uname = getattr(getattr(backend, 'zcli', None), 'username', '')
-                    local_ip = info.get('local_ip','')
-                    status_raw = getattr(getattr(backend, 'zcli', None), 'status', 'online')
-                    lang = getattr(getattr(backend, 'zcli', None), 'language', 'zhCN')
-                    status_map = {
-                        'zhCN': {'online':'在线','busy':'忙碌','away':'离开'},
-                        'enUS': {'online':'online','busy':'busy','away':'away'},
-                    }
-                    status_disp = status_map.get(lang, status_map['zhCN']).get(status_raw, status_raw)
-                    if uname:
-                        self._user_page.set_local_ip(local_ip)
-                        self._user_page.set_user_status(uname, status_disp)
-                    try:
-                        enc = getattr(getattr(backend, 'zcli', None), 'encoding', 'utf-8')
-                        self._user_page.encoding_label.setText(f"编码: {enc}")
-                    except Exception:
-                        pass
-                except Exception:
-                    pass
-                # 同步登录页 IP 下拉
-                try:
-                    ifaces = backend.get_local_ifaces()
-                    self._login_page.ip_combo.blockSignals(True)
-                    cur = self._login_page.ip_combo.currentText()
-                    self._login_page.ip_combo.clear()
-                    for ip, pre in ifaces:
-                        self._login_page.ip_combo.addItem(f"{ip}")
-                    if cur:
-                        idx = self._login_page.ip_combo.findText(cur)
-                        if idx >= 0:
-                            self._login_page.ip_combo.setCurrentIndex(idx)
-                    self._login_page.ip_combo.blockSignals(False)
-                except Exception:
-                    pass
-            refresh_info()
-            tinfo = QtCore.QTimer(self)
-            tinfo.timeout.connect(refresh_info)
-            tinfo.start(3000)
-            self._info_page.sigDiscover.connect(lambda ip: backend.discover(ip or None))
 
             # 设置页绑定
             self._settings_page.sigApply.connect(lambda cfg: self._apply_settings(backend, cfg))
@@ -1172,9 +1212,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # 表情页与截图页发送绑定（按当前聊天目标发送）
             def _current_target():
-                cb = self._user_page.target_combo
-                idx = cb.currentIndex()
-                return (cb.itemData(idx) or cb.currentText())
+                return self._user_page.current_target_id()
 
             def _send_path(path: str):
                 tgt = _current_target()
@@ -1198,6 +1236,11 @@ class MainWindow(QtWidgets.QMainWindow):
             # 常用语菜单
             try:
                 self._user_page.quicktext_btn.clicked.connect(self.on_quicktext_menu)
+            except Exception:
+                pass
+            # 允许用户页/组页复用聊天标签逻辑
+            try:
+                self._users_page.set_focus_handler(_focus_target)
             except Exception:
                 pass
             # 密钥管理页绑定
@@ -1310,8 +1353,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if self._current_theme == "dark":
             dark_qss = """
             QMainWindow, QWidget { background: #121212; color: #e0e0e0; }
-            QLineEdit, QTextEdit, QComboBox, QListWidget, QGroupBox, QSpinBox, QDoubleSpinBox {
-              background: #1e1e1e; color: #e0e0e0; border: 1px solid #2a2a2a; border-radius: 6px; }
+                        QLineEdit, QTextEdit, QComboBox, QListWidget, QGroupBox, QSpinBox, QDoubleSpinBox {
+                            background: #1e1e1e; color: #e0e0e0; border: 1px solid #2a2a2a; border-radius: 6px; padding: 6px; }
             QPushButton { background: #2d2d2d; color: #e0e0e0; border: 1px solid #3a3a3a; border-radius: 6px; padding: 6px; }
             QPushButton:hover { background: #3a3a3a; }
             QToolButton { color: #e0e0e0; border: none; padding: 6px; }
@@ -1340,14 +1383,32 @@ class MainWindow(QtWidgets.QMainWindow):
                 app.setStyleSheet(dark_qss)
         else:
             light_qss = """
-            QMainWindow { background: #ffffff; }
-            QLineEdit, QTextEdit { border:1px solid #d0d0d0; border-radius:6px; padding:6px; }
-            QToolButton { border:none; padding:6px; }
+            QMainWindow, QWidget { background: #ffffff; color: #222222; }
+            QLineEdit, QTextEdit, QComboBox, QListWidget, QGroupBox, QSpinBox, QDoubleSpinBox {
+                background: #fafafa; color: #222222; border: 1px solid #d0d0d0; border-radius: 6px; padding: 6px; }
+            QPushButton { background: #f5f5f5; color: #222222; border: 1px solid #d0d0d0; border-radius: 6px; padding: 6px; }
+            QPushButton:hover { background: #e0e0e0; }
+            QToolButton { color: #222222; border: none; padding: 6px; }
+            QToolButton:hover { background: #f0f0f0; }
             #navPanel { background: #f7f7f8; }
-                        QListWidget::item:hover { background: #f0f0f0; }
-                        QTabWidget::pane { border-top: 1px solid #e6e6e6; }
-                        QTabBar::tab { background: #fafafa; color: #333333; padding: 6px 10px; border: 1px solid #e6e6e6; border-bottom: none; border-top-left-radius: 6px; border-top-right-radius: 6px; }
-                        QTabBar::tab:selected { background: #ffffff; }
+            QProgressBar { background: #fafafa; color: #222222; border: 1px solid #d0d0d0; border-radius: 6px; text-align: center; }
+            QProgressBar::chunk { background: #3f7cff; }
+            QListWidget::item { background: #f7f7f8; }
+            QListWidget::item:hover { background: #e0e0e0; }
+            QListWidget::item:selected { background: #e6e6e6; color: #222222; }
+            QComboBox QAbstractItemView { background: #fafafa; selection-background-color: #e0e0e0; }
+            QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 4px; }
+            QTabWidget::pane { border-top: 1px solid #e6e6e6; }
+            QTabBar::tab { background: #fafafa; color: #333333; padding: 6px 10px; border: 1px solid #e6e6e6; border-bottom: none; border-top-left-radius: 6px; border-top-right-radius: 6px; }
+            QTabBar::tab:selected { background: #ffffff; color: #222222; }
+            QTabBar::tab:hover { background: #e0e0e0; }
+            QScrollBar:vertical { background: #f7f7f8; width: 10px; margin: 0; }
+            QScrollBar::handle:vertical { background: #e0e0e0; min-height: 20px; border-radius: 4px; }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+            QScrollBar:horizontal { background: #f7f7f8; height: 10px; margin: 0; }
+            QScrollBar::handle:horizontal { background: #e0e0e0; min-width: 20px; border-radius: 4px; }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
+            QToolTip { background: #e0e0e0; color: #222222; border: 1px solid #d0d0d0; }
             """
             if isinstance(app, QtWidgets.QApplication):
                 app.setStyleSheet(light_qss)
@@ -1356,22 +1417,36 @@ class MainWindow(QtWidgets.QMainWindow):
         zh = {
             'chat': '聊天', 'users': '用户', 'groups': '组', 'files': '文件', 'emotes': '表情', 'info': '信息', 'settings': '设置',
             'emoji': '表情', 'screenshot': '截图', 'quick': '常用语', 'history': '历史', 'sendfile': '发送文件', 'send': '发送',
+            'all_tab': '全部', 'all_display': '所有在线',
+            'status_prefix': '状态：', 'me_label': '我', 'file_sent_prefix': '已发送文件: ',
             'login': '登录', 'logout': '注销', 'discover': '发现', 'username_ph': '输入用户名…', 'search_ph': '搜索用户名或IP…',
             'accept': '接收', 'cancel': '放弃', 'pickdir': '选择保存目录', 'setdefault': '设为默认', 'enc_test': '编码自检',
             'lang': '语言', 'status': '状态', 'encoding': '编码', 'theme': '主题', 'iface': '网卡IP', 'download_dir': '下载目录',
             'screenshot_dir': '截图目录', 'avatar': '头像', 'apply': '应用', 'help': '帮助', 'keepalive': '保活间隔(s)', 'expire': '过期时长(s)',
-            'bind_ip': '绑定IP', 'subnet_mask': '子网掩码', 'logout_long': '登出 / Logout', 'enc_mode': '加密模式', 'refresh': '刷新',
+            'bind_ip': '绑定IP', 'subnet_mask': '子网掩码', 'logout_long': '登出', 'enc_mode': '加密模式', 'refresh': '刷新',
             'member_add': '添加成员', 'member_del': '移除成员', 'group_send': '群发', 'online_nodes': '在线节点', 'online': '在线', 'group_search_ph': '搜索组名/成员…'
+            , 'member_ph': '用户名…', 'group_new': '新建分组', 'group_rename': '重命名', 'group_enter': '进入聊天',
+            'discover_ph': 'ip: 例如 192.168.1.10，可留空广播',
+            'local_label': '本机：{local} / {prefix}', 'broadcast_label': '广播：{bcast}', 'mask_label': '掩码：{mask}', 'nodes_label': '在线节点: {count}',
+            'emotes_back': '返回聊天', 'emotes_send': '发送选中', 'emotes_pick_dir': '选择目录', 'emotes_add': '添加表情',
+            'key_refresh': '刷新指纹', 'key_regen': '重生成密钥', 'key_export': '导出公钥…'
         }
         en = {
             'chat': 'Chat', 'users': 'Users', 'groups': 'Groups', 'files': 'Files', 'emotes': 'Emotes', 'info': 'Info', 'settings': 'Settings',
             'emoji': 'Emotes', 'screenshot': 'Screenshot', 'quick': 'Snippets', 'history': 'History', 'sendfile': 'Send File', 'send': 'Send',
+            'all_tab': 'All', 'all_display': 'All',
+            'status_prefix': 'Status: ', 'me_label': 'Me', 'file_sent_prefix': 'File Sent: ',
             'login': 'Login', 'logout': 'Logout', 'discover': 'Discover', 'username_ph': 'Enter username…', 'search_ph': 'Search user or IP…',
             'accept': 'Accept', 'cancel': 'Decline', 'pickdir': 'Pick Save Dir', 'setdefault': 'Set Default', 'enc_test': 'Encoding Self-Test',
             'lang': 'Language', 'status': 'Status', 'encoding': 'Encoding', 'theme': 'Theme', 'iface': 'Interface IP', 'download_dir': 'Download Dir',
             'screenshot_dir': 'Screenshot Dir', 'avatar': 'Avatar', 'apply': 'Apply', 'help': 'Help', 'keepalive': 'Keepalive(s)', 'expire': 'Expire(s)',
             'bind_ip': 'Bind IP', 'subnet_mask': 'Subnet Mask', 'logout_long': 'Logout', 'enc_mode': 'Encryption Mode', 'refresh': 'Refresh',
             'member_add': 'Add Member', 'member_del': 'Remove Member', 'group_send': 'Group Send', 'online_nodes': 'Online Nodes', 'online': 'Online', 'group_search_ph': 'Search group/member…'
+            , 'member_ph': 'Username…', 'group_new': 'New Group', 'group_rename': 'Rename', 'group_enter': 'Enter Chat',
+            'discover_ph': 'ip: e.g. 192.168.1.10, leave blank for broadcast',
+            'local_label': 'Local: {local} / {prefix}', 'broadcast_label': 'Broadcast: {bcast}', 'mask_label': 'Mask: {mask}', 'nodes_label': 'Online nodes: {count}',
+            'emotes_back': 'Back to chat', 'emotes_send': 'Send selected', 'emotes_pick_dir': 'Pick directory', 'emotes_add': 'Add emote',
+            'key_refresh': 'Refresh fingerprint', 'key_regen': 'Regenerate keys', 'key_export': 'Export public key…'
         }
         t = zh if lang == 'zhCN' else en
         # 逐项设置，避免某一项不存在时整体失败
@@ -1384,7 +1459,6 @@ class MainWindow(QtWidgets.QMainWindow):
         _set(self, 'btn_users', t['users'])
         _set(self, 'btn_groups', t['groups'])
         _set(self, 'btn_emotes', t['emotes'])
-        _set(self, 'btn_profile', t['info'])
         _set(self, 'btn_settings', t['settings'])
         _set(self._user_page, 'emoji_btn', t['emoji'])
         _set(self._user_page, 'screenshot_btn', t['screenshot'])
@@ -1393,11 +1467,39 @@ class MainWindow(QtWidgets.QMainWindow):
         _set(self._user_page, 'send_file_btn', t['sendfile'])
         _set(self._user_page, 'send_btn', t['send'])
         _set(self._user_page, 'enc_test_btn', t.get('enc_test', ''))
+        self._current_language = lang
+        self._current_translations = t
+        user_loc = {
+            'status_prefix': t.get('status_prefix', '状态：'),
+            'all_tab': t.get('all_tab', '全部'),
+            'me_label': t.get('me_label', '我'),
+            'file_sent_prefix': t.get('file_sent_prefix', '已发送文件: '),
+        }
+        try:
+            self._user_page.apply_localization(lang, user_loc)
+        except Exception:
+            pass
         try:
             self._users_page.search_edit.setPlaceholderText(t['search_ph'])
         except Exception:
             pass
         _set(self._users_page, 'discover_btn', t['discover'])
+        try:
+            self._users_page.apply_language(t)
+        except Exception:
+            pass
+        try:
+            self._groups_page.apply_language(t)
+        except Exception:
+            pass
+        try:
+            self._emotes_page.apply_language(t)
+        except Exception:
+            pass
+        try:
+            self._keys_page.apply_language(t)
+        except Exception:
+            pass
         # 登录页占位符 & 组搜索占位符
         try:
             self._login_page.name_edit.setPlaceholderText(t['username_ph'])
@@ -1462,10 +1564,16 @@ class MainWindow(QtWidgets.QMainWindow):
             ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"shot_{ts}.png"
             path = os.path.join(base_dir, filename)
+            saved = False
             try:
-                pm.save(path, "PNG")
+                saved = pm.save(path, "PNG")
             except Exception:
-                pass
+                saved = False
+            if saved:
+                try:
+                    self._user_page.add_pending_file(path)
+                except Exception:
+                    pass
 
             # 写入剪贴板
             try:
@@ -1476,7 +1584,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # 状态栏提示
             try:
-                self.statusBar().showMessage(f"截图已保存到 {path}，并复制到剪贴板", 5000)
+                extra = "，已加入待发送列表" if saved else ""
+                self.statusBar().showMessage(f"截图已保存到 {path}，并复制到剪贴板{extra}", 5000)
             except Exception:
                 pass
         except Exception:
@@ -1523,6 +1632,17 @@ class UsersListPage(QtWidgets.QWidget):
         super().__init__()
         self._build()
         self._all_items = []  # type: List[str]
+        self._focus_chat = None
+        self._info_templates = {
+            "local": "本机：{local} / {prefix}",
+            "broadcast": "广播：{bcast}",
+            "mask": "掩码：{mask}",
+            "nodes": "在线节点: {count}",
+        }
+        self._info_cache = {}
+
+    def set_focus_handler(self, handler):
+        self._focus_chat = handler
 
     def _build(self):
         layout = QtWidgets.QVBoxLayout(self)
@@ -1542,7 +1662,30 @@ class UsersListPage(QtWidgets.QWidget):
         self.list.itemDoubleClicked.connect(self._emit_pick)
         layout.addLayout(search_row)
         layout.addWidget(self.list, 1)
+        info_box = QtWidgets.QVBoxLayout()
+        info_box.setSpacing(6)
+        self.lbl_local = QtWidgets.QLabel("本机：-")
+        self.lbl_bcast = QtWidgets.QLabel("广播：-")
+        row = QtWidgets.QHBoxLayout()
+        self.disc_ip = QtWidgets.QLineEdit()
+        self.disc_ip.setPlaceholderText("ip: 例如 192.168.1.10，可留空广播")
+        btn_disc = QtWidgets.QPushButton("发现")
+        btn_disc.setFixedHeight(btn_disc.fontMetrics().height() + 12)
+        row.addWidget(self.disc_ip, 1)
+        row.addWidget(btn_disc)
+        self.lbl_mask = QtWidgets.QLabel("掩码：-")
+        self.lbl_count = QtWidgets.QLabel("在线节点: 0")
+        self.nodes = QtWidgets.QListWidget()
+        info_box.addWidget(self.lbl_local)
+        info_box.addWidget(self.lbl_bcast)
+        info_box.addLayout(row)
+        info_box.addWidget(self.lbl_mask)
+        info_box.addWidget(self.lbl_count)
+        info_box.addWidget(self.nodes, 1)
+        layout.addLayout(info_box)
         self.discover_btn.clicked.connect(lambda: self.sigDiscover.emit(self.search_edit.text().strip()))
+        btn_disc.clicked.connect(lambda: self.sigDiscover.emit(self.disc_ip.text().strip()))
+        self.nodes.itemDoubleClicked.connect(self._emit_node_pick)
 
     def update_nodes(self, nodes, groups=None, local_ip: str = ""):
         self.list.clear()
@@ -1559,6 +1702,35 @@ class UsersListPage(QtWidgets.QWidget):
             it.setData(QtCore.Qt.UserRole, meta)
             self.list.addItem(it)
         self._apply_filter()
+        self.nodes.clear()
+        for n in nodes:
+            st = f" [{n.status}]" if getattr(n, 'status', 'online') != 'online' else ""
+            it = QtWidgets.QListWidgetItem(f"{n.username}@{n.ip} ({getattr(n, 'hostname', '')}){st}")
+            it.setData(QtCore.Qt.UserRole, ("node", n))
+            self.nodes.addItem(it)
+        try:
+            self.lbl_count.setText(self._info_templates.get('nodes', '在线节点: {count}').format(count=len(nodes)))
+        except Exception:
+            pass
+
+    def set_net_info(self, info: Dict) -> None:
+        self._info_cache = dict(info or {})
+        local_ip = info.get('local_ip','-')
+        prefix = info.get('iface_prefix','-')
+        self.lbl_local.setText(self._info_templates.get('local','本机：{local} / {prefix}').format(local=local_ip, prefix=prefix))
+        self.lbl_bcast.setText(self._info_templates.get('broadcast','广播：{bcast}').format(bcast=info.get('broadcast','-')))
+        mask = info.get('subnet_mask')
+        if not mask:
+            pre = info.get('iface_prefix','')
+            if isinstance(pre, str) and '/' in pre:
+                try:
+                    bits = int(pre.split('/',1)[1])
+                    if 0 <= bits <= 32:
+                        m = (0xffffffff << (32 - bits)) & 0xffffffff
+                        mask = '.'.join(str((m >> (8*i)) & 0xff) for i in [3,2,1,0])
+                except Exception:
+                    mask = None
+        self.lbl_mask.setText(self._info_templates.get('mask','掩码：{mask}').format(mask=mask or '-'))
 
     def _apply_filter(self):
         q = self.search_edit.text().strip().lower()
@@ -1577,9 +1749,48 @@ class UsersListPage(QtWidgets.QWidget):
             return
         kind, obj = meta
         if kind == "user":
-            self.targetPicked.emit(f"ip:{obj.ip}")
+            target = f"ip:{obj.ip}"
         elif kind == "group":
-            self.targetPicked.emit(f"group:{obj}")
+            target = f"group:{obj}"
+        else:
+            target = None
+        if not target:
+            return
+        if callable(self._focus_chat):
+            self._focus_chat(target)
+        else:
+            self.targetPicked.emit(target)
+
+    def _emit_node_pick(self, item: QtWidgets.QListWidgetItem):
+        meta = item.data(QtCore.Qt.UserRole)
+        if not meta:
+            return
+        kind, node = meta
+        if kind != "node" or not node:
+            return
+        ip = getattr(node, 'ip', '')
+        if not ip:
+            return
+        target = f"ip:{ip}"
+        if callable(self._focus_chat):
+            self._focus_chat(target)
+        else:
+            self.targetPicked.emit(target)
+
+    def apply_language(self, t: Dict[str, str]) -> None:
+        try:
+            self.search_edit.setPlaceholderText(t.get('search_ph', '搜索用户名或IP…'))
+            self.disc_ip.setPlaceholderText(t.get('discover_ph', 'ip: 例如 192.168.1.10，可留空广播'))
+            self.discover_btn.setText(t.get('discover', '发现'))
+            self._info_templates.update({
+                'local': t.get('local_label', '本机：{local} / {prefix}'),
+                'broadcast': t.get('broadcast_label', '广播：{bcast}'),
+                'mask': t.get('mask_label', '掩码：{mask}'),
+                'nodes': t.get('nodes_label', '在线节点: {count}'),
+            })
+            self.set_net_info(self._info_cache)
+        except Exception:
+            pass
 
 
 class GroupsPage(QtWidgets.QWidget):
@@ -1653,6 +1864,17 @@ class GroupsPage(QtWidgets.QWidget):
         btn_del.clicked.connect(on_del)
         self.group_list.currentTextChanged.connect(lambda _: self._update_members())
         self.member_filter.textChanged.connect(self._apply_group_filter)
+
+    def apply_language(self, t: Dict[str, str]) -> None:
+        try:
+            self.member_filter.setPlaceholderText(t.get('group_search_ph', '搜索组名/成员…'))
+            self.member_edit.setPlaceholderText(t.get('member_ph', '用户名…'))
+            self.btn_new_group.setText(t.get('group_new', '新建分组'))
+            self.btn_rename.setText(t.get('group_rename', '重命名'))
+            self.btn_enter_chat.setText(t.get('group_enter', '进入聊天'))
+        except Exception:
+            pass
+
         self.btn_enter_chat.clicked.connect(lambda: (self.sigEnterChat.emit(self._current_group() or "")))
 
         def _create_group():
@@ -2136,6 +2358,14 @@ class KeyPage(QtWidgets.QWidget):
         row.addStretch()
         layout.addRow(row)
 
+    def apply_language(self, t: Dict[str, str]) -> None:
+        try:
+            self.btn_refresh.setText(t.get('key_refresh', '刷新指纹'))
+            self.btn_regen.setText(t.get('key_regen', '重生成密钥'))
+            self.btn_export.setText(t.get('key_export', '导出公钥…'))
+        except Exception:
+            pass
+
 
 class EmotesPage(QtWidgets.QWidget):
     sigSend = QtCore.pyqtSignal(str)  # image file path
@@ -2154,14 +2384,14 @@ class EmotesPage(QtWidgets.QWidget):
 
         dir_row = QtWidgets.QHBoxLayout()
         self.dir_edit = QtWidgets.QLineEdit(self._dir)
-        btn_pick = QtWidgets.QPushButton("选择目录")
-        btn_add = QtWidgets.QPushButton("添加表情")
+        self.btn_pick_dir = QtWidgets.QPushButton("选择目录")
+        self.btn_add_emote = QtWidgets.QPushButton("添加表情")
         self.btn_back = QtWidgets.QPushButton("返回聊天")
-        for b in (btn_pick, btn_add, self.btn_back):
+        for b in (self.btn_pick_dir, self.btn_add_emote, self.btn_back):
             b.setFixedHeight(b.fontMetrics().height() + 12)
         dir_row.addWidget(self.dir_edit, 1)
-        dir_row.addWidget(btn_pick)
-        dir_row.addWidget(btn_add)
+        dir_row.addWidget(self.btn_pick_dir)
+        dir_row.addWidget(self.btn_add_emote)
         dir_row.addWidget(self.btn_back)
         layout.addLayout(dir_row)
 
@@ -2180,10 +2410,20 @@ class EmotesPage(QtWidgets.QWidget):
         send_row.addWidget(self.btn_send)
         layout.addLayout(send_row)
 
-        btn_pick.clicked.connect(self._pick_dir)
-        btn_add.clicked.connect(self._add_emotes)
+        self.btn_pick_dir.clicked.connect(self._pick_dir)
+        self.btn_add_emote.clicked.connect(self._add_emotes)
         self.btn_send.clicked.connect(self._send_selected)
         self.list.itemDoubleClicked.connect(lambda _: self._send_selected())
+
+    def apply_language(self, t: Dict[str, str]) -> None:
+        try:
+            self.btn_back.setText(t.get('emotes_back', '返回聊天'))
+            self.btn_send.setText(t.get('emotes_send', '发送选中'))
+            self.btn_pick_dir.setText(t.get('emotes_pick_dir', '选择目录'))
+            self.btn_add_emote.setText(t.get('emotes_add', '添加表情'))
+            self.btn_back.setFixedHeight(self.btn_back.fontMetrics().height() + 12)
+        except Exception:
+            pass
 
     def _pick_dir(self):
         d = QtWidgets.QFileDialog.getExistingDirectory(self, "选择表情目录")
@@ -2295,3 +2535,17 @@ class _RegionSelector(QtWidgets.QWidget):
             pass
         self.close()
     # 去除未使用的预览相关方法，避免属性引用错误
+
+    def keyPressEvent(self, a0):
+        if a0.key() == QtCore.Qt.Key_Escape:
+            if self._rubber.isVisible():
+                self._rubber.hide()
+            self._selected = QtCore.QRect()
+            try:
+                self._loop.quit()
+            except Exception:
+                pass
+            self.close()
+            a0.accept()
+            return
+        super().keyPressEvent(a0)
