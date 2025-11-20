@@ -1,0 +1,367 @@
+from __future__ import annotations
+
+import os
+import platform
+import sys
+from typing import Dict
+
+from PyQt5 import QtCore, QtGui, QtWidgets
+
+from zfeiq_version import APP_VERSION
+
+from ..widgets import NavigationButton
+from .key_page import KeyPage
+
+
+class SettingsPage(QtWidgets.QWidget):
+    """Aggregated settings view split into personal/general/network/file tabs."""
+
+    sigApply = QtCore.pyqtSignal(dict)
+    sigLogout = QtCore.pyqtSignal()
+    sigEncodingSelfTest = QtCore.pyqtSignal()
+
+    def __init__(self, lang: str = "zhCN") -> None:
+        super().__init__()
+        from zfeiq_gui.lang import get_translations
+        self._translations = get_translations(lang)
+        self._platform_desc = self._detect_platform_desc()
+        self._personal_username = "-"
+        self._personal_ip = "-.-.-.-"
+        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        # self.setMinimumSize(600, 400)
+        self._build()
+        self.apply_language(self._translations)
+
+    def _build(self) -> None:
+        outer = QtWidgets.QVBoxLayout(self)
+        outer.setContentsMargins(12, 12, 12, 12)
+        outer.setSpacing(10)
+
+        top_info = QtWidgets.QHBoxLayout()
+        self.lbl_platform = QtWidgets.QLabel()
+        self.lbl_version = QtWidgets.QLabel()
+        top_info.addWidget(self.lbl_platform)
+        top_info.addStretch(1)
+        top_info.addWidget(self.lbl_version)
+        outer.addLayout(top_info)
+
+        tabs = QtWidgets.QTabWidget()
+        self._tabs = tabs
+        outer.addWidget(tabs, 1)
+
+        t = self._translations
+        tab_personal = QtWidgets.QWidget()
+        tabs.addTab(tab_personal, t['personal_tab'])
+        pform = QtWidgets.QFormLayout(tab_personal)
+        pform.setContentsMargins(12, 12, 12, 12)
+        pform.setSpacing(10)
+        self.lbl_p_username = QtWidgets.QLabel()
+        self.lbl_p_ip = QtWidgets.QLabel()
+        pform.addRow(self.lbl_p_username)
+        pform.addRow(self.lbl_p_ip)
+        self.lbl_status = QtWidgets.QLabel(t['status'])
+        self.cmb_status = QtWidgets.QComboBox()
+        self._status_codes = ["online", "busy", "away"]
+        for code in self._status_codes:
+            self.cmb_status.addItem(code, code)
+        pform.addRow(self.lbl_status, self.cmb_status)
+        self.edit_avatar = QtWidgets.QLineEdit()
+        self.edit_avatar.setPlaceholderText(t['avatar_placeholder'])
+        self.btn_pick_avatar = NavigationButton(t['pick_avatar'])
+        pform.addRow(t['avatar'], self._row_widget(self.edit_avatar, self.btn_pick_avatar))
+        try:
+            self.key_section = KeyPage()
+            group = QtWidgets.QGroupBox(t['key_section'])
+            vbox = QtWidgets.QVBoxLayout(group)
+            vbox.setContentsMargins(8, 8, 8, 8)
+            vbox.addWidget(self.key_section)
+            pform.addRow(group)
+        except Exception:
+            pass
+
+        tab_general = QtWidgets.QWidget()
+        tabs.addTab(tab_general, t['general_tab'])
+        gform = QtWidgets.QFormLayout(tab_general)
+        gform.setContentsMargins(12, 12, 12, 12)
+        gform.setSpacing(10)
+        self.cmb_lang = QtWidgets.QComboBox()
+        self.cmb_lang.addItems(["zhCN", "enUS"])
+        self.cmb_enc = QtWidgets.QComboBox()
+        self.cmb_enc.addItems(["utf-8", "gbk"])
+        self.cmb_theme = QtWidgets.QComboBox()
+        self.cmb_theme.addItems(["light", "dark"])
+        self.chk_debug = QtWidgets.QCheckBox(t['debug'])
+        self.chk_trace = QtWidgets.QCheckBox(t['trace'])
+        self.lbl_lang = QtWidgets.QLabel(t['lang'])
+        self.lbl_encoding = QtWidgets.QLabel(t['encoding'])
+        self.lbl_theme = QtWidgets.QLabel(t['theme'])
+        gform.addRow(self.lbl_lang, self.cmb_lang)
+        self.btn_enc_test = NavigationButton(t['encoding_selftest'])
+        enc_container = QtWidgets.QWidget()
+        enc_layout = QtWidgets.QHBoxLayout(enc_container)
+        enc_layout.setContentsMargins(0, 0, 0, 0)
+        enc_layout.addWidget(self.cmb_enc, 1)
+        enc_layout.addWidget(self.btn_enc_test)
+        gform.addRow(self.lbl_encoding, enc_container)
+        gform.addRow(self.lbl_theme, self.cmb_theme)
+        gform.addRow(self.chk_debug, self.chk_trace)
+
+        tab_net = QtWidgets.QWidget()
+        tabs.addTab(tab_net, t['network_tab'])
+        nform = QtWidgets.QFormLayout(tab_net)
+        nform.setContentsMargins(12, 12, 12, 12)
+        nform.setSpacing(10)
+        self.cmb_iface = QtWidgets.QComboBox()
+        self.edit_bind = QtWidgets.QLineEdit()
+        self.edit_bind.setPlaceholderText(t['bind_ip'])
+        self.edit_mask = QtWidgets.QLineEdit()
+        self.edit_mask.setPlaceholderText(t['subnet_mask'])
+        self.spn_keepalive = QtWidgets.QDoubleSpinBox()
+        self.spn_keepalive.setRange(5.0, 600.0)
+        self.spn_keepalive.setValue(30.0)
+        self.spn_expire = QtWidgets.QDoubleSpinBox()
+        self.spn_expire.setRange(10.0, 3600.0)
+        self.spn_expire.setValue(90.0)
+        self.lbl_iface = QtWidgets.QLabel(t['iface'])
+        self.lbl_keepalive = QtWidgets.QLabel(t['keepalive'])
+        self.lbl_expire = QtWidgets.QLabel(t['expire'])
+        self.lbl_bind = QtWidgets.QLabel(t['bind_ip'])
+        self.lbl_mask = QtWidgets.QLabel(t['subnet_mask'])
+        nform.addRow(self.lbl_iface, self.cmb_iface)
+        nform.addRow(self.lbl_bind, self.edit_bind)
+        nform.addRow(self.lbl_mask, self.edit_mask)
+        nform.addRow(self.lbl_keepalive, self.spn_keepalive)
+        nform.addRow(self.lbl_expire, self.spn_expire)
+
+        tab_files = QtWidgets.QWidget()
+        tabs.addTab(tab_files, t['files_tab'])
+        fform = QtWidgets.QFormLayout(tab_files)
+        fform.setContentsMargins(12, 12, 12, 12)
+        fform.setSpacing(10)
+        self.edit_dir = QtWidgets.QLineEdit()
+        self.edit_dir.setPlaceholderText(t['download_dir'])
+        self.btn_browse_dir = NavigationButton(t['browse'])
+        self.edit_ss_dir = QtWidgets.QLineEdit()
+        self.edit_ss_dir.setPlaceholderText(t['screenshot_dir'])
+        self.btn_browse_ss = NavigationButton(t['browse_ss'])
+        self.lbl_download = QtWidgets.QLabel(t['download_dir'])
+        self.lbl_ss_dir = QtWidgets.QLabel(t['screenshot_dir'])
+        fform.addRow(self.lbl_download, self._row_widget(self.edit_dir, self.btn_browse_dir))
+        fform.addRow(self.lbl_ss_dir, self._row_widget(self.edit_ss_dir, self.btn_browse_ss))
+
+        btn_row = QtWidgets.QHBoxLayout()
+        self.btn_apply = NavigationButton(t['apply'])
+        self.btn_logout = NavigationButton(t['logout_long'])
+        btn_row.addStretch(1)
+        btn_row.addWidget(self.btn_apply)
+        btn_row.addWidget(self.btn_logout)
+        outer.addLayout(btn_row)
+
+        self.btn_apply.clicked.connect(self._emit_apply)
+        self.btn_browse_dir.clicked.connect(self._pick_download_dir)
+        self.btn_browse_ss.clicked.connect(self._pick_screenshot_dir)
+        self.btn_logout.clicked.connect(lambda: self.sigLogout.emit())
+        self.btn_pick_avatar.clicked.connect(self._pick_avatar)
+        self.btn_enc_test.clicked.connect(lambda: self.sigEncodingSelfTest.emit())
+        if not hasattr(self, "avatar_preview"):
+            self.avatar_preview = QtWidgets.QLabel("预览")
+            self.avatar_preview.setFixedSize(90, 90)
+            self.avatar_preview.setAlignment(QtCore.Qt.AlignCenter)
+            self.avatar_preview.setStyleSheet(
+                "background:#e0e0e0; border:1px solid #ccc; border-radius:6px;"
+            )
+            pform.insertRow(pform.rowCount() - 1, self.avatar_preview)
+        self.edit_avatar.textChanged.connect(self._update_avatar_preview)
+        self._update_avatar_preview()
+        # 语言切换统一用 apply_language，不再保留 apply_translations
+
+    def _detect_platform_desc(self) -> str:
+        try:
+            sysname = platform.system() or ""
+            arch_raw = platform.machine() or ""
+            arch = arch_raw.lower()
+            if arch in ("x86_64", "amd64"):
+                arch_str = "x64"
+            elif arch in ("i386", "i686", "x86"):
+                arch_str = "x86"
+            elif arch in ("aarch64", "arm64", "armv8"):
+                arch_str = "aarch64"
+            else:
+                arch_str = arch_raw or "-"
+
+            name = sysname
+            if sysname == "Windows":
+                try:
+                    ver = sys.getwindowsversion()  # type: ignore[attr-defined]
+                    build = getattr(ver, "build", 0)
+                    name = "Windows 11" if int(build) >= 22000 else "Windows 10"
+                except Exception:
+                    rel = platform.release()
+                    name = f"Windows {rel}" if rel else "Windows"
+            elif sysname == "Linux":
+                name = "Linux"
+            elif sysname == "Darwin":
+                name = "macOS"
+                try:
+                    ver = platform.mac_ver()[0]
+                    if ver:
+                        name = f"macOS {ver}"
+                except Exception:
+                    pass
+            else:
+                name = sysname or "Unknown"
+
+            return f"{name} {arch_str}".strip()
+        except Exception:
+            return "Unknown"
+
+    def _row_widget(self, left: QtWidgets.QWidget, right: QtWidgets.QWidget) -> QtWidgets.QWidget:
+        widget = QtWidgets.QWidget()
+        layout = QtWidgets.QHBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(left, 1)
+        layout.addWidget(right)
+        return widget
+
+    def _emit_apply(self) -> None:
+        prefer_iface_ip = self.cmb_iface.currentText().strip()
+        cfg = dict(
+            language=self.cmb_lang.currentText(),
+            status=self.cmb_status.currentData() or self.cmb_status.currentText(),
+            encoding=self.cmb_enc.currentText(),
+            ui_theme=self.cmb_theme.currentText(),
+            debug=self.chk_debug.isChecked(),
+            trace=self.chk_trace.isChecked(),
+            keepalive=self.spn_keepalive.value(),
+            expire=self.spn_expire.value(),
+            bind_ip=(prefer_iface_ip or self.edit_bind.text().strip()),
+            subnet_mask=self.edit_mask.text().strip(),
+            download_dir=self.edit_dir.text().strip().replace("\\", "/"),
+            screenshot_dir=self.edit_ss_dir.text().strip().replace("\\", "/"),
+            ui_avatar=self.edit_avatar.text().strip().replace("\\", "/"),
+        )
+        self.sigApply.emit(cfg)
+
+    def _pick_download_dir(self) -> None:
+        t = self._translations
+        directory = QtWidgets.QFileDialog.getExistingDirectory(self, t.get('pick_download_dir', '选择下载目录'))
+        if directory:
+            self.edit_dir.setText(directory.replace("\\", "/"))
+
+    def _pick_avatar(self) -> None:
+        t = self._translations
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            t['pick_avatar_dialog'],
+            filter=t['images_filter'],
+        )
+        if path:
+            self.edit_avatar.setText(path.replace("\\", "/"))
+            self._update_avatar_preview()
+
+    def _pick_screenshot_dir(self) -> None:
+        t = self._translations
+        directory = QtWidgets.QFileDialog.getExistingDirectory(self, t['pick_screenshot_dir'])
+        if directory:
+            self.edit_ss_dir.setText(directory.replace("\\", "/"))
+
+    def apply_language(self, translations: Dict[str, str]) -> None:
+        self._translations = translations
+        # 顶部信息
+        self.lbl_platform.setText(f"{translations.get('platform', '当前平台')}：{self._platform_desc}")
+        self.lbl_version.setText(f"{translations.get('version', '版本')}：{APP_VERSION}")
+
+        # 个人信息区
+        self.update_personal_info(self._personal_username, self._personal_ip)
+        self.lbl_status.setText(translations.get('status', self.lbl_status.text()))
+        self.edit_avatar.setPlaceholderText(translations.get('avatar_placeholder', self.edit_avatar.placeholderText()))
+        self.btn_pick_avatar.setText(translations.get('pick_avatar', self.btn_pick_avatar.text()))
+
+        # KeyPage 分组标题
+        if hasattr(self, 'key_section'):
+            group = self.key_section.parentWidget()
+            if group and isinstance(group, QtWidgets.QGroupBox):
+                group.setTitle(translations.get('key_section', group.title()))
+            try:
+                self.key_section.apply_language(translations)
+            except Exception:
+                pass
+
+        # tab页标题
+        tabs = getattr(self, '_tabs', None)
+        if tabs:
+            tab_titles = ['personal_tab', 'general_tab', 'network_tab', 'files_tab']
+            for idx, key in enumerate(tab_titles):
+                tabs.setTabText(idx, translations.get(key, tabs.tabText(idx)))
+
+        # 通用设置区
+        self.lbl_lang.setText(translations.get('lang', self.lbl_lang.text()))
+        self.lbl_encoding.setText(translations.get('encoding', self.lbl_encoding.text()))
+        self.lbl_theme.setText(translations.get('theme', self.lbl_theme.text()))
+        self.chk_debug.setText(translations.get('debug', self.chk_debug.text()))
+        self.chk_trace.setText(translations.get('trace', self.chk_trace.text()))
+        self.btn_enc_test.setText(translations.get('encoding_selftest', self.btn_enc_test.text()))
+
+        # ComboBox 选项（语言、状态、编码、主题）
+        current_status_code = self.cmb_status.currentData()
+        for idx, code in enumerate(self._status_codes):
+            label = translations.get(code, code)
+            if idx < self.cmb_status.count():
+                self.cmb_status.setItemText(idx, label)
+                self.cmb_status.setItemData(idx, code)
+            else:
+                self.cmb_status.addItem(label, code)
+        if current_status_code:
+            idx = self.cmb_status.findData(current_status_code)
+            if idx >= 0:
+                self.cmb_status.setCurrentIndex(idx)
+
+        # 网络设置区
+        self.lbl_iface.setText(translations.get('iface', self.lbl_iface.text()))
+        self.lbl_keepalive.setText(translations.get('keepalive', self.lbl_keepalive.text()))
+        self.lbl_expire.setText(translations.get('expire', self.lbl_expire.text()))
+        self.lbl_bind.setText(translations.get('bind_ip', self.lbl_bind.text()))
+        self.lbl_mask.setText(translations.get('subnet_mask', self.lbl_mask.text()))
+        self.edit_bind.setPlaceholderText(translations.get('bind_ip', self.edit_bind.placeholderText()))
+        self.edit_mask.setPlaceholderText(translations.get('subnet_mask', self.edit_mask.placeholderText()))
+
+        # 文件设置区
+        self.lbl_download.setText(translations.get('download_dir', self.lbl_download.text()))
+        self.lbl_ss_dir.setText(translations.get('screenshot_dir', self.lbl_ss_dir.text()))
+        self.edit_dir.setPlaceholderText(translations.get('download_dir', self.edit_dir.placeholderText()))
+        self.edit_ss_dir.setPlaceholderText(translations.get('screenshot_dir', self.edit_ss_dir.placeholderText()))
+
+        # 文件区按钮
+        self.btn_browse_dir.setText(translations.get('browse', self.btn_browse_dir.text()))
+        self.btn_browse_ss.setText(translations.get('browse_ss', self.btn_browse_ss.text()))
+
+        # 应用/登出按钮
+        self.btn_apply.setText(translations.get('apply', self.btn_apply.text()))
+        self.btn_logout.setText(translations.get('logout_long', self.btn_logout.text()))
+
+        # 头像预览
+        self.avatar_preview.setText(translations.get('preview', self.avatar_preview.text()))
+
+    def update_personal_info(self, username: str, ip: str) -> None:
+        self._personal_username = username or "-"
+        self._personal_ip = ip or "-.-.-.-"
+        t = getattr(self, '_translations', {})
+        self.lbl_p_username.setText(f"{t.get('username', '用户名')}：{self._personal_username}")
+        self.lbl_p_ip.setText(f"{t.get('ip', 'IP')}：{self._personal_ip}")
+
+    def _update_avatar_preview(self) -> None:
+        t = self._translations
+        try:
+            path = self.edit_avatar.text().strip()
+            if path and os.path.isfile(path):
+                pixmap = QtGui.QPixmap(path)
+                if not pixmap.isNull():
+                    self.avatar_preview.setPixmap(
+                        pixmap.scaled(90, 90, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+                    )
+                    self.avatar_preview.setText("")
+                    return
+            # 路径无效或图片加载失败时，仅清空图片，不覆盖 setText
+            self.avatar_preview.setPixmap(QtGui.QPixmap())
+        except Exception:
+            self.avatar_preview.setPixmap(QtGui.QPixmap())
