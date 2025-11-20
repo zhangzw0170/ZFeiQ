@@ -202,22 +202,28 @@ class UserPage(QtWidgets.QWidget):
             # 避免在该行被拉伸过宽
             btn.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
             return btn
-        self.emoji_btn = _make_action_btn("表情管理")
+        self.emoji_btn = _make_action_btn("表情")
         self.screenshot_btn = _make_action_btn("截图")
         self.quicktext_btn = _make_action_btn("常用语")
-        self.enc_test_btn = _make_action_btn("编码自检")
         self.history_btn = _make_action_btn("历史")
         self.send_file_btn = _make_action_btn("发送文件")
-        # 简易 Emoji 选择器（采用 QToolButton 保持与侧栏一致）
-        self.emoji_unicode_btn = QtWidgets.QToolButton()
-        self.emoji_unicode_btn.setText("😀")
-        self.emoji_unicode_btn.setToolButtonStyle(QtCore.Qt.ToolButtonTextOnly)
-        self.emoji_unicode_btn.setFixedWidth(44)
-        self.emoji_unicode_btn.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
-        def _show_emoji_grid():
+        # 高度已由 NavigationButton 统一设置；暗色/浅色样式在全局 QSS 中通过 QToolButton 控制
+        actions_row.addWidget(self.emoji_btn)
+        actions_row.addWidget(self.screenshot_btn)
+        actions_row.addWidget(self.quicktext_btn)
+        actions_row.addWidget(self.history_btn)
+        actions_row.addWidget(self.send_file_btn)
+        actions_row.addStretch()
+
+        # 合并“表情管理”和“Emoji”为“表情”对话框（含两个子页）
+        def _open_emotes_picker():
             dlg = QtWidgets.QDialog(self)
-            dlg.setWindowTitle("选择 Emoji")
-            lay = QtWidgets.QGridLayout(dlg); lay.setContentsMargins(10,10,10,10); lay.setSpacing(6)
+            dlg.setWindowTitle("表情")
+            v = QtWidgets.QVBoxLayout(dlg); v.setContentsMargins(8,8,8,8); v.setSpacing(8)
+            tabs = QtWidgets.QTabWidget(); v.addWidget(tabs)
+            # Emoji 子页
+            emoji_page = QtWidgets.QWidget(); tabs.addTab(emoji_page, "Emoji")
+            grid = QtWidgets.QGridLayout(emoji_page); grid.setContentsMargins(6,6,6,6); grid.setSpacing(6)
             emojis = [
                 "😀","😁","😂","🤣","😊","😍","😎","🤔","🙃","🙂","😉","😇","😅","😭","😤",
                 "😡","😱","🤩","🤗","🤨","🥳","🥹","🫠","😴","🤤","🤒","🤕","🤧","🤮","😷",
@@ -234,18 +240,31 @@ class UserPage(QtWidgets.QWidget):
                 btn.setFixedSize(28, 28)
                 btn.setStyleSheet("QPushButton{border:1px solid #ddd; border-radius:4px; background:#fff;} QPushButton:hover{background:#f5f5f5}")
                 btn.clicked.connect(lambda _, e=emo: (self.outbox.insertPlainText(e), dlg.accept()))
-                lay.addWidget(btn, r, c)
+                grid.addWidget(btn, r, c)
+            # 自定义表情子页：复用 EmotesPage 以便直接选择
+            custom_page = QtWidgets.QWidget(); tabs.addTab(custom_page, "自定义")
+            custom_layout = QtWidgets.QVBoxLayout(custom_page); custom_layout.setContentsMargins(0,0,0,0); custom_layout.setSpacing(6)
+            try:
+                picker = EmotesPage()
+                # 隐藏返回按钮，保持选择/发送逻辑
+                if hasattr(picker, 'btn_back'):
+                    picker.btn_back.hide()
+                def _on_pick(path: str):
+                    try:
+                        if path and os.path.isfile(path):
+                            self.add_pending_file(path)
+                            dlg.accept()
+                    except Exception:
+                        pass
+                picker.sigSend.connect(_on_pick)
+                custom_layout.addWidget(picker)
+            except Exception:
+                lbl = QtWidgets.QLabel("自定义表情不可用")
+                lbl.setAlignment(QtCore.Qt.AlignCenter)
+                custom_layout.addWidget(lbl)
+            dlg.resize(520, 420)
             dlg.exec_()
-        self.emoji_unicode_btn.clicked.connect(_show_emoji_grid)
-        # 高度已由 NavigationButton 统一设置；暗色/浅色样式在全局 QSS 中通过 QToolButton 控制
-        actions_row.addWidget(self.emoji_btn)
-        actions_row.addWidget(self.screenshot_btn)
-        actions_row.addWidget(self.quicktext_btn)
-        actions_row.addWidget(self.emoji_unicode_btn)
-        actions_row.addWidget(self.enc_test_btn)
-        actions_row.addWidget(self.history_btn)
-        actions_row.addWidget(self.send_file_btn)
-        actions_row.addStretch()
+        self.emoji_btn.clicked.connect(_open_emotes_picker)
 
         # 待发送文件块容器（紧贴输入框上方，支持回退删除最后一个文件）
         self.file_bar = QtWidgets.QWidget()
@@ -519,7 +538,18 @@ class LoginPage(QtWidgets.QWidget):
         except Exception:
             pass
         def _show_help():
-            QtWidgets.QMessageBox.information(self, "帮助", "1) 输入用户名并选择 IP\n2) 登录后在用户/组页面选择聊天对象\n3) 聊天页支持表情、截图、历史、发送文件；Enter 发送，Shift+Enter 换行\n4) 设置页可更改语言/状态/编码/主题、下载与截图目录、头像等")
+            QtWidgets.QMessageBox.information(
+                self,
+                "帮助",
+                (
+                    "1) 输入用户名并选择 IP\n"
+                    "2) 登录后在用户/组页面选择聊天对象\n"
+                    "3) 聊天：Enter 发送，Shift+Enter 换行；Ctrl+V 可粘贴文件加入待发送。\n"
+                    "   表情：点击‘表情’打开对话框，含 Emoji 与自定义表情。\n"
+                    "   截图：支持框选区域，按 ESC 取消。\n"
+                    "4) 设置：语言/状态/编码/主题、下载与截图目录、头像；编码自检位于 设置-通用。\n"
+                )
+            )
         btn_help.clicked.connect(_show_help)
 
     def _on_login(self):
@@ -581,11 +611,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         bottom_box = QtWidgets.QVBoxLayout()
         bottom_box.setSpacing(8)
-        self.btn_emotes = NavigationButton("表情管理")
-        self.btn_keys = NavigationButton("密钥")
         self.btn_settings = NavigationButton("设置")
-        bottom_box.addWidget(self.btn_emotes)
-        bottom_box.addWidget(self.btn_keys)
         bottom_box.addWidget(self.btn_settings)
         # 布局顺序：顶部按钮组 -> 拉伸 -> 底部按钮组
         outer_layout.addLayout(top_box)
@@ -610,14 +636,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # 组管理页
         self._groups_page = GroupsPage()
         self._stack.addWidget(self._groups_page)
-        # 文件要约在 bind_backend 中处理（此处仅保留页面搭建）
-        # 截图页仍保留类以便复用逻辑，但不放入导航
-        # 表情页
-        self._emotes_page = EmotesPage()
-        self._stack.addWidget(self._emotes_page)
-        # 密钥页
-        self._keys_page = KeyPage()
-        self._stack.addWidget(self._keys_page)
+        # 已移除独立表情与密钥页面（表情对话嵌入聊天；密钥集成到设置-个人）
         # 设置页
         self._settings_page = SettingsPage()
         self._stack.addWidget(self._settings_page)
@@ -627,8 +646,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_chat.clicked.connect(lambda: self._stack.setCurrentWidget(self._user_page))
         self.btn_groups.clicked.connect(lambda: self._stack.setCurrentWidget(self._groups_page))
         # 截图不再作为独立页面入口
-        self.btn_emotes.clicked.connect(lambda: self._stack.setCurrentWidget(self._emotes_page))
-        self.btn_keys.clicked.connect(lambda: self._stack.setCurrentWidget(self._keys_page))
         self.btn_settings.clicked.connect(lambda: self._stack.setCurrentWidget(self._settings_page))
         # 默认进入聊天页
         self._stack.setCurrentWidget(self._login_page)
@@ -692,9 +709,11 @@ class MainWindow(QtWidgets.QMainWindow):
                     if href.startswith('accept:'):
                         oid = href.split(':',1)[1]
                         try:
-                            dl_dir = getattr(getattr(backend,'zcli',None),'download_dir','') or os.getcwd()
+                            dl_dir = getattr(getattr(backend,'zcli',None),'download_dir','')
+                            if not dl_dir:
+                                dl_dir = os.path.join(os.getcwd(), 'downloads')
                         except Exception:
-                            dl_dir = os.getcwd()
+                            dl_dir = os.path.join(os.getcwd(), 'downloads')
                         backend.accept_offer(oid, dl_dir)
                     elif href.startswith('cancel:'):
                         oid = href.split(':',1)[1]
@@ -891,8 +910,7 @@ class MainWindow(QtWidgets.QMainWindow):
             except Exception:
                 pass
 
-            # 快捷跳转到表情页；截图使用区域选择对话（不在侧栏单独页面）
-            self._user_page.emoji_btn.clicked.connect(lambda: self._stack.setCurrentWidget(self._emotes_page))
+            # 聊天页“表情”对话在 UserPage 内部实现；截图使用区域选择对话
             # 早期连接误用 _on_region_capture_send，这里移除并统一到类方法 on_region_capture_send（见后文绑定）
 
             def on_send_file():
@@ -907,9 +925,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._user_page.send_file_btn.clicked.connect(on_send_file)
             except Exception:
                 pass
-            # 编码自检：向本机 IP 发送一条包含中/英/Emoji 的测试文本
-            try:
-                def _enc_self_test():
+            # 编码自检移动至设置页：向本机 IP 发送一条包含中/英/Emoji 的测试文本
+            def _enc_self_test():
+                try:
                     ip = backend.get_net_info().get('local_ip','')
                     tgt = f"ip:{ip}" if ip else "all"
                     sample = "编码自检：中文✓ English✓ Emoji😀 αßé"
@@ -918,9 +936,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     display = _display_for_target(tgt) or tgt
                     self._user_page.append_outgoing(tgt, display, sample, tab_label=tab_label)
                     _focus_target(tgt)
-                self._user_page.enc_test_btn.clicked.connect(_enc_self_test)
-            except Exception:
-                pass
+                except Exception:
+                    pass
 
             # LoginPage 登录处理：登录后显示导航并切回聊天页
             try:
@@ -1090,6 +1107,16 @@ class MainWindow(QtWidgets.QMainWindow):
                     if uname:
                         self._user_page.set_local_ip(local_ip)
                         self._user_page.set_user_status(uname, status_disp, status_raw)
+                        # 同步到设置页个人信息
+                        try:
+                            self._settings_page.lbl_p_username.setText(f"用户名：{uname}")
+                            self._settings_page.lbl_p_ip.setText(f"IP：{local_ip or '-.-.-.-'}")
+                            try:
+                                self._settings_page.cmb_status.setCurrentText(status_raw)
+                            except Exception:
+                                pass
+                        except Exception:
+                            pass
                 except Exception:
                     pass
                 try:
@@ -1188,6 +1215,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # 设置页绑定
             self._settings_page.sigApply.connect(lambda cfg: self._apply_settings(backend, cfg))
+            try:
+                self._settings_page.sigEncodingSelfTest.connect(_enc_self_test)
+            except Exception:
+                pass
             # 设置页登出
             try:
                 self._settings_page.sigLogout.connect(lambda: self._on_logout_to_login(backend))
@@ -1227,7 +1258,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 except Exception:
                     pass
 
-            self._emotes_page.sigSend.connect(_send_path)
+            # 已移除独立表情页面，发送逻辑通过聊天页弹出表情对话自定义表情后回调处理
             # 不使用单独截图页发送；事件改为类方法
             try:
                 self._user_page.screenshot_btn.clicked.connect(lambda: self.on_region_capture_send(backend))
@@ -1246,35 +1277,45 @@ class MainWindow(QtWidgets.QMainWindow):
             # 密钥管理页绑定
             try:
                 try:
-                    self._keys_page.cmb_mode.setCurrentText(getattr(backend, 'get_encrypt_mode', lambda: 'off')())
+                    # 密钥设置已集成到设置-个人页的 key_section
+                    try:
+                        if hasattr(self._settings_page, 'key_section') and hasattr(self._settings_page.key_section, 'cmb_mode'):
+                            self._settings_page.key_section.cmb_mode.setCurrentText(getattr(backend, 'get_encrypt_mode', lambda: 'off')())
+                    except Exception:
+                        pass
                 except Exception:
                     pass
                 def _refresh_fp():
                     try:
                         fp = getattr(backend, 'get_pubkey_fingerprint', lambda: '(n/a)')()
-                        self._keys_page.lbl_fp.setText(f"指纹：{fp}")
+                        if hasattr(self._settings_page, 'key_section'):
+                            self._settings_page.key_section.lbl_fp.setText(f"指纹：{fp}")
                     except Exception:
-                        self._keys_page.lbl_fp.setText("指纹：(error)")
+                        if hasattr(self._settings_page, 'key_section'):
+                            self._settings_page.key_section.lbl_fp.setText("指纹：(error)")
                 _refresh_fp()
-                self._keys_page.btn_refresh.clicked.connect(_refresh_fp)
-                self._keys_page.cmb_mode.currentTextChanged.connect(lambda v: (backend.set_encrypt_mode(v), backend.save_state()))
+                if hasattr(self._settings_page, 'key_section'):
+                    self._settings_page.key_section.btn_refresh.clicked.connect(_refresh_fp)
+                    self._settings_page.key_section.cmb_mode.currentTextChanged.connect(lambda v: (backend.set_encrypt_mode(v), backend.save_state()))
                 def _on_regen():
                     ok = getattr(backend, 'regenerate_keys', lambda: False)()
                     _refresh_fp()
                     QtWidgets.QMessageBox.information(self, "密钥", "已重生成密钥" if ok else "重生成失败")
-                self._keys_page.btn_regen.clicked.connect(_on_regen)
+                if hasattr(self._settings_page, 'key_section'):
+                    self._settings_page.key_section.btn_regen.clicked.connect(_on_regen)
                 def _on_export():
                     path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "导出公钥", os.path.join(os.getcwd(), "keys", "pub_export.pem"), filter="PEM (*.pem)")
                     if not path:
                         return
                     res = getattr(backend, 'export_pubkey', lambda p: None)(path)
                     QtWidgets.QMessageBox.information(self, "导出公钥", f"已导出至:\n{res}" if res else "导出失败")
-                self._keys_page.btn_export.clicked.connect(_on_export)
+                if hasattr(self._settings_page, 'key_section'):
+                    self._settings_page.key_section.btn_export.clicked.connect(_on_export)
             except Exception:
                 pass
-            # 表情页返回聊天
+            # 独立表情页面已移除（占位 try 块避免缩进错误）
             try:
-                self._emotes_page.btn_back.clicked.connect(lambda: self._stack.setCurrentWidget(self._user_page))
+                pass
             except Exception:
                 pass
         except Exception:
@@ -1458,7 +1499,6 @@ class MainWindow(QtWidgets.QMainWindow):
         _set(self, 'btn_chat', t['chat'])
         _set(self, 'btn_users', t['users'])
         _set(self, 'btn_groups', t['groups'])
-        _set(self, 'btn_emotes', t['emotes'])
         _set(self, 'btn_settings', t['settings'])
         _set(self._user_page, 'emoji_btn', t['emoji'])
         _set(self._user_page, 'screenshot_btn', t['screenshot'])
@@ -1466,7 +1506,7 @@ class MainWindow(QtWidgets.QMainWindow):
         _set(self._user_page, 'history_btn', t['history'])
         _set(self._user_page, 'send_file_btn', t['sendfile'])
         _set(self._user_page, 'send_btn', t['send'])
-        _set(self._user_page, 'enc_test_btn', t.get('enc_test', ''))
+        # 编码自检按钮已从聊天页移除
         self._current_language = lang
         self._current_translations = t
         user_loc = {
@@ -1492,14 +1532,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._groups_page.apply_language(t)
         except Exception:
             pass
-        try:
-            self._emotes_page.apply_language(t)
-        except Exception:
-            pass
-        try:
-            self._keys_page.apply_language(t)
-        except Exception:
-            pass
+        # 独立表情/密钥页面已移除
         # 登录页占位符 & 组搜索占位符
         try:
             self._login_page.name_edit.setPlaceholderText(t['username_ph'])
@@ -1658,10 +1691,13 @@ class UsersListPage(QtWidgets.QWidget):
         self.discover_btn.setToolTip("在指定 IP 或广播发现在线用户（留空则广播）")
         search_row.addWidget(self.search_edit, 1)
         search_row.addWidget(self.discover_btn)
+
         self.list = QtWidgets.QListWidget()
-        self.list.itemDoubleClicked.connect(self._emit_pick)
+        self.list.itemDoubleClicked.connect(self._on_user_double_clicked)
+
         layout.addLayout(search_row)
         layout.addWidget(self.list, 1)
+
         info_box = QtWidgets.QVBoxLayout()
         info_box.setSpacing(6)
         self.lbl_local = QtWidgets.QLabel("本机：-")
@@ -1675,24 +1711,42 @@ class UsersListPage(QtWidgets.QWidget):
         row.addWidget(btn_disc)
         self.lbl_mask = QtWidgets.QLabel("掩码：-")
         self.lbl_count = QtWidgets.QLabel("在线节点: 0")
-        self.nodes = QtWidgets.QListWidget()
+        # 只保留一个用户列表 + 网络信息
         info_box.addWidget(self.lbl_local)
         info_box.addWidget(self.lbl_bcast)
         info_box.addLayout(row)
         info_box.addWidget(self.lbl_mask)
         info_box.addWidget(self.lbl_count)
-        info_box.addWidget(self.nodes, 1)
         layout.addLayout(info_box)
+
         self.discover_btn.clicked.connect(lambda: self.sigDiscover.emit(self.search_edit.text().strip()))
         btn_disc.clicked.connect(lambda: self.sigDiscover.emit(self.disc_ip.text().strip()))
-        self.nodes.itemDoubleClicked.connect(self._emit_node_pick)
+
+    def _on_user_double_clicked(self, item: QtWidgets.QListWidgetItem):
+        meta = item.data(QtCore.Qt.UserRole)
+        if not meta:
+            return
+        kind, obj = meta
+        if kind == "user":
+            target = f"ip:{obj.ip}"
+        elif kind == "group":
+            target = f"group:{obj}"
+        else:
+            return
+        # 优先使用主窗口绑定的 focus handler，保持与单击行为一致
+        if callable(self._focus_chat):
+            self._focus_chat(target)
+        else:
+            self.targetPicked.emit(target)
 
     def update_nodes(self, nodes, groups=None, local_ip: str = ""):
         self.list.clear()
         items = []
         for n in nodes:
-            tag = " [LOCAL]" if local_ip and getattr(n, 'ip', None) == local_ip else ""
-            items.append((f"{n.username} @ {n.ip}{tag}", ("user", n)))
+            host = getattr(n, 'hostname', '')
+            local_tag = "[LOCAL] " if local_ip and getattr(n, 'ip', None) == local_ip else ""
+            st = f" [{n.status}]" if getattr(n, 'status', 'online') != 'online' else ""
+            items.append((f"{local_tag}{n.username} @ {n.ip} ({host}){st}", ("user", n)))
         if groups:
             for g, members in sorted(groups.items()):
                 items.append((f"[组] {g} ({len(members)})", ("group", g)))
@@ -1700,14 +1754,13 @@ class UsersListPage(QtWidgets.QWidget):
         for text, meta in items:
             it = QtWidgets.QListWidgetItem(text)
             it.setData(QtCore.Qt.UserRole, meta)
+            # 字体加大一号
+            try:
+                f = it.font(); f.setPointSize(f.pointSize() + 1); it.setFont(f)
+            except Exception:
+                pass
             self.list.addItem(it)
         self._apply_filter()
-        self.nodes.clear()
-        for n in nodes:
-            st = f" [{n.status}]" if getattr(n, 'status', 'online') != 'online' else ""
-            it = QtWidgets.QListWidgetItem(f"{n.username}@{n.ip} ({getattr(n, 'hostname', '')}){st}")
-            it.setData(QtCore.Qt.UserRole, ("node", n))
-            self.nodes.addItem(it)
         try:
             self.lbl_count.setText(self._info_templates.get('nodes', '在线节点: {count}').format(count=len(nodes)))
         except Exception:
@@ -1761,21 +1814,7 @@ class UsersListPage(QtWidgets.QWidget):
         else:
             self.targetPicked.emit(target)
 
-    def _emit_node_pick(self, item: QtWidgets.QListWidgetItem):
-        meta = item.data(QtCore.Qt.UserRole)
-        if not meta:
-            return
-        kind, node = meta
-        if kind != "node" or not node:
-            return
-        ip = getattr(node, 'ip', '')
-        if not ip:
-            return
-        target = f"ip:{ip}"
-        if callable(self._focus_chat):
-            self._focus_chat(target)
-        else:
-            self.targetPicked.emit(target)
+    # _emit_node_pick 移除：节点双击由顶部列表统一处理
 
     def apply_language(self, t: Dict[str, str]) -> None:
         try:
@@ -1810,10 +1849,12 @@ class GroupsPage(QtWidgets.QWidget):
         # 顶部：过滤 + 操作按钮
         top_row = QtWidgets.QHBoxLayout()
         self.member_filter = QtWidgets.QLineEdit(); self.member_filter.setPlaceholderText("搜索组名/成员…")
-        self.btn_new_group = QtWidgets.QPushButton("新建分组")
-        self.btn_rename = QtWidgets.QPushButton("重命名")
-        for b in (self.btn_new_group, self.btn_rename):
-            b.setFixedHeight(b.fontMetrics().height() + 12)
+        def _mk_nav_btn(text: str) -> NavigationButton:
+            btn = NavigationButton(text)
+            btn.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+            return btn
+        self.btn_new_group = _mk_nav_btn("新建分组")
+        self.btn_rename = _mk_nav_btn("重命名")
         top_row.addWidget(self.member_filter, 1)
         top_row.addWidget(self.btn_new_group)
         top_row.addWidget(self.btn_rename)
@@ -1840,30 +1881,7 @@ class GroupsPage(QtWidgets.QWidget):
         ctrl.addWidget(self.btn_enter_chat)
         right.addLayout(ctrl)
         main_row.addLayout(right, 2)
-
         layout.addLayout(main_row)
-
-        # wiring
-        def on_add():
-            g = self._current_group()
-            u = self.member_edit.text().strip()
-            if g and u:
-                self.sigAdd.emit(g, u)
-
-        def on_del():
-            g = self._current_group()
-            item = self.members_list.currentItem()
-            if item is not None:
-                u = item.text()
-            else:
-                u = self.member_edit.text().strip()
-            if g and u:
-                self.sigRemove.emit(g, u)
-
-        btn_add.clicked.connect(on_add)
-        btn_del.clicked.connect(on_del)
-        self.group_list.currentTextChanged.connect(lambda _: self._update_members())
-        self.member_filter.textChanged.connect(self._apply_group_filter)
 
     def apply_language(self, t: Dict[str, str]) -> None:
         try:
@@ -1920,6 +1938,11 @@ class GroupsPage(QtWidgets.QWidget):
             cnt = len(self._cached_groups.get(g, []))
             it = QtWidgets.QListWidgetItem(f"{g} ({cnt})")
             it.setData(QtCore.Qt.UserRole, g)
+            # 字体加大一号
+            try:
+                f = it.font(); f.setPointSize(f.pointSize()+1); it.setFont(f)
+            except Exception:
+                pass
             self.group_list.addItem(it)
         # restore selection
         if current:
@@ -1936,7 +1959,12 @@ class GroupsPage(QtWidgets.QWidget):
         members = sorted(list(self._cached_groups.get(g, []))) if g else []
         self.members_list.clear()
         for u in members:
-            self.members_list.addItem(u)
+            it = QtWidgets.QListWidgetItem(u)
+            try:
+                f = it.font(); f.setPointSize(f.pointSize()+1); it.setFont(f)
+            except Exception:
+                pass
+            self.members_list.addItem(it)
 
     def _apply_group_filter(self):
         q = self.member_filter.text().strip().lower()
@@ -1950,6 +1978,10 @@ class GroupsPage(QtWidgets.QWidget):
             if not q or q in blob:
                 it = QtWidgets.QListWidgetItem(f"{g} ({len(members)})")
                 it.setData(QtCore.Qt.UserRole, g)
+                try:
+                    f = it.font(); f.setPointSize(f.pointSize()+1); it.setFont(f)
+                except Exception:
+                    pass
                 self.group_list.addItem(it)
         # restore selection
         if current:
@@ -2150,80 +2182,129 @@ class InfoPage(QtWidgets.QWidget):
 class SettingsPage(QtWidgets.QWidget):
     sigApply = QtCore.pyqtSignal(dict)
     sigLogout = QtCore.pyqtSignal()
+    sigEncodingSelfTest = QtCore.pyqtSignal()
 
     def __init__(self):
         super().__init__()
         self._build()
 
     def _build(self):
-        layout = QtWidgets.QFormLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(10)
-        # 平台信息显示
+        outer = QtWidgets.QVBoxLayout(self)
+        outer.setContentsMargins(12, 12, 12, 12)
+        outer.setSpacing(10)
+
+        # 顶部平台信息
+        top_info = QtWidgets.QHBoxLayout()
         self.lbl_platform = QtWidgets.QLabel(self._detect_platform_str())
         self.lbl_version = QtWidgets.QLabel(f"版本：{APP_VERSION}")
-        layout.addRow(self.lbl_platform)
-        layout.addRow(self.lbl_version)
+        top_info.addWidget(self.lbl_platform)
+        top_info.addStretch(1)
+        top_info.addWidget(self.lbl_version)
+        outer.addLayout(top_info)
+
+        tabs = QtWidgets.QTabWidget()
+        outer.addWidget(tabs, 1)
+
+        # 个人
+        tab_personal = QtWidgets.QWidget(); tabs.addTab(tab_personal, "个人")
+        pform = QtWidgets.QFormLayout(tab_personal); pform.setContentsMargins(12,12,12,12); pform.setSpacing(10)
+        self.lbl_p_username = QtWidgets.QLabel("用户名：-")
+        self.lbl_p_ip = QtWidgets.QLabel("IP：-.-.-.-")
+        # 状态下拉迁移至个人页
+        self.lbl_p_username = self.lbl_p_username
+        pform.addRow(self.lbl_p_username)
+        pform.addRow(self.lbl_p_ip)
+        self.lbl_status = QtWidgets.QLabel("状态")
+        self.cmb_status = QtWidgets.QComboBox(); self.cmb_status.addItems(["online","busy","away"])
+        pform.addRow(self.lbl_status, self.cmb_status)
+        self.edit_avatar = QtWidgets.QLineEdit(); self.edit_avatar.setPlaceholderText("头像文件（PNG/JPG，可选）")
+        btn_pick_avatar = QtWidgets.QPushButton("选择头像…"); btn_pick_avatar.setFixedHeight(btn_pick_avatar.fontMetrics().height() + 12)
+        pform.addRow("头像", self._row_widget(self.edit_avatar, btn_pick_avatar))
+        # 密钥设置嵌入
+        try:
+            self.key_section = KeyPage()
+            gb = QtWidgets.QGroupBox("安全与密钥")
+            v = QtWidgets.QVBoxLayout(gb); v.setContentsMargins(8,8,8,8); v.addWidget(self.key_section)
+            pform.addRow(gb)
+        except Exception:
+            pass
+
+        # 通用
+        tab_general = QtWidgets.QWidget(); tabs.addTab(tab_general, "通用")
+        gform = QtWidgets.QFormLayout(tab_general); gform.setContentsMargins(12,12,12,12); gform.setSpacing(10)
         self.cmb_lang = QtWidgets.QComboBox(); self.cmb_lang.addItems(["zhCN","enUS"]) 
-        self.cmb_status = QtWidgets.QComboBox(); self.cmb_status.addItems(["online","busy","away"]) 
         self.cmb_enc = QtWidgets.QComboBox(); self.cmb_enc.addItems(["utf-8","gbk"]) 
         self.cmb_theme = QtWidgets.QComboBox(); self.cmb_theme.addItems(["light","dark"]) 
-        self.cmb_iface = QtWidgets.QComboBox()  # 本机网卡IP下拉
         self.chk_debug = QtWidgets.QCheckBox("调试日志")
         self.chk_trace = QtWidgets.QCheckBox("诊断日志")
-        self.spn_keepalive = QtWidgets.QDoubleSpinBox(); self.spn_keepalive.setRange(5.0, 600.0); self.spn_keepalive.setValue(30.0)
-        self.spn_expire = QtWidgets.QDoubleSpinBox(); self.spn_expire.setRange(10.0, 3600.0); self.spn_expire.setValue(90.0)
+        self.lbl_lang = QtWidgets.QLabel("语言"); self.lbl_encoding = QtWidgets.QLabel("编码"); self.lbl_theme = QtWidgets.QLabel("主题")
+        gform.addRow(self.lbl_lang, self.cmb_lang)
+        self.btn_enc_test = QtWidgets.QPushButton("编码自检"); self.btn_enc_test.setFixedHeight(self.btn_enc_test.fontMetrics().height() + 12)
+        # 将编码下拉与按钮放在一行（下拉+按钮）
+        enc_container = QtWidgets.QWidget()
+        enc_h = QtWidgets.QHBoxLayout(enc_container)
+        enc_h.setContentsMargins(0,0,0,0)
+        enc_h.addWidget(self.cmb_enc, 1)
+        enc_h.addWidget(self.btn_enc_test)
+        gform.addRow(self.lbl_encoding, enc_container)
+        gform.addRow(self.lbl_theme, self.cmb_theme)
+        gform.addRow(self.chk_debug, self.chk_trace)
+
+        # 网络
+        tab_net = QtWidgets.QWidget(); tabs.addTab(tab_net, "网络")
+        nform = QtWidgets.QFormLayout(tab_net); nform.setContentsMargins(12,12,12,12); nform.setSpacing(10)
+        self.cmb_iface = QtWidgets.QComboBox()
         self.edit_bind = QtWidgets.QLineEdit(); self.edit_bind.setPlaceholderText("绑定 IP（可选）")
         self.edit_mask = QtWidgets.QLineEdit(); self.edit_mask.setPlaceholderText("子网掩码（例如 255.255.255.0，可选）")
-        self.edit_dir = QtWidgets.QLineEdit(); self.edit_dir.setPlaceholderText("下载目录（可选）")
-        btn_browse_dir = QtWidgets.QPushButton("浏览…")
-        btn_browse_dir.setFixedHeight(btn_browse_dir.fontMetrics().height() + 12)
-        # 截图目录设置
-        self.edit_ss_dir = QtWidgets.QLineEdit(); self.edit_ss_dir.setPlaceholderText("截图目录（可选）")
-        btn_browse_ss = QtWidgets.QPushButton("浏览截图…")
-        btn_browse_ss.setFixedHeight(btn_browse_ss.fontMetrics().height() + 12)
-        # 头像设置与登出
-        self.edit_avatar = QtWidgets.QLineEdit(); self.edit_avatar.setPlaceholderText("头像文件（PNG/JPG，可选）")
-        btn_pick_avatar = QtWidgets.QPushButton("选择头像…")
-        btn_pick_avatar.setFixedHeight(btn_pick_avatar.fontMetrics().height() + 12)
-        btn_apply = QtWidgets.QPushButton("应用")
-        btn_apply.setFixedHeight(btn_apply.fontMetrics().height() + 12)
-        btn_logout = QtWidgets.QPushButton("登出 / Logout")
-        btn_logout.setFixedHeight(btn_logout.fontMetrics().height() + 12)
-        self.lbl_lang = QtWidgets.QLabel("语言")
-        self.lbl_status = QtWidgets.QLabel("状态")
-        self.lbl_encoding = QtWidgets.QLabel("编码")
-        self.lbl_theme = QtWidgets.QLabel("主题")
+        self.spn_keepalive = QtWidgets.QDoubleSpinBox(); self.spn_keepalive.setRange(5.0, 600.0); self.spn_keepalive.setValue(30.0)
+        self.spn_expire = QtWidgets.QDoubleSpinBox(); self.spn_expire.setRange(10.0, 3600.0); self.spn_expire.setValue(90.0)
         self.lbl_iface = QtWidgets.QLabel("网卡IP")
-        layout.addRow(self.lbl_lang, self.cmb_lang)
-        layout.addRow(self.lbl_status, self.cmb_status)
-        layout.addRow(self.lbl_encoding, self.cmb_enc)
-        layout.addRow(self.lbl_theme, self.cmb_theme)
-        layout.addRow(self.lbl_iface, self.cmb_iface)
-        layout.addRow(self.chk_debug, self.chk_trace)
         self.lbl_keepalive = QtWidgets.QLabel("Keepalive(s)")
         self.lbl_expire = QtWidgets.QLabel("Expire(s)")
         self.lbl_bind = QtWidgets.QLabel("绑定IP")
         self.lbl_mask = QtWidgets.QLabel("子网掩码")
+        nform.addRow(self.lbl_iface, self.cmb_iface)
+        nform.addRow(self.lbl_bind, self.edit_bind)
+        nform.addRow(self.lbl_mask, self.edit_mask)
+        nform.addRow(self.lbl_keepalive, self.spn_keepalive)
+        nform.addRow(self.lbl_expire, self.spn_expire)
+
+        # 文件
+        tab_files = QtWidgets.QWidget(); tabs.addTab(tab_files, "文件")
+        fform = QtWidgets.QFormLayout(tab_files); fform.setContentsMargins(12,12,12,12); fform.setSpacing(10)
+        self.edit_dir = QtWidgets.QLineEdit(); self.edit_dir.setPlaceholderText("下载目录（可选）")
+        btn_browse_dir = QtWidgets.QPushButton("浏览…"); btn_browse_dir.setFixedHeight(btn_browse_dir.fontMetrics().height() + 12)
+        self.edit_ss_dir = QtWidgets.QLineEdit(); self.edit_ss_dir.setPlaceholderText("截图目录（可选）")
+        btn_browse_ss = QtWidgets.QPushButton("浏览截图…"); btn_browse_ss.setFixedHeight(btn_browse_ss.fontMetrics().height() + 12)
         self.lbl_download = QtWidgets.QLabel("下载目录")
         self.lbl_ss_dir = QtWidgets.QLabel("截图目录")
-        self.lbl_avatar = QtWidgets.QLabel("头像")
-        layout.addRow(self.lbl_keepalive, self.spn_keepalive)
-        layout.addRow(self.lbl_expire, self.spn_expire)
-        layout.addRow(self.lbl_bind, self.edit_bind)
-        layout.addRow(self.lbl_mask, self.edit_mask)
-        layout.addRow(self.lbl_download, self._row_widget(self.edit_dir, btn_browse_dir))
-        layout.addRow(self.lbl_ss_dir, self._row_widget(self.edit_ss_dir, btn_browse_ss))
-        layout.addRow(self.lbl_avatar, self._row_widget(self.edit_avatar, btn_pick_avatar))
-        self.btn_apply = btn_apply
-        self.btn_logout = btn_logout
-        layout.addRow(self.btn_apply)
-        layout.addRow(self.btn_logout)
-        btn_apply.clicked.connect(self._emit_apply)
+        fform.addRow(self.lbl_download, self._row_widget(self.edit_dir, btn_browse_dir))
+        fform.addRow(self.lbl_ss_dir, self._row_widget(self.edit_ss_dir, btn_browse_ss))
+
+        # 底部按钮
+        btn_row = QtWidgets.QHBoxLayout()
+        self.btn_apply = QtWidgets.QPushButton("应用"); self.btn_apply.setFixedHeight(self.btn_apply.fontMetrics().height() + 12)
+        self.btn_logout = QtWidgets.QPushButton("登出 / Logout"); self.btn_logout.setFixedHeight(self.btn_logout.fontMetrics().height() + 12)
+        btn_row.addStretch(1); btn_row.addWidget(self.btn_apply); btn_row.addWidget(self.btn_logout)
+        outer.addLayout(btn_row)
+
+        # 连接
+        self.btn_apply.clicked.connect(self._emit_apply)
         btn_browse_dir.clicked.connect(self._pick_download_dir)
         btn_browse_ss.clicked.connect(self._pick_screenshot_dir)
-        btn_logout.clicked.connect(lambda: self.sigLogout.emit())
+        self.btn_logout.clicked.connect(lambda: self.sigLogout.emit())
         btn_pick_avatar.clicked.connect(self._pick_avatar)
+        self.btn_enc_test.clicked.connect(lambda: self.sigEncodingSelfTest.emit())
+        # 头像预览（放置在个人页，确保在密钥区之前添加）
+        if not hasattr(self, 'avatar_preview'):
+            self.avatar_preview = QtWidgets.QLabel("预览")
+            self.avatar_preview.setFixedSize(90,90)
+            self.avatar_preview.setAlignment(QtCore.Qt.AlignCenter)
+            self.avatar_preview.setStyleSheet("background:#e0e0e0; border:1px solid #ccc; border-radius:6px;")
+            # 插入到密钥区前：追加到 pform 末尾（若密钥区存在则仍显示在其上方）
+            pform.insertRow(pform.rowCount()-1, self.avatar_preview)
+        self.edit_avatar.textChanged.connect(self._update_avatar_preview)
+        self._update_avatar_preview()
         # expose translation helper
         self.apply_translations = self._apply_translations
 
@@ -2304,6 +2385,7 @@ class SettingsPage(QtWidgets.QWidget):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "选择头像图片", filter="Images (*.png *.jpg *.jpeg)")
         if path:
             self.edit_avatar.setText(path.replace("\\", "/"))
+            self._update_avatar_preview()
 
     def _pick_screenshot_dir(self):
         d = QtWidgets.QFileDialog.getExistingDirectory(self, "选择截图保存目录")
@@ -2323,7 +2405,6 @@ class SettingsPage(QtWidgets.QWidget):
             'subnet_mask': self.lbl_mask,
             'download_dir': self.lbl_download,
             'screenshot_dir': self.lbl_ss_dir,
-            'avatar': self.lbl_avatar,
             'apply': self.btn_apply,
             'logout_long': self.btn_logout,
         }
@@ -2332,6 +2413,18 @@ class SettingsPage(QtWidgets.QWidget):
                 w.setText(t.get(k, w.text()))
             except Exception:
                 pass
+    def _update_avatar_preview(self):
+        try:
+            p = self.edit_avatar.text().strip()
+            if p and os.path.isfile(p):
+                pm = QtGui.QPixmap(p)
+                if not pm.isNull():
+                    self.avatar_preview.setPixmap(pm.scaled(90,90, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
+                    return
+            self.avatar_preview.setText("预览")
+            self.avatar_preview.setPixmap(QtGui.QPixmap())
+        except Exception:
+            self.avatar_preview.setText("预览")
 
 class KeyPage(QtWidgets.QWidget):
     def __init__(self):

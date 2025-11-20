@@ -1,6 +1,6 @@
 {
 "config": {
-"language": "enUS",
+"language": "zhCN",
 "status": "online",
 "encoding": "utf-8",
 "encrypt_mode": "off",
@@ -627,6 +627,62 @@
 "user": "win",
 "ip": "172.26.88.222",
 "target": "me",
+"text": "编码自检：中文✓ English✓ Emoji😀 αßé"
+},
+{
+"ts": 1763628534.5556667,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "ip:172.26.88.222",
+"text": "编码自检：中文✓ English✓ Emoji😀 αßé"
+},
+{
+"ts": 1763628534.5576649,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "编码自检：中文✓ English✓ Emoji😀 αßé"
+},
+{
+"ts": 1763628682.8913772,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "ip:172.26.3.18",
+"text": "在吗？"
+},
+{
+"ts": 1763628700.7182307,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "ip:172.26.88.222",
+"text": "下载目录的默认路径设置为软件工作目录下的 download 文件夹\n用户列表中双击某个用户后应当跳转到聊天页面\n根据对话历史彻底更新 README 和 CHANGELOG，然后将版本号改为 Alpha 3.6"
+},
+{
+"ts": 1763630177.018668,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "ip:172.26.3.18",
+"text": "在吗？"
+},
+{
+"ts": 1763630210.122881,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "all",
+"text": "😀"
+},
+{
+"ts": 1763630222.4824708,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "ip:172.26.88.222",
 "text": "编码自检：中文✓ English✓ Emoji😀 αßé"
 }
 ]
