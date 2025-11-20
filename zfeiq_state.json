@@ -684,6 +684,38 @@
 "ip": "172.26.88.222",
 "target": "ip:172.26.88.222",
 "text": "编码自检：中文✓ English✓ Emoji😀 αßé"
+},
+{
+"ts": 1763640352.9224517,
+"direction": "out",
+"user": "zhangzw0170",
+"ip": "172.26.88.222",
+"target": "all",
+"text": "[FILE]shot_20251120_200550.png"
+},
+{
+"ts": 1763640391.0938704,
+"direction": "out",
+"user": "zhangzw0170",
+"ip": "172.26.88.222",
+"target": "all",
+"text": "file:///E:/Main/JuniorI/Course_Linux_RK3566/ZFeiQ/README.md"
+},
+{
+"ts": 1763640473.0738916,
+"direction": "out",
+"user": "zhangzw0170",
+"ip": "172.26.88.222",
+"target": "ip:172.26.3.18",
+"text": "🎉"
+},
+{
+"ts": 1763654991.3282642,
+"direction": "out",
+"user": "w",
+"ip": "172.26.48.1",
+"target": "ip:172.26.48.1",
+"text": "编码自检：中文✓ English✓ Emoji😀 αßé"
 }
 ]
 }

@@ -1,5 +1,5 @@
 
-# CLI 与 GUI 功能对照表（Alpha 3.4）
+# CLI 与 GUI 功能对照表（Alpha 4.0）
 
 | 功能点/说明 | GUI支持 | CLI支持/命令 | 备注 |
 |---|---|---|---|
@@ -38,7 +38,10 @@
 | 查看与用户历史 | ✅ 历史窗口 | `/info user:<name>` |  |
 | 查看群组历史 | ✅ 聊天页聚合 | `/info group:<name>` |  |
 | 搜索用户/组/IP | ✅ 搜索框 | `/search user|group|ip` |  |
-| 语言切换 | ✅ 设置页 | `/set language <zhCN|enUS>` |  |
+| 语言切换 | ✅ 设置页（所有页面即时刷新，文本集中管理） | `/set language <zhCN|enUS>` |  |
+| 侧栏间距调节 | ✅ 完全灵活 | ❌ | GUI专属 |
+| 设置页控件宽度自适应 | ✅ | ❌ | GUI专属 |
+| 头像预览健壮 | ✅ 仅在有效路径时显示 | ❌ | GUI专属 |
 | 在线状态 | ✅ 设置页 | `/set status <...>` |  |
 | Debug/Trace 日志开关 | ✅ 设置页 | `/set debug <on|off>`, `/set trace <on|off>` |  |
 | Keepalive/Expire | ✅ 设置页 | `/set keepalive <sec>`, `/set expire <sec>` |  |
