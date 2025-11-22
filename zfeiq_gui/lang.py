@@ -1,6 +1,22 @@
 # 统一语言模块，集中管理所有界面文本
 
-LANG_MAP = {
+"""语言与翻译中心。
+
+提供统一的翻译访问与语言切换支持，使用方式：
+
+    from zfeiq_gui.lang import t, set_language
+    label.setText(t['login_welcome'])  # t 是当前语言的翻译包(dict-like)
+
+页面中所有文本统一使用 t['key'] 访问，禁止再使用 t.get(...)。
+若键缺失将返回 "??key??" 以便在开发阶段快速发现。
+支持从状态文件加载上次使用的语言，并可在运行时切换。
+"""
+
+import json
+import os
+from typing import Dict
+
+LANG_MAP: Dict[str, Dict[str, str]] = {
     'zhCN': {
         'accept': '接收',
         'all_display': '所有在线',
@@ -96,6 +112,7 @@ LANG_MAP = {
         'no_target_warning_body': '请先在用户或组页面选择聊天对象。',
         'no_target_warning_title': '未选择目标',
         'online': '在线',
+        'away': '离开',
         'online_nodes': '在线节点',
         'outbox_placeholder': '输入消息，Enter 发送，Shift+Enter 换行',
         'personal_tab': '个人',
@@ -109,7 +126,9 @@ LANG_MAP = {
         'preview': '预览',
         'quick': '常用语',
         'refresh': '刷新',
-            'custom_emotes_unavailable': '自定义表情不可用',
+        'custom_emotes_unavailable': '自定义表情不可用',
+        'screenshot': '截图',
+        'setdefault': '设为默认',
         'screenshot_dir': '截图目录',
         'saved_to': '保存到',
         'search_ph': '搜索用户名或IP…',
@@ -222,6 +241,7 @@ LANG_MAP = {
         'no_target_warning_body': 'Pick a user or group before sending.',
         'no_target_warning_title': 'No target selected',
         'online': 'Online',
+        'away': 'Away',
         'online_nodes': 'Online nodes',
         'outbox_placeholder': 'Enter message, press Enter to send, Shift+Enter for newline',
         'personal_tab': 'Personal',
@@ -253,8 +273,183 @@ LANG_MAP = {
         'username_ph': 'Enter username…',
         'version': 'Version',
         'custom_emotes_unavailable': 'Custom emotes unavailable',
+        'setdefault': 'Set Default',
+    },
+    'esES': {
+        'accept': 'Aceptar',
+        'all_display': 'Todos en línea',
+        'all_tab': 'Todos',
+        'apply': 'Aplicar',
+        'avatar': 'Avatar',
+        'avatar_placeholder': 'Archivo de avatar (PNG/JPG, opcional)',
+        'broadcast_label': 'Difusión: {bcast}',
+        'bind_ip': 'Vincular IP',
+        'browse': 'Examinar…',
+        'browse_ss': 'Examinar captura…',
+        'browse_dialog_title': 'Seleccionar archivos para enviar',
+        'busy': 'Ocupado',
+        'cancel': 'Cancelar',
+        'chat': 'Chat',
+        'chat_placeholder': 'Área de chat: muestra mensajes y archivos',
+        'chat_target_unselected': 'Objetivo de chat no seleccionado',
+        'debug': 'Registro de depuración',
+        'discover': 'Descubrir',
+        'discover_ph': 'ipv4, dejar en blanco para difusión',
+        'discover_tip': 'Descubre usuarios en línea por IP o difusión (dejar en blanco para difusión)',
+        'download_dir': 'Directorio de descargas',
+        'encoding': 'Codificación',
+        'encoding_selftest': 'Autoprueba de codificación',
+        'encoding_selftest_sample': 'Autoprueba: 中文✓ English✓ Emoji😀 αßé',
+        'enc_mode': 'Modo de cifrado',
+        'enc_test': 'Autoprueba de codificación',
+        'emoji': 'Emojis',
+        'emoji_dialog_title': 'Emojis',
+        'emoji_tab_custom': 'Personalizado',
+        'emoji_tab_standard': 'Emoji',
+        'emotes': 'Emojis',
+        'emotes_add': 'Agregar emoji',
+        'emotes_back': 'Volver al chat',
+        'emotes_pick_dir': 'Seleccionar directorio',
+        'emotes_send': 'Enviar seleccionados',
+        'expire': 'Expira (s)',
+        'files': 'Archivos',
+        'files_tab': 'Archivos',
+        'file_done_label': 'Archivo completado',
+        'file_offer_label': 'Oferta de archivo',
+        'file_progress_label': 'Progreso de archivo',
+        'file_sent_prefix': 'Archivo enviado: ',
+        'general_tab': 'General',
+        'groups': 'Grupos',
+        'groups_tab': 'Grupos',
+        'group_enter': 'Entrar al chat',
+        'group_label_prefix': 'Grupo: ',
+        'group_new': 'Nuevo grupo',
+        'group_new_name': 'Nuevo nombre:',
+        'group_rename': 'Renombrar',
+        'group_search_ph': 'Buscar grupo/miembro…',
+        'group_send': 'Enviar al grupo',
+        'help': 'Ayuda',
+        'history': 'Historial',
+        'history_close': 'Cerrar',
+        'history_empty': '(sin registros)',
+        'history_title': 'Historial',
+        'history_no_target': 'Seleccione un objetivo de chat antes de ver el historial.',
+        'iface': 'IP de interfaz',
+        'images_filter': 'Imágenes (*.png *.jpg *.jpeg)',
+        'info': 'Información',
+        'ip': 'IP',
+        'ip_label_prefix': 'IP',
+        'keepalive': 'Mantener vivo (s)',
+        'key_export': 'Exportar clave pública…',
+        'key_fp': 'Huella: -',
+        'key_refresh': 'Actualizar huella',
+        'key_regen': 'Regenerar claves',
+        'key_section': 'Seguridad y claves',
+        'lang': 'Idioma',
+        'local_label': 'Local: {local} / {prefix}',
+        'login': 'Iniciar sesión',
+        'login_help_text': (
+            '1) Ingrese nombre de usuario y seleccione IP\n'
+            '2) Después de iniciar sesión, elija objetivos de chat en Usuarios/Grupos\n'
+            '3) Chat: Enter para enviar, Shift+Enter para nueva línea; Ctrl+V adjunta archivos.\n'
+            '   Emojis: haga clic en "Emojis" para imágenes emoji y personalizadas.\n'
+            '   Captura: arrastre para seleccionar área, ESC para cancelar.\n'
+            '4) Configuración: idioma/estado/codificación/tema, directorios de descarga y captura, avatar; la autoprueba de codificación está en Configuración-General.\n'
+        ),
+        'login_welcome': 'Bienvenido a ZFeiQ, inicie sesión primero',
+        'logout': 'Cerrar sesión',
+        'logout_long': 'Cerrar sesión',
+        'mask_label': 'Máscara: {mask}',
+        'member_add': 'Agregar miembro',
+        'member_del': 'Eliminar miembro',
+        'member_ph': 'Agregar/Eliminar miembro…',
+        'me_label': 'Yo',
+        'network_tab': 'Red',
+        'nodes_label': 'Nodos en línea: {count}',
+        'no_target_warning_body': 'Seleccione un usuario o grupo antes de enviar.',
+        'no_target_warning_title': 'No se seleccionó objetivo',
+        'online': 'En línea',
+        'away': 'Ausente',
+        'online_nodes': 'Nodos en línea',
+        'outbox_placeholder': 'Ingrese mensaje, Enter para enviar, Shift+Enter para nueva línea',
+        'personal_tab': 'Personal',
+        'pick_avatar': 'Seleccionar avatar…',
+        'pick_avatar_dialog': 'Seleccionar imagen de avatar',
+        'pick_download_dir': 'Seleccionar directorio de descargas',
+        'pick_ip': 'Seleccionar IP',
+        'pick_screenshot_dir': 'Seleccionar directorio de capturas',
+        'pickdir': 'Seleccionar directorio de guardado',
+        'platform': 'Plataforma',
+        'preview': 'Vista previa',
+        'quick': 'Frases rápidas',
+        'refresh': 'Actualizar',
+        'custom_emotes_unavailable': 'Emojis personalizados no disponibles',
+        'screenshot': 'Captura',
+        'setdefault': 'Establecer por defecto',
+        'screenshot_dir': 'Directorio de capturas',
+        'saved_to': 'guardado en',
+        'search_ph': 'Buscar usuario o IP…',
+        'send': 'Enviar',
+        'sendfile': 'Enviar archivo',
+        'settings': 'Configuración',
+        'status': 'Estado',
+        'status_prefix': 'Estado: ',
+        'subnet_mask': 'Máscara de subred',
+        'theme': 'Tema',
+        'trace': 'Registro de seguimiento',
+        'users': 'Usuarios',
+        'users_tab': 'Usuarios',
+        'username': 'Usuario',
+        'username_ph': 'Ingrese nombre de usuario…',
+        'version': 'Versión',
+        'custom_emotes_unavailable': 'Emojis personalizados no disponibles',
     }
 }
 
-def get_translations(lang: str) -> dict:
+_current_lang_key: str = 'zhCN'
+
+class _TranslationProxy(dict):
+    """dict 子类：缺失键返回占位符，便于统一 t['key'] 调用。
+    不鼓励直接实例化，使用 module-level 全局 t。
+    """
+    def __getitem__(self, key: str) -> str:  # type: ignore[override]
+        base = LANG_MAP.get(_current_lang_key, LANG_MAP['zhCN'])
+        if key in base:
+            return base[key]
+        # 缺失键：返回占位符，方便调试
+        return f'??{key}??'
+
+    # 禁止使用 get，强迫统一风格；如被旧代码调用则仍给出值 + 警告占位
+    def get(self, key: str, default=None):  # type: ignore[override]
+        return self.__getitem__(key)
+
+def _load_initial_language(state_path: str = 'zfeiq_state.json', default: str = 'zhCN') -> str:
+    """从状态文件读取 language 字段，失败则使用默认。"""
+    try:
+        if os.path.exists(state_path):
+            with open(state_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            lang = data.get('config', {}).get('language')
+            if isinstance(lang, str) and lang in LANG_MAP:
+                return lang
+    except Exception:
+        pass
+    return default
+
+def set_language(lang: str) -> None:
+    """切换当前语言。若 lang 不存在则忽略。"""
+    global _current_lang_key
+    if lang in LANG_MAP:
+        _current_lang_key = lang
+
+def get_current_language() -> str:
+    return _current_lang_key
+
+def get_translations(lang: str) -> dict:  # 兼容旧代码，未来可移除
     return LANG_MAP.get(lang, LANG_MAP['zhCN'])
+
+# 初始化全局 t
+_current_lang_key = _load_initial_language()
+t = _TranslationProxy()  # t 是当前语言翻译包
+
+__all__ = ['t', 'set_language', 'get_current_language', 'get_translations', 'LANG_MAP']

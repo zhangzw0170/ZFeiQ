@@ -6,6 +6,7 @@ import datetime
 from .pages import ChatPage, LoginPage, UserListPage, GroupsPage, SettingsPage
 from .widgets import NavigationButton, ExpandableSection
 from .lang import get_translations
+from .style import get_combobox_qss
 
 
 ## ChatPage 已重构至 pages/chat_page.py
@@ -19,9 +20,65 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("ZFeiQ")
+        # 优先选用跨平台的等宽字体：Noto Sans Mono / DejaVu Sans Mono / Consolas / Courier New
+        # 若系统不存在其中任意字体，则使用 Qt 的 Monospace hint 作为回退。
+        self._FONT_PREFERENCES = [
+            'Noto Sans Mono',
+            'DejaVu Sans Mono',
+            'Consolas',
+            'Courier New',
+            'monospace',
+        ]
+        font = QtGui.QFont()
+        try:
+            db = QtGui.QFontDatabase()
+            chosen = None
+            try:
+                fams = db.families()
+            except Exception:
+                fams = []
+            for fam in self._FONT_PREFERENCES:
+                try:
+                    if fam in fams:
+                        chosen = fam
+                        break
+                except Exception:
+                    continue
+            if chosen:
+                font.setFamily(chosen)
+            else:
+                # 使用等宽提示作为最后的后备方案
+                font.setStyleHint(QtGui.QFont.Monospace)
+        except Exception:
+            # 若 QFontDatabase 不可用，则保守地不设置 family
+            try:
+                font.setStyleHint(QtGui.QFont.Monospace)
+            except Exception:
+                pass
+        font.setPointSize(11)
+        # 尝试设置为全局字体；若失败则设置到主窗口上（兼顾运行与静态分析）
+        try:
+            app = QtWidgets.QApplication.instance()
+            if app is not None:
+                setter = getattr(app, 'setFont', None)
+                if callable(setter):
+                    try:
+                        setter(font)
+                    except Exception:
+                        self.setFont(font)
+                else:
+                    self.setFont(font)
+            else:
+                self.setFont(font)
+        except Exception:
+            try:
+                self.setFont(font)
+            except Exception:
+                pass
         self.resize(self.mw_width, self.mw_height)
         self._build_ui()
         self._current_theme = "light"
+        # 全局样式将在 _apply_theme 中统一应用（避免在多个位置反复 setStyleSheet）
         self._current_language = "zhCN"
         self._current_translations = {}
 
@@ -202,10 +259,23 @@ class MainWindow(QtWidgets.QMainWindow):
                         self._settings_page.edit_ss_dir.setText(ss)
                 except Exception:
                     pass
+                # 保活/过期时长优先用后端值，无则用默认
+                try:
+                    keepalive = getattr(z, 'keepalive', None)
+                    expire = getattr(z, 'expire', None)
+                    self._settings_page.edit_keepalive.setText(str(int(keepalive)) if keepalive else '30')
+                    self._settings_page.edit_expire.setText(str(int(expire)) if expire else '90')
+                except Exception:
+                    self._settings_page.edit_keepalive.setText('30')
+                    self._settings_page.edit_expire.setText('90')
+                # 头像预览始终强制刷新
                 try:
                     av = backend.get_ui_avatar() if hasattr(backend, 'get_ui_avatar') else ''
-                    if av:
-                        self._settings_page.edit_avatar.setText(av)
+                    self._settings_page.edit_avatar.setText(av)
+                    if hasattr(self._settings_page, 'refresh_avatar_preview'):
+                        self._settings_page.refresh_avatar_preview()
+                    elif hasattr(self._settings_page, '_update_avatar_preview'):
+                        self._settings_page._update_avatar_preview()
                 except Exception:
                     pass
             except Exception:
@@ -301,8 +371,8 @@ class MainWindow(QtWidgets.QMainWindow):
                         t = self._current_translations or {}
                         QtWidgets.QMessageBox.information(
                             self,
-                            t.get('no_target_warning_title', '未选择目标'),
-                            t.get('no_target_warning_body', '请先在用户或组页面选择聊天对象。'),
+                            t['no_target_warning_title'],
+                            t['no_target_warning_body'],
                         )
                     return
                 if not text and not files:
@@ -394,7 +464,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     ip = backend.get_net_info().get('local_ip','')
                     tgt = f"ip:{ip}" if ip else "all"
                     t = self._current_translations or {}
-                    sample = t.get('encoding_selftest_sample', "编码自检：中文✓ English✓ Emoji😀 αßé")
+                    sample = t['encoding_selftest_sample']
                     backend.send_text(tgt, sample)
                     tab_label = _tab_label_for_target(tgt)
                     display = _display_for_target(tgt) or tgt
@@ -468,8 +538,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     t = self._current_translations or {}
                     QtWidgets.QMessageBox.information(
                         self,
-                        t.get('no_target_warning_title', '未选择目标'),
-                        t.get('history_no_target', t.get('no_target_warning_body', '请选择一个聊天对象后再查看历史。')),
+                        t['no_target_warning_title'],
+                        t['history_no_target'],
                     )
                     return
                 dlg = QtWidgets.QDialog(self)
@@ -896,7 +966,15 @@ class MainWindow(QtWidgets.QMainWindow):
                         QToolTip { background: #2a2a2a; color: #e0e0e0; border: 1px solid #3a3a3a; }
             """
             if isinstance(app, QtWidgets.QApplication):
-                app.setStyleSheet(dark_qss)
+                # 合并 combobox 专用 QSS，并移除可能存在的不被 Qt 支持的属性
+                try:
+                    from .style import get_combobox_qss
+                    comb = get_combobox_qss(self._current_theme)
+                    final = dark_qss + "\n" + comb
+                    final = final.replace('box-shadow', '')
+                    app.setStyleSheet(final)
+                except Exception:
+                    app.setStyleSheet(dark_qss)
         else:
             light_qss = """
             QMainWindow, QWidget { background: #ffffff; color: #222222; }
@@ -927,7 +1005,14 @@ class MainWindow(QtWidgets.QMainWindow):
             QToolTip { background: #e0e0e0; color: #222222; border: 1px solid #d0d0d0; }
             """
             if isinstance(app, QtWidgets.QApplication):
-                app.setStyleSheet(light_qss)
+                try:
+                    from .style import get_combobox_qss
+                    comb = get_combobox_qss(self._current_theme)
+                    final = light_qss + "\n" + comb
+                    final = final.replace('box-shadow', '')
+                    app.setStyleSheet(final)
+                except Exception:
+                    app.setStyleSheet(light_qss)
 
     def _apply_language(self, lang: str):
         t = get_translations(lang)
@@ -935,12 +1020,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self._current_translations = t
 
         try:
-            self.btn_settings.setText(t.get('settings', self.btn_settings.text()))
+            self.btn_settings.setText(t['settings'])
         except Exception:
             pass
         try:
-            self.sidebar_tabs.setTabText(0, t.get('users_tab', t.get('users', '用户')))
-            self.sidebar_tabs.setTabText(1, t.get('groups_tab', t.get('groups', '组')))
+            self.sidebar_tabs.setTabText(0, t['users_tab'])
+            self.sidebar_tabs.setTabText(1, t['groups_tab'])
         except Exception:
             pass
 
@@ -952,10 +1037,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 pass
 
         user_loc = {
-            'status_prefix': t.get('status_prefix', '状态：'),
-            'all_tab': t.get('all_tab', '全部'),
-            'me_label': t.get('me_label', '我'),
-            'file_sent_prefix': t.get('file_sent_prefix', '已发送文件: '),
+            'status_prefix': t['status_prefix'],
+            'all_tab': t['all_tab'],
+            'me_label': t['me_label'],
+            'file_sent_prefix': t['file_sent_prefix'],
         }
         try:
             self._chat_page.apply_localization(lang, user_loc)

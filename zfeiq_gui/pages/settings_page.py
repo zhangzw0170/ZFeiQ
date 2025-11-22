@@ -62,13 +62,33 @@ class SettingsPage(QtWidgets.QWidget):
         self.lbl_status = QtWidgets.QLabel(t['status'])
         self.cmb_status = QtWidgets.QComboBox()
         self._status_codes = ["online", "busy", "away"]
+        # 为状态下拉添加内侧彩色图标（小圆点）
+        def _color_icon(color: str, size: int = 12) -> QtGui.QIcon:
+            pix = QtGui.QPixmap(size, size)
+            pix.fill(QtCore.Qt.transparent)
+            p = QtGui.QPainter(pix)
+            p.setRenderHint(QtGui.QPainter.Antialiasing)
+            brush = QtGui.QBrush(QtGui.QColor(color))
+            p.setBrush(brush)
+            p.setPen(QtGui.QPen(QtCore.Qt.NoPen))
+            r = size // 2
+            p.drawEllipse(0, 0, size, size)
+            p.end()
+            return QtGui.QIcon(pix)
+
+        status_colors = {"online": "#2ecc71", "busy": "#f97316", "away": "#9ca3af"}
         for code in self._status_codes:
-            self.cmb_status.addItem(code, code)
+            icon = _color_icon(status_colors.get(code, "#999999"))
+            # addItem(icon, visibleText, userData) — 使用本地化文本作为可见项
+            visible = t.get(code, code) if isinstance(t, dict) else code
+            self.cmb_status.addItem(icon, visible, code)
         pform.addRow(self.lbl_status, self.cmb_status)
         self.edit_avatar = QtWidgets.QLineEdit()
         self.edit_avatar.setPlaceholderText(t['avatar_placeholder'])
         self.btn_pick_avatar = NavigationButton(t['pick_avatar'])
-        pform.addRow(t['avatar'], self._row_widget(self.edit_avatar, self.btn_pick_avatar))
+        # 这里更新了“头像”文本框
+        self.lbl_avatar = QtWidgets.QLabel(t['avatar'])
+        pform.addRow(self.lbl_avatar, self._row_widget(self.edit_avatar, self.btn_pick_avatar))
         try:
             self.key_section = KeyPage()
             group = QtWidgets.QGroupBox(t['key_section'])
@@ -85,7 +105,7 @@ class SettingsPage(QtWidgets.QWidget):
         gform.setContentsMargins(12, 12, 12, 12)
         gform.setSpacing(10)
         self.cmb_lang = QtWidgets.QComboBox()
-        self.cmb_lang.addItems(["zhCN", "enUS"])
+        self.cmb_lang.addItems(["zhCN", "enUS", "esES"])
         self.cmb_enc = QtWidgets.QComboBox()
         self.cmb_enc.addItems(["utf-8", "gbk"])
         self.cmb_theme = QtWidgets.QComboBox()
@@ -104,7 +124,9 @@ class SettingsPage(QtWidgets.QWidget):
         enc_layout.addWidget(self.btn_enc_test)
         gform.addRow(self.lbl_encoding, enc_container)
         gform.addRow(self.lbl_theme, self.cmb_theme)
-        gform.addRow(self.chk_debug, self.chk_trace)
+        # 将“调试日志”和“诊断日志”分为两行显示，便于阅读
+        gform.addRow(self.chk_debug)
+        gform.addRow(self.chk_trace)
 
         tab_net = QtWidgets.QWidget()
         tabs.addTab(tab_net, t['network_tab'])
@@ -116,12 +138,10 @@ class SettingsPage(QtWidgets.QWidget):
         self.edit_bind.setPlaceholderText(t['bind_ip'])
         self.edit_mask = QtWidgets.QLineEdit()
         self.edit_mask.setPlaceholderText(t['subnet_mask'])
-        self.spn_keepalive = QtWidgets.QDoubleSpinBox()
-        self.spn_keepalive.setRange(5.0, 600.0)
-        self.spn_keepalive.setValue(30.0)
-        self.spn_expire = QtWidgets.QDoubleSpinBox()
-        self.spn_expire.setRange(10.0, 3600.0)
-        self.spn_expire.setValue(90.0)
+        self.edit_keepalive = QtWidgets.QLineEdit()
+        self.edit_keepalive.setPlaceholderText(t['keepalive'])
+        self.edit_expire = QtWidgets.QLineEdit()
+        self.edit_expire.setPlaceholderText(t['expire'])
         self.lbl_iface = QtWidgets.QLabel(t['iface'])
         self.lbl_keepalive = QtWidgets.QLabel(t['keepalive'])
         self.lbl_expire = QtWidgets.QLabel(t['expire'])
@@ -130,8 +150,8 @@ class SettingsPage(QtWidgets.QWidget):
         nform.addRow(self.lbl_iface, self.cmb_iface)
         nform.addRow(self.lbl_bind, self.edit_bind)
         nform.addRow(self.lbl_mask, self.edit_mask)
-        nform.addRow(self.lbl_keepalive, self.spn_keepalive)
-        nform.addRow(self.lbl_expire, self.spn_expire)
+        nform.addRow(self.lbl_keepalive, self.edit_keepalive)
+        nform.addRow(self.lbl_expire, self.edit_expire)
 
         tab_files = QtWidgets.QWidget()
         tabs.addTab(tab_files, t['files_tab'])
@@ -232,8 +252,8 @@ class SettingsPage(QtWidgets.QWidget):
             ui_theme=self.cmb_theme.currentText(),
             debug=self.chk_debug.isChecked(),
             trace=self.chk_trace.isChecked(),
-            keepalive=self.spn_keepalive.value(),
-            expire=self.spn_expire.value(),
+            keepalive=self.edit_keepalive.text().strip(),
+            expire=self.edit_expire.text().strip(),
             bind_ip=(prefer_iface_ip or self.edit_bind.text().strip()),
             subnet_mask=self.edit_mask.text().strip(),
             download_dir=self.edit_dir.text().strip().replace("\\", "/"),
@@ -244,7 +264,7 @@ class SettingsPage(QtWidgets.QWidget):
 
     def _pick_download_dir(self) -> None:
         t = self._translations
-        directory = QtWidgets.QFileDialog.getExistingDirectory(self, t.get('pick_download_dir', '选择下载目录'))
+        directory = QtWidgets.QFileDialog.getExistingDirectory(self, t['pick_download_dir'])
         if directory:
             self.edit_dir.setText(directory.replace("\\", "/"))
 
@@ -274,6 +294,7 @@ class SettingsPage(QtWidgets.QWidget):
         # 个人信息区
         self.update_personal_info(self._personal_username, self._personal_ip)
         self.lbl_status.setText(translations.get('status', self.lbl_status.text()))
+        self.lbl_avatar.setText(translations.get('avatar', self.lbl_avatar.text()))
         self.edit_avatar.setPlaceholderText(translations.get('avatar_placeholder', self.edit_avatar.placeholderText()))
         self.btn_pick_avatar.setText(translations.get('pick_avatar', self.btn_pick_avatar.text()))
 
@@ -346,8 +367,8 @@ class SettingsPage(QtWidgets.QWidget):
         self._personal_username = username or "-"
         self._personal_ip = ip or "-.-.-.-"
         t = getattr(self, '_translations', {})
-        self.lbl_p_username.setText(f"{t.get('username', '用户名')}：{self._personal_username}")
-        self.lbl_p_ip.setText(f"{t.get('ip', 'IP')}：{self._personal_ip}")
+        self.lbl_p_username.setText(f"{t['username']}：{self._personal_username}")
+        self.lbl_p_ip.setText(f"{t['ip']}：{self._personal_ip}")
 
     def _update_avatar_preview(self) -> None:
         t = self._translations
@@ -365,3 +386,10 @@ class SettingsPage(QtWidgets.QWidget):
             self.avatar_preview.setPixmap(QtGui.QPixmap())
         except Exception:
             self.avatar_preview.setPixmap(QtGui.QPixmap())
+
+    def refresh_avatar_preview(self) -> None:
+        """Public wrapper to refresh avatar preview (safe to call from outside)."""
+        try:
+            self._update_avatar_preview()
+        except Exception:
+            pass

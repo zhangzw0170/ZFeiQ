@@ -125,8 +125,8 @@ class GroupsPage(QtWidgets.QWidget):
         t = getattr(self, "_translations", {})
         new_name, ok = QtWidgets.QInputDialog.getText(
             self,
-            t.get("group_rename", "重命名分组"),
-            t.get("group_new_name", "新名称："),
+            t["group_rename"],
+            t["group_new_name"],
             text=old,
         )
         new_name = (new_name or "").strip()

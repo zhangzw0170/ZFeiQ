@@ -43,7 +43,7 @@ class UserListPage(QtWidgets.QWidget):
         self.search_edit.setPlaceholderText(t["search_ph"])
         self.search_edit.textChanged.connect(self._apply_filter)
         self.discover_btn = NavigationButton(t["discover"])
-        self.discover_btn.setToolTip(t.get("discover_tip", "在指定 IP 或广播发现在线用户（留空则广播）"))
+        self.discover_btn.setToolTip(t['discover_tip'])
         search_row.addWidget(self.search_edit, 1)
         search_row.addWidget(self.discover_btn)
 
