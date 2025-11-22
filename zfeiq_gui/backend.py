@@ -36,6 +36,7 @@ class GuiBackend(QObject):
         # persistence paths
         self._state_path = os.path.join(os.getcwd(), "zfeiq_state.json")
         self._history = []  # list of dict records
+        self._history_path = os.path.join(os.getcwd(), "zfeiq_history.json")
 
         def _wrapped_on_recv(data, addr):
             try:
@@ -280,10 +281,18 @@ class GuiBackend(QObject):
     def group_add(self, group: str, username: str):
         # Equivalent to: /group <group> -add <username>
         self.zcli.cmd_group(group, "-add", username)
+        try:
+            self._flush_state_async()
+        except Exception:
+            pass
 
     def group_remove(self, group: str, username: str):
         # Equivalent to: /group <group> -delete <username>
         self.zcli.cmd_group(group, "-delete", username)
+        try:
+            self._flush_state_async()
+        except Exception:
+            pass
 
     def group_send(self, group: str, text: str):
         # Equivalent to: /group <group> -send <text>
@@ -302,7 +311,17 @@ class GuiBackend(QObject):
             # lightweight append to file (only last 200 entries kept in memory)
             if len(self._history) > 200:
                 self._history = self._history[-200:]
-            self._flush_state_async()
+            # history is stored in a separate file to keep state/config small
+            self._flush_history_async()
+        except Exception:
+            pass
+
+    def _flush_history_async(self):
+        try:
+            tmp = self._history_path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(self._history, f, ensure_ascii=False, indent=0)
+            os.replace(tmp, self._history_path)
         except Exception:
             pass
 
@@ -323,7 +342,7 @@ class GuiBackend(QObject):
                     ui_avatar=self._ui_avatar,
                     screenshot_dir=self._screenshot_dir,
                 ),
-                history=self._history
+                groups={k: sorted(list(v)) for k, v in getattr(self.zcli, 'groups', {}).items()}
             )
             tmp = self._state_path + ".tmp"
             with open(tmp, "w", encoding="utf-8") as f:
@@ -339,7 +358,40 @@ class GuiBackend(QObject):
             with open(self._state_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             cfg = data.get("config", {})
-            self._history = data.get("history", [])[-200:]
+            # load history from separate file if present
+            try:
+                if os.path.isfile(self._history_path):
+                    with open(self._history_path, "r", encoding="utf-8") as hf:
+                        hist = json.load(hf)
+                    if isinstance(hist, list):
+                        self._history = hist[-200:]
+            except Exception:
+                # fallback: if history present in state (old format), read it
+                try:
+                    self._history = data.get("history", [])[-200:]
+                except Exception:
+                    self._history = []
+            # restore groups if present
+            try:
+                groups = data.get("groups", {})
+                if isinstance(groups, dict):
+                    ng = {}
+                    for k, v in groups.items():
+                        try:
+                            if isinstance(v, list):
+                                ng[k] = set(v)
+                            elif isinstance(v, (set, tuple)):
+                                ng[k] = set(v)
+                            else:
+                                ng[k] = set()
+                        except Exception:
+                            ng[k] = set()
+                    try:
+                        self.zcli.groups = ng
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             # apply config early
             if cfg.get("language"):
                 self.set_language(cfg.get("language"))
