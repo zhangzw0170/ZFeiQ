@@ -1,4 +1,8 @@
 from adapter import CLIAdapter
+try:
+    from zfeiq_gui.lang import t as _t_global
+except Exception:
+    _t_global = None
 
 
 def run_demo():
@@ -8,7 +12,8 @@ def run_demo():
     a.cmd_send("all", "automated hello from demo")
     # show history
     hist = a.core.get_history(5)
-    print("History:")
+    header = _t_global['history_header'] if _t_global is not None else 'History:'
+    print(header)
     for h in hist:
         print(h)
     # stop services
