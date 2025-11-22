@@ -716,6 +716,47 @@
 "ip": "172.26.48.1",
 "target": "ip:172.26.48.1",
 "text": "编码自检：中文✓ English✓ Emoji😀 αßé"
+},
+{
+"ts": 1763787827.4397056,
+"direction": "in",
+"user": "User",
+"ip": "172.26.30.252",
+"target": "me",
+"text": "hi"
+},
+{
+"ts": 1763787828.8133755,
+"direction": "in",
+"user": "User",
+"ip": "172.26.30.252",
+"target": "me",
+"text": "hi"
+},
+{
+"ts": 1763787830.8034077,
+"direction": "in",
+"user": "User",
+"ip": "172.26.30.252",
+"target": "me",
+"text": "hi"
+},
+{
+"ts": 1763787831.8248324,
+"direction": "in",
+"user": "User",
+"ip": "172.26.30.252",
+"target": "me",
+"text": "hi"
+},
+{
+"ts": 1763790339.7011902,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "all",
+"text": "你好"
 }
-]
+],
+"groups": {}
 }
