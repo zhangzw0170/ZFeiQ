@@ -1,0 +1,16 @@
+Test summary generated: 2025-11-22T10:26:18.214392+00:00
+Demos:
+- run_demo.py: OK -> E:\Main\JuniorI\Course_Linux_RK3566\ZFeiQ\ZFeiQ_Python\demos\logs\run_demo.py.20251122T102608Z.log
+- run_demo_network.py: OK -> E:\Main\JuniorI\Course_Linux_RK3566\ZFeiQ\ZFeiQ_Python\demos\logs\run_demo_network.py.20251122T102609Z.log
+- run_demo_filetransfer.py: OK -> E:\Main\JuniorI\Course_Linux_RK3566\ZFeiQ\ZFeiQ_Python\demos\logs\run_demo_filetransfer.py.20251122T102610Z.log
+- run_demo_crypto.py: OK -> E:\Main\JuniorI\Course_Linux_RK3566\ZFeiQ\ZFeiQ_Python\demos\logs\run_demo_crypto.py.20251122T102610Z.log
+- run_demo_protocol.py: OK -> E:\Main\JuniorI\Course_Linux_RK3566\ZFeiQ\ZFeiQ_Python\demos\logs\run_demo_protocol.py.20251122T102611Z.log
+
+Tests:
+- parity_tests.py: PASS -> E:\Main\JuniorI\Course_Linux_RK3566\ZFeiQ\ZFeiQ_Python\demos\logs\parity_tests.py.20251122T102611Z.log
+- test_auto_rebind.py: PASS -> E:\Main\JuniorI\Course_Linux_RK3566\ZFeiQ\ZFeiQ_Python\demos\logs\test_auto_rebind.py.20251122T102611Z.log
+- test_bind_persistence.py: PASS -> E:\Main\JuniorI\Course_Linux_RK3566\ZFeiQ\ZFeiQ_Python\demos\logs\test_bind_persistence.py.20251122T102612Z.log
+- test_bind_unlock.py: PASS -> E:\Main\JuniorI\Course_Linux_RK3566\ZFeiQ\ZFeiQ_Python\demos\logs\test_bind_unlock.py.20251122T102612Z.log
+- test_download_dir_integration.py: PASS -> E:\Main\JuniorI\Course_Linux_RK3566\ZFeiQ\ZFeiQ_Python\demos\logs\test_download_dir_integration.py.20251122T102613Z.log
+- test_keepalive_expire.py: PASS -> E:\Main\JuniorI\Course_Linux_RK3566\ZFeiQ\ZFeiQ_Python\demos\logs\test_keepalive_expire.py.20251122T102613Z.log
+- tmp_debug_rebind.py: PASS -> E:\Main\JuniorI\Course_Linux_RK3566\ZFeiQ\ZFeiQ_Python\demos\logs\tmp_debug_rebind.py.20251122T102617Z.log

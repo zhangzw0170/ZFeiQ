@@ -1,0 +1,15 @@
+E:\Main\JuniorI\Course_Linux_RK3566\ZFeiQ\ZFeiQ_Python\tests\parity_tests.py:1: SyntaxWarning: invalid escape sequence '\M'
+  """Automated parity tests for Core <-> CLI adapter.
+=== parity test: basic flow ===
+[NODE] online: {'username': 'parity_tester'}
+[DISCOVER] broadcast sent
+[NODE] online: {'username': 'cli', 'ip': '172.26.48.1'}
+[SENT] to all: parity hello
+[IN] parity_tester: parity hello
+history ok
+[FILE PROGRESS] 127.0.0.1 5555:1 - 11 bytes
+[FILE COMPLETE] saved C:\Users\Lenovo\AppData\Local\Temp\parity_test_081hq4q5\_tmp_parity_dl.bin (11 bytes)
+download result: {'ok': True, 'path': 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\parity_test_081hq4q5\\_tmp_parity_dl.bin', 'bytes': 11}
+file transfer ok
+[LOGOUT] done
+=== parity test: PASS ===

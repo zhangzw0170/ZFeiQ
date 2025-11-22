@@ -1,0 +1,10 @@
+{
+  "download_dir": "E:\\Main\\JuniorI\\Course_Linux_RK3566\\ZFeiQ\\ZFeiQ_Python\\downloads",
+  "bind": "172.26.88.222",
+  "bind_locked": true,
+  "keepalive": 40,
+  "expire": 100,
+  "config": {
+    "language": "enUS"
+  }
+}

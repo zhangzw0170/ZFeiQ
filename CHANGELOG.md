@@ -171,10 +171,10 @@
 
 ### 一、总体设计原则
 
-1.  **Core 纯净性**：`zfeiq_core` 内部严禁包含任何 UI 代码（print/input/Qt），仅通过 API 和事件与外界交互。
-2.  **强类型约束**：引入 Pydantic 或严格的 Type Hints 定义数据模型（DTO），模拟 C++ 结构体，确保数据流清晰、类型安全。
-3.  **事件驱动**：使用发布/订阅（Pub/Sub）模式替代紧耦合的回调，实现逻辑层与 UI 层的完全解耦。
-4.  **持久化分离**：引入轻量级 ORM（如 Peewee/SQLite），替代单纯的 JSON 文件存储，提升历史记录查询性能。
+1. **Core 纯净性**：`zfeiq_core` 内部严禁包含任何 UI 代码（print/input/Qt），仅通过 API 和事件与外界交互。
+2. **强类型约束**：引入 Pydantic 或严格的 Type Hints 定义数据模型（DTO），模拟 C++ 结构体，确保数据流清晰、类型安全。
+3. **事件驱动**：使用发布/订阅（Pub/Sub）模式替代紧耦合的回调，实现逻辑层与 UI 层的完全解耦。
+4. **持久化分离**：引入轻量级 ORM（如 Peewee/SQLite），替代单纯的 JSON 文件存储，提升历史记录查询性能。
 
 ### 二、目录结构（规划草案）
 
@@ -201,21 +201,21 @@
 
 ### 三、分阶段实施步骤
 
-1.  **定义 Core API 契约（Interface Definition）**
+1. **定义 Core API 契约（Interface Definition）**
     - 编写抽象基类，明确输入输出类型。
     - 此时不改变现有逻辑，仅梳理接口签名，确保所有网络/文件操作都有对应的 API 方法。
 
-2.  **数据模型标准化 (Preparing for Structs)**
+2. **数据模型标准化 (Preparing for Structs)**
     - 引入 Pydantic，将目前散落在字典里的 `packet` 数据封装为强类型对象。
     - 这一步将大大降低未来移植 C++ 时的理解成本。
 
-3.  **引入事件总线 (Event Bus)**
+3. **引入事件总线 (Event Bus)**
     - 使用 `PyPubSub` 替换现有的 `_on_recv` 回调链。
     - 建立清晰的事件层级，例如 `net.state.online`, `chat.message.incoming`。
 
-4.  **持久化层升级**
+4. **持久化层升级**
     - 将聊天记录写入迁移至 SQLite (via Peewee)。
     - 优化启动速度，不再一次性加载所有历史记录。
 
-5.  **C++ 移植准备（远期规划）**
+5. **C++ 移植准备（远期规划）**
     - 当 Python 版 Core 稳定后，可依据 `zfeiq_core` 的结构，使用 C++ (Qt/Boost) 逐步重写底层，对外保持相同的 Python 绑定接口，实现性能的无缝升级。
