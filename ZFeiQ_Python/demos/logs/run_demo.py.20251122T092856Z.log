@@ -1,0 +1,2 @@
+[demo] sent: {'id': 1, 'from_user': 'demo_user', 'to': 'all', 'text': 'Hello from refactored core demo', 'ts': 1763803736.540719}
+[demo] incoming: {'id': 1, 'from_user': 'demo_user', 'to': 'all', 'text': 'Hello from refactored core demo', 'ts': 1763803736.540719}

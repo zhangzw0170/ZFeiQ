@@ -1,0 +1,3 @@
+Generated RSA keys: priv len 1708 pub len 451
+Symmetric decrypt ok: b'hello symmetric world'
+RSA decrypt ok: b'a small secret'
