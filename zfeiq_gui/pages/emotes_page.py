@@ -62,10 +62,10 @@ class EmotesPage(QtWidgets.QWidget):
 
     def apply_language(self, translations: Dict[str, str]) -> None:
         try:
-            self.btn_back.setText(translations.get("emotes_back", "返回聊天"))
-            self.btn_send.setText(translations.get("emotes_send", "发送选中"))
-            self.btn_pick_dir.setText(translations.get("emotes_pick_dir", "选择目录"))
-            self.btn_add_emote.setText(translations.get("emotes_add", "添加表情"))
+            self.btn_back.setText(translations['emotes_back'])
+            self.btn_send.setText(translations['emotes_send'])
+            self.btn_pick_dir.setText(translations['emotes_pick_dir'])
+            self.btn_add_emote.setText(translations['emotes_add'])
             self.btn_back.setFixedHeight(self.btn_back.fontMetrics().height() + 12)
         except Exception:
             pass

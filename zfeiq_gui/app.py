@@ -72,6 +72,45 @@ def launch_gui() -> None:
                         QFontDatabase.addApplicationFont(os.path.join(fonts_dir, fn))
         except Exception:
             pass
+        # 设置全局 UI 字体：优先使用支持中/英/西班牙语的跨平台字体
+        try:
+            db = QFontDatabase()
+            fams = []
+            try:
+                fams = db.families()
+            except Exception:
+                fams = []
+            preferred_ui = [
+                'Noto Sans',
+                'Noto Sans CJK SC',
+                'Noto Sans CJK JP',
+                'Noto Sans CJK KR',
+                'PingFang SC',
+                'Microsoft YaHei',
+                'WenQuanYi Zen Hei',
+                'DejaVu Sans',
+                'Arial',
+                'Segoe UI',
+            ]
+            chosen = None
+            for p in preferred_ui:
+                try:
+                    if p in fams:
+                        chosen = p
+                        break
+                except Exception:
+                    continue
+            if chosen:
+                ui_font = QtGui.QFont(chosen, 11)
+                try:
+                    app.setFont(ui_font)
+                except Exception:
+                    try:
+                        QtWidgets.QApplication.instance().setFont(ui_font)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
         owns_app = True
 
     window = MainWindow()

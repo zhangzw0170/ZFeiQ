@@ -53,7 +53,7 @@ class ChatPage(QtWidgets.QWidget):
             view = QtWidgets.QTextBrowser()
             view.setOpenExternalLinks(False)
             view.setReadOnly(True)
-            view.setPlaceholderText(t.get("chat_placeholder", "消息接收区：显示聊天记录及文件提示"))
+            view.setPlaceholderText(t['chat_placeholder'])
             view.anchorClicked.connect(lambda url, self=self: self.sigAnchor.emit(url.toString()))
             self._chat_views[key] = view
             self._view_targets[view] = key
@@ -131,12 +131,12 @@ class ChatPage(QtWidgets.QWidget):
         self.avatar.setFixedSize(80, 80)
         self.avatar.setStyleSheet("background-color: #d9d9d9; border-radius: 8px;")
         self.avatar.setAlignment(QtCore.Qt.AlignCenter)
-        self.avatar.setText(t.get("avatar", "头像"))
+        self.avatar.setText(t['avatar'])
 
         info_box = QtWidgets.QVBoxLayout()
-        self.username_label = QtWidgets.QLabel(f"{t.get('username', '用户名')}：未登录")
-        self.status_label = QtWidgets.QLabel(f"{t.get('status_prefix', '状态：')}-")
-        self.ip_label = QtWidgets.QLabel(f"{t.get('ip_label_prefix', 'IP')}：-.-.-.-")
+        self.username_label = QtWidgets.QLabel(f"{t['username']}：未登录")
+        self.status_label = QtWidgets.QLabel(f"{t['status_prefix']}-")
+        self.ip_label = QtWidgets.QLabel(f"{t['ip_label_prefix']}：-.-.-.-")
         self.status_indicator = QtWidgets.QLabel()
         self.status_indicator.setFixedSize(10, 10)
         self.status_indicator.setStyleSheet("background:#c4c4c4; border-radius:5px;")
@@ -169,11 +169,11 @@ class ChatPage(QtWidgets.QWidget):
         self._view_all.setOpenExternalLinks(False)
         self._view_all.setReadOnly(True)
         self._view_all.anchorClicked.connect(lambda url: self.sigAnchor.emit(url.toString()))
-        self._view_all.setPlaceholderText(t.get("chat_placeholder", "消息接收区：显示聊天记录及文件提示"))
+        self._view_all.setPlaceholderText(t['chat_placeholder'])
         self.local_msg_color_light = "#00561F"
         self.local_msg_color_dark = "#29c94f"
         self._current_local_color = self.local_msg_color_light
-        all_label = self._localization.get("all_tab", t.get("all_tab", "全部"))
+        all_label = self._localization.get("all_tab", t['all_tab'])
         self.tabs.addTab(self._view_all, all_label)
         self._chat_views["all"] = self._view_all
         self._view_targets[self._view_all] = "all"
@@ -196,11 +196,11 @@ class ChatPage(QtWidgets.QWidget):
             btn.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
             return btn
 
-        self.emoji_btn = _make_action_btn(t.get("emoji", "表情"))
-        self.screenshot_btn = _make_action_btn(t.get("screenshot", "截图"))
-        self.quicktext_btn = _make_action_btn(t.get("quick", "常用语"))
-        self.history_btn = _make_action_btn(t.get("history", "历史"))
-        self.send_file_btn = _make_action_btn(t.get("sendfile", "发送文件"))
+        self.emoji_btn = _make_action_btn(t['emoji'])
+        self.screenshot_btn = _make_action_btn(t['screenshot'])
+        self.quicktext_btn = _make_action_btn(t['quick'])
+        self.history_btn = _make_action_btn(t['history'])
+        self.send_file_btn = _make_action_btn(t['sendfile'])
         actions_row.addWidget(self.emoji_btn)
         actions_row.addWidget(self.screenshot_btn)
         actions_row.addWidget(self.quicktext_btn)
@@ -211,7 +211,7 @@ class ChatPage(QtWidgets.QWidget):
         def _open_emotes_picker():
             t_local = self._translations
             dlg = QtWidgets.QDialog(self)
-            dlg.setWindowTitle(t_local.get("emoji_dialog_title", "表情"))
+            dlg.setWindowTitle(t_local['emoji_dialog_title'])
             layout = QtWidgets.QVBoxLayout(dlg)
             layout.setContentsMargins(8, 8, 8, 8)
             layout.setSpacing(8)
@@ -219,7 +219,7 @@ class ChatPage(QtWidgets.QWidget):
             layout.addWidget(tabs)
 
             emoji_page = QtWidgets.QWidget()
-            tabs.addTab(emoji_page, t_local.get("emoji_tab_standard", "Emoji"))
+            tabs.addTab(emoji_page, t_local['emoji_tab_standard'])
             grid = QtWidgets.QGridLayout(emoji_page)
             grid.setContentsMargins(6, 6, 6, 6)
             grid.setSpacing(6)
@@ -245,7 +245,7 @@ class ChatPage(QtWidgets.QWidget):
                 grid.addWidget(btn, r, c)
 
             custom_page = QtWidgets.QWidget()
-            tabs.addTab(custom_page, t_local.get("emoji_tab_custom", "自定义"))
+            tabs.addTab(custom_page, t_local['emoji_tab_custom'])
             custom_layout = QtWidgets.QVBoxLayout(custom_page)
             custom_layout.setContentsMargins(0, 0, 0, 0)
             custom_layout.setSpacing(6)
@@ -265,7 +265,7 @@ class ChatPage(QtWidgets.QWidget):
                 picker.sigSend.connect(_on_pick)
                 custom_layout.addWidget(picker)
             except Exception:
-                lbl = QtWidgets.QLabel(t_local.get("custom_emotes_unavailable", "自定义表情不可用"))
+                lbl = QtWidgets.QLabel(t_local['custom_emotes_unavailable'])
                 lbl.setAlignment(QtCore.Qt.AlignCenter)
                 custom_layout.addWidget(lbl)
             dlg.resize(520, 420)
@@ -281,11 +281,11 @@ class ChatPage(QtWidgets.QWidget):
         self._file_bar_layout.addStretch()
 
         self.outbox = QtWidgets.QTextEdit()
-        self.outbox.setPlaceholderText(t.get("outbox_placeholder", "输入消息，Enter 发送，Shift+Enter 换行"))
+        self.outbox.setPlaceholderText(t['outbox_placeholder'])
         self.outbox.setAcceptRichText(False)
 
         send_row = QtWidgets.QHBoxLayout()
-        self.send_btn = QtWidgets.QPushButton(t.get("send", "发送"))
+        self.send_btn = QtWidgets.QPushButton(t['send'])
         self.send_btn.setFixedHeight(self.send_btn.fontMetrics().height() + 12)
         send_row.addStretch(1)
         send_row.addWidget(self.send_btn)

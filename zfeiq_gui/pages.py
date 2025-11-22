@@ -205,15 +205,15 @@ class UsersListPage(QtWidgets.QWidget):
 
     def apply_language(self, t: Dict[str, str]) -> None:
         try:
-            self.search_edit.setPlaceholderText(t.get("search_ph", "搜索用户名或IP…"))
-            self.disc_ip.setPlaceholderText(t.get("discover_ph", "ip: 例如 192.168.1.10，可留空广播"))
-            self.discover_btn.setText(t.get("discover", "发现"))
+            self.search_edit.setPlaceholderText(t['search_ph'])
+            self.disc_ip.setPlaceholderText(t['discover_ph'])
+            self.discover_btn.setText(t['discover'])
             self._info_templates.update(
                 {
-                    "local": t.get("local_label", "本机：{local} / {prefix}"),
-                    "broadcast": t.get("broadcast_label", "广播：{bcast}"),
-                    "mask": t.get("mask_label", "掩码：{mask}"),
-                    "nodes": t.get("nodes_label", "在线节点: {count}"),
+                    "local": t['local_label'],
+                    "broadcast": t['broadcast_label'],
+                    "mask": t['mask_label'],
+                    "nodes": t['nodes_label'],
                 }
             )
             self.set_net_info(self._info_cache)
@@ -305,10 +305,10 @@ class GroupsPage(QtWidgets.QWidget):
 
     def apply_language(self, t: Dict[str, str]) -> None:
         try:
-            self.member_filter.setPlaceholderText(t.get("group_search_ph", "搜索组名/成员…"))
-            self.member_edit.setPlaceholderText(t.get("member_ph", "添加/移除成员…"))
-            self.btn_new_group.setText(t.get("group_new", "新建分组"))
-            self.btn_rename.setText(t.get("group_rename", "重命名"))
+            self.member_filter.setPlaceholderText(t['group_search_ph'])
+            self.member_edit.setPlaceholderText(t['member_ph'])
+            self.btn_new_group.setText(t['group_new'])
+            self.btn_rename.setText(t['group_rename'])
         except Exception:
             pass
 
