@@ -1,6 +1,10 @@
 import os
 import time
 from adapter import CLIAdapter
+try:
+    from zfeiq_gui.lang import t as _t_global
+except Exception:
+    _t_global = None
 
 
 def run_test():
@@ -19,13 +23,14 @@ def run_test():
             os.remove(dest)
     except Exception:
         pass
-    t = a.core.download_file("127.0.0.1", pno, aid, dest)
+    dl_thread = a.core.download_file("127.0.0.1", pno, aid, dest)
     # wait for completion (threaded)
-    t.join(timeout=5)
+    dl_thread.join(timeout=5)
     time.sleep(0.2)
     ok = os.path.exists(dest)
     size = os.path.getsize(dest) if ok else 0
-    print("download exists:", ok, "size:", size)
+    prefix = _t_global['download_exists'] if _t_global is not None else 'download exists:'
+    print(prefix, ok, "size:", size)
     # cleanup
     try:
         a.cmd_logout()

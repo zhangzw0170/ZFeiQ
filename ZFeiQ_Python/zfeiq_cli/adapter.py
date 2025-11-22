@@ -126,17 +126,17 @@ class CLIAdapter:
     def cmd_set_language(self, lang: str) -> None:
         """Set CLI language using shared GUI language map when available."""
         if not lang:
-            print(t['set_language_usage'] if t is not None else "[SET] usage: set language <lang>")
+            print(t['set_language_usage'])
             return
         # attempt runtime switch
         try:
             if set_language:
                 set_language(lang)
-                print((t['set_language_success'] if t is not None else '[SET] language -> ') + str(lang))
+                print(t['set_language_success'] + str(lang))
             else:
-                print(t['set_language_module_na'] if t is not None else "[SET] language: translation module not available")
+                print(t['set_language_module_na'])
         except Exception as e:
-            print((t['set_language_failed'] if t is not None else '[SET] language switch failed:') + str(e))
+            print(t['set_language_failed'] + str(e))
         # persist in core.persistence under 'config.language' to be compatible with gui.lang loader
         try:
             data = self.core.persistence.read()
@@ -253,26 +253,26 @@ class CLIAdapter:
         text = b"1:0:cli:host:1:"  # minimal packet
         try:
             self.net.broadcast(2425, text)
-            print(t['discover_sent'] if t is not None else "[DISCOVER] broadcast sent")
+            print(t['discover_sent'])
         except Exception as e:
-            print((t['discover_failed'] if t is not None else '[DISCOVER] failed:') + str(e))
+            print(t['discover_failed'] + str(e))
 
     def cmd_send(self, target: str, text: str) -> None:
         try:
             self.core.send_message(target, text)
         except Exception as e:
-            print((t['send_error'] if t is not None else '[SEND] error:') + str(e))
+            print(t['send_error'] + str(e))
 
     def cmd_group_add(self, group: str, username: str) -> None:
         self.groups.setdefault(group, [])
         if username not in self.groups[group]:
             self.groups[group].append(username)
-        print((t['group_members'] if t is not None else '[GROUP] ') + f"{group} members: {self.groups[group]}")
+        print(t['group_members'] + f"{group} members: {self.groups[group]}")
 
     def cmd_group_send(self, group: str, text: str) -> None:
         members = self.groups.get(group, [])
         if not members:
-            print((t['group_no_members'] if t is not None else '[GROUP] no members for ') + str(group))
+            print(t['group_no_members'] + str(group))
             return
         for m in members:
             if m == self.core._username:
@@ -281,7 +281,7 @@ class CLIAdapter:
 
     def cmd_file_send(self, target: str, path: str) -> None:
         if not os.path.exists(path):
-            print(t['file_path_not_found'] if t is not None else "[FILE] path not found")
+            print(t['file_path_not_found'])
             return
         # register file mapping: use packet_no=1 attach_id incremental per file for demo
         pno = int(1)
@@ -289,31 +289,43 @@ class CLIAdapter:
         try:
             self.core.register_file(pno, aid, path)
         except Exception as e:
-            print((t['file_register_failed'] if t is not None else '[FILE] register failed:') + str(e))
+            print(t['file_register_failed'] + str(e))
             return
         # build a FILEATTACH-like message body; real clients expect specific format
         meta = f"{aid}:{os.path.basename(path)}:{os.path.getsize(path)}:0:0"
         # send message with extension carrying fileattach
         # For simplicity send as plain text to target
         self.core.send_message(target, f"FILE_OFFER;{meta}")
-        print((t['file_offer_sent'] if t is not None else '[FILE] offer sent to ') + f"{target} (offer id local={aid})")
+        print(t['file_offer_sent'] + f"{target} (offer id local={aid})")
 
     def cmd_file_list(self) -> None:
-        print(_t_global['file_pending_offers'] if _t_global is not None else "[FILE] pending offers:")
+        try:
+            print(_t_global['file_pending_offers'])
+        except Exception:
+            print(t['file_pending_offers'])
         for oid, meta in self._file_offers.items():
             print(str(oid) + ' ' + str(meta))
 
     def cmd_file_accept(self, oid: int, remote_ip: Optional[str] = None, save_to: Optional[str] = None) -> None:
         offer = self._file_offers.get(int(oid))
         if not offer:
-            print(_t_global['file_unknown_offer'] if _t_global is not None else "[FILE] unknown offer id")
+            try:
+                print(_t_global['file_unknown_offer'])
+            except Exception:
+                print(t['file_unknown_offer'])
             return
         # For simplicity require remote_ip and packet:attach info in offer payload or ask user
         # Offer payload may not contain packet_no/attach_id; we'll prompt if missing
-        print((_t_global['file_accepting_offer'] if _t_global is not None else '[FILE] accepting offer ') + str(oid))
+        try:
+            print(_t_global['file_accepting_offer'] + str(oid))
+        except Exception:
+            print(t['file_accepting_offer'] + str(oid))
         # Determine remote and request format
         if remote_ip is None:
-            print(_t_global['file_missing_remote_ip'] if _t_global is not None else "[FILE] missing remote_ip; please provide IP argument")
+            try:
+                print(_t_global['file_missing_remote_ip'])
+            except Exception:
+                print(t['file_missing_remote_ip'])
             return
         # require request string like 'packet:attach'
         if "packet_no" in offer and "attach_id" in offer:
@@ -333,18 +345,18 @@ class CLIAdapter:
         try:
             # use core-level download helper (async). Adapter listens for progress/complete events.
             self.core.download_file(remote_ip, pno, aid, dest)
-            print((t['file_download_started'] if t is not None else '[FILE] download started -> ') + str(dest))
+            print(t['file_download_started'] + str(dest))
         except Exception as e:
-            print((t['file_download_failed'] if t is not None else '[FILE] download failed:') + str(e))
+            print(t['file_download_failed'] + str(e))
 
     def cmd_file_cancel(self, oid: int) -> None:
         # no-op for received offers; if we created registered mapping, unregister it
-        print((t['file_cancel'] if t is not None else '[FILE] cancel ') + str(oid))
+        print(t['file_cancel'] + str(oid))
         # attempt to remove mapping if present
         try:
             # mapping was registered with pno=1 aid=oid in cmd_file_send above
             self.core.unregister_file(1, oid)
-            print(t['file_mapping_unregistered'] if t is not None else "[FILE] mapping unregistered")
+            print(t['file_mapping_unregistered'])
         except Exception:
             pass
 
@@ -353,18 +365,18 @@ class CLIAdapter:
             try:
                 os.makedirs(path, exist_ok=True)
             except Exception as e:
-                print((t['set_create_dir_failed'] if t is not None else '[SET] create dir failed:') + str(e))
+                print(t['set_create_dir_failed'] + str(e))
                 return
         # persist in core via persistence API
         try:
             self.core.set_config('download_dir', os.path.abspath(path))
-            print((t['set_download_dir'] if t is not None else '[SET] download_dir = ') + str(os.path.abspath(path)))
+            print(t['set_download_dir'] + str(os.path.abspath(path)))
         except Exception as e:
-            print((t['set_persist_failed'] if t is not None else '[SET] persist failed:') + str(e))
+            print(t['set_persist_failed'] + str(e))
 
     def cmd_set_status(self, token: str) -> None:
         # publish a BR_ENTRY-like effect via sending a message or using network directly
-        print((t['set_status'] if t is not None else '[SET] status -> ') + str(token))
+        print(t['set_status'] + str(token))
         # broadcast a simple packet indicating status (demo)
         pkt = f"1:0:{self.core._username}:host:1:status={token}".encode("utf-8")
         self.net.broadcast(2425, pkt)
@@ -372,16 +384,16 @@ class CLIAdapter:
     def cmd_set_keepalive(self, seconds: int) -> None:
         try:
             self.core.set_keepalive(int(seconds))
-            print((t['set_keepalive'] if t is not None else '[SET] keepalive = ') + str(seconds) + 's')
+            print(t['set_keepalive'] + str(seconds) + 's')
         except Exception as e:
-            print((t['set_keepalive_failed'] if t is not None else '[SET] keepalive failed:') + str(e))
+            print(t['set_keepalive_failed'] + str(e))
 
     def cmd_set_expire(self, seconds: int) -> None:
         try:
             self.core.set_expire(int(seconds))
-            print((t['set_expire'] if t is not None else '[SET] expire = ') + str(seconds) + 's')
+            print(t['set_expire'] + str(seconds) + 's')
         except Exception as e:
-            print((t['set_expire_failed'] if t is not None else '[SET] expire failed:') + str(e))
+            print(t['set_expire_failed'] + str(e))
 
     def cmd_set_bind(self, bind_ip: str) -> None:
         # restart network service bound to bind_ip
@@ -401,7 +413,7 @@ class CLIAdapter:
             bind_label = t['bind_ip'] if t is not None else 'bind'
         except Exception:
             bind_label = 'bind'
-        print((t['set_bind'] if t is not None else '[SET] ') + str(bind_label) + ' -> ' + str(bind_ip))
+        print(t['set_bind'] + str(bind_label) + ' -> ' + str(bind_ip))
 
     def cmd_unset_bind(self) -> None:
         """Remove user bind and allow auto-rebind again."""
@@ -422,7 +434,7 @@ class CLIAdapter:
             bind_label = t['bind_ip'] if t is not None else 'bind'
         except Exception:
             bind_label = 'bind'
-        print((t['set_bind_unlocked'] if t is not None else '[SET] ') + str(bind_label) + ' unlocked; auto-rebind allowed')
+        print(t['set_bind_unlocked'] + str(bind_label))
 
     def cmd_logout(self) -> None:
         # send BR_EXIT broadcast and stop services
@@ -440,7 +452,7 @@ class CLIAdapter:
         except Exception:
             pass
         self._running = False
-        print(t['logout_done'] if t is not None else "[LOGOUT] done")
+        print(t['logout_done'])
 
     # helper: simple GETFILEDATA implementation
     def _download_file(self, remote_ip: str, packet_no: int, attach_id: int, dest_path: str) -> None:
@@ -450,7 +462,7 @@ class CLIAdapter:
     # REPL
     def repl(self):
         self._running = True
-        print((t['cli_running_as'] if t is not None else 'ZFeiQ CLI adapter running as ') + str(self.core._username))
+        print(t['cli_running_as'] + str(self.core._username))
         while self._running:
             try:
                 line = input(f"{self.core._username} => ")
@@ -466,7 +478,7 @@ class CLIAdapter:
                     self.cmd_discover()
                 elif cmd == "send":
                     if len(args) < 2:
-                        print(t['usage_send'] if t is not None else "usage: send <target> <text>")
+                        print(t['usage_send'])
                     else:
                         self.cmd_send(args[0], " ".join(args[1:]))
                 elif cmd == "group":
@@ -475,7 +487,7 @@ class CLIAdapter:
                     elif len(args) >= 3 and args[1] == "-send":
                         self.cmd_group_send(args[0], " ".join(args[2:]))
                     else:
-                        print(t['usage_group'] if t is not None else "group usage: group <name> -add <user> | -send <text>")
+                        print(t['usage_group'])
                 elif cmd == "file":
                     if len(args) >= 2 and args[0] in ("send",):
                         # file send user|ip <path>
@@ -487,7 +499,7 @@ class CLIAdapter:
                     elif len(args) >= 2 and args[0] == "cancel":
                         self.cmd_file_cancel(int(args[1]))
                     else:
-                        print(t['usage_file'] if t is not None else "file usage: file send <target> <path> | file list | file accept <id> [ip] [dest]")
+                        print(t['usage_file'])
                 elif cmd == "set":
                     if len(args) >= 2 and args[0] == "download_dir":
                         self.cmd_set_download_dir(args[1])
@@ -507,27 +519,27 @@ class CLIAdapter:
                     elif len(args) >= 2 and args[0] == "expire":
                         self.cmd_set_expire(int(args[1]))
                     else:
-                        print(t['usage_set'] if t is not None else "set usage: set download_dir <path> | set status <token> | set bind <ip>")
+                        print(t['usage_set'])
                 elif cmd in ("logout", "exit"):
                     self.cmd_logout()
                 elif cmd == "info":
                     if len(args) >= 1 and args[0].startswith("net"):
                         try:
                             info = self.net.get_bind_info()
-                            print(t['info_net'] if t is not None else "[INFO NET]")
+                            print(t['info_net'])
                             for k, v in info.items():
-                                print((t['info_net_item'] if t is not None else '  ') + str(k) + ': ' + str(v))
+                                print(t['info_net_item'] + str(k) + ': ' + str(v))
                         except Exception:
-                            print((t['info_net_fallback'] if t is not None else '[INFO] bind_ip=') + str(self.net.bind_ip) + ' port=' + str(self.net.port))
+                            print(t['info_net_fallback'] + str(self.net.bind_ip) + ' port=' + str(self.net.port))
                     else:
                         hist = self.core.get_history(10)
-                        print(t['history_last_10'] if t is not None else "[HISTORY LAST 10]")
+                        print(t['history_last_10'])
                         for m in hist:
                             print(str(m))
                 elif cmd == "search":
                     # search user:<name>|ip:<addr>|group:<name>
                     if not args:
-                        print(t['usage_search'] if t is not None else "search usage: search user:<name>|ip:<addr>|group:<name>")
+                        print(t['usage_search'])
                     else:
                         q = args[0]
                         if q.startswith("user:"):
@@ -537,7 +549,7 @@ class CLIAdapter:
                             for row in self.core.history.get_messages(200):
                                 if name in str(row.get('from_user', '')):
                                     results.append(row)
-                            print((t['search_user_results'] if t is not None else '[SEARCH user=') + str(name) + '] ' + str(len(results)) + ' results')
+                            print(t['search_user_results'] + str(name) + '] ' + str(len(results)) + ' results')
                             for r in results[:20]:
                                 print(str(r))
                         elif q.startswith("ip:"):
@@ -547,22 +559,22 @@ class CLIAdapter:
                             for row in self.core.history.get_messages(200):
                                 if ip in str(row.get('from_user', '')) or ip in str(row.get('to', '')):
                                     results.append(row)
-                            print((t['search_ip_results'] if t is not None else '[SEARCH ip=') + str(ip) + '] ' + str(len(results)) + ' results')
+                            print(t['search_ip_results'] + str(ip) + '] ' + str(len(results)) + ' results')
                             for r in results[:20]:
                                 print(str(r))
                         else:
-                            print(t['search_type_not_supported'] if t is not None else "search type not supported in adapter yet")
+                            print(t['search_type_not_supported'])
                 elif cmd == "search":
-                    print(t['search_not_implemented'] if t is not None else "search not implemented in adapter")
+                    print(t['search_not_implemented'])
                 elif cmd == "help":
                     self.cmd_help()
                 elif cmd == "clear":
                     # simple clear: print newline
                     print("\n" * 2)
                 else:
-                    print((t['unknown_command'] if t is not None else 'unknown command ') + str(cmd))
+                    print(t['unknown_command'] + str(cmd))
             except Exception as e:
-                print((t['command_error'] if t is not None else 'command error:') + str(e))
+                print(t['command_error'] + str(e))
 
 
 if __name__ == "__main__":
@@ -575,6 +587,6 @@ if __name__ == "__main__":
         time.sleep(0.5)
         a.cmd_send("all", "hello from adapter demo")
 
-    t = threading.Thread(target=demo_actions, daemon=True)
-    t.start()
+    demo_thread = threading.Thread(target=demo_actions, daemon=True)
+    demo_thread.start()
     a.repl()
