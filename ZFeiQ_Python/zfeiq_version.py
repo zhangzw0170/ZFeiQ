@@ -1,0 +1,2 @@
+APP_VERSION = "Alpha r1.0"
+APP_LAST_UPDATE = "2025 / 11 / 22"

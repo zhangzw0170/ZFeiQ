@@ -1,0 +1,210 @@
+[
+{
+"ts": 1763827205.5095897,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "ip:172.26.30.252",
+"text": "你好"
+},
+{
+"ts": 1763827208.1360338,
+"direction": "in",
+"user": "User",
+"ip": "172.26.30.252",
+"target": "me",
+"text": "hi"
+},
+{
+"ts": 1763827209.3127308,
+"direction": "in",
+"user": "User",
+"ip": "172.26.30.252",
+"target": "me",
+"text": "😎"
+},
+{
+"ts": 1763827209.3304334,
+"direction": "in",
+"user": "User",
+"ip": "172.26.30.252",
+"target": "me",
+"text": "hi"
+},
+{
+"ts": 1763827219.3211043,
+"direction": "in",
+"user": "User",
+"ip": "172.26.30.252",
+"target": "me",
+"text": "😡"
+},
+{
+"ts": 1763827220.3205385,
+"direction": "in",
+"user": "User",
+"ip": "172.26.30.252",
+"target": "me",
+"text": "😡"
+},
+{
+"ts": 1763827221.3267944,
+"direction": "in",
+"user": "User",
+"ip": "172.26.30.252",
+"target": "me",
+"text": "😡"
+},
+{
+"ts": 1763827223.5774064,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "ip:172.26.30.252",
+"text": "😀"
+},
+{
+"ts": 1763827228.4794023,
+"direction": "out",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "ip:172.26.30.252",
+"text": "666"
+},
+{
+"ts": 1763827270.5036602,
+"direction": "in",
+"user": "User",
+"ip": "172.26.30.252",
+"target": "me",
+"text": "lose"
+},
+{
+"ts": 1763827272.495256,
+"direction": "in",
+"user": "User",
+"ip": "172.26.30.252",
+"target": "me",
+"text": "lose"
+},
+{
+"ts": 1763827274.4900875,
+"direction": "in",
+"user": "User",
+"ip": "172.26.30.252",
+"target": "me",
+"text": "lose"
+},
+{
+"ts": 1763827366.4488943,
+"direction": "out",
+"user": "zhangzw0170",
+"ip": "172.26.88.222",
+"target": "group:测试组",
+"text": "分组测试"
+},
+{
+"ts": 1763827389.0834682,
+"direction": "out",
+"user": "zhangzw0170",
+"ip": "172.26.88.222",
+"target": "group:测试组",
+"text": "？"
+},
+{
+"ts": 1763827413.7217145,
+"direction": "out",
+"user": "zhangzw0170",
+"ip": "172.26.88.222",
+"target": "group:测试组",
+"text": "[FILE]瑞芯微板子使用说明.docx"
+},
+{
+"ts": 1763869691.7843258,
+"direction": "out",
+"user": "zhangzw0170_win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "你好，RK3566！"
+},
+{
+"ts": 1763869709.8294146,
+"direction": "out",
+"user": "zhangzw0170_win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "你好！RK3566！"
+},
+{
+"ts": 1763869730.6359525,
+"direction": "in",
+"user": "zhangzw0170",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "Hello my developer!"
+},
+{
+"ts": 1763869745.7020173,
+"direction": "in",
+"user": "zhangzw0170",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "hello my developer!"
+},
+{
+"ts": 1763869781.2397087,
+"direction": "in",
+"user": "zhangzw0170",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "Well I have no space to install Fcitx to support inputting Chinese Lol"
+},
+{
+"ts": 1763869810.8414109,
+"direction": "out",
+"user": "zhangzw0170_win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "Bug： 消息测试没问题，但是上位机这边是右对齐，而RK3566那边是左对齐"
+},
+{
+"ts": 1763869830.4351676,
+"direction": "out",
+"user": "zhangzw0170_win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "[FILE]shot_20251123_115028.png"
+},
+{
+"ts": 1763869968.9628718,
+"direction": "in",
+"user": "zhangzw0170",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "Bug: Emoji on RK3566 is NOT completely support"
+},
+{
+"ts": 1763869971.137679,
+"direction": "in",
+"user": "zhangzw0170",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ed"
+},
+{
+"ts": 1763870006.6733801,
+"direction": "out",
+"user": "zhangzw0170_win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "[FILE]shot_20251123_115028.png"
+},
+{
+"ts": 1763870045.021856,
+"direction": "in",
+"user": "zhangzw0170",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "Bug: Cannot receive files from zhangzw0170_win"
+}
+]
