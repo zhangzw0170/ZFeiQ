@@ -241,7 +241,8 @@ class ZFeiQCli:
         self._last_auto_rebind_ts: float = 0.0
         # emotes support (CLI): default directory
         try:
-            self.emotes_dir = os.path.join(os.getcwd(), "emotes")
+            PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+            self.emotes_dir = os.path.join(PROJECT_ROOT, "emotes")
             os.makedirs(self.emotes_dir, exist_ok=True)
         except Exception:
             self.emotes_dir = os.getcwd()
@@ -295,7 +296,8 @@ class ZFeiQCli:
 
     # ---- crypto helpers ----
     def _keys_dir(self) -> str:
-        d = os.path.join(os.getcwd(), "keys")
+        PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        d = os.path.join(PROJECT_ROOT, "keys")
         try:
             os.makedirs(d, exist_ok=True)
         except Exception:

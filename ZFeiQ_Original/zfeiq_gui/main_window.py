@@ -849,7 +849,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 if hasattr(self._settings_page, 'key_section'):
                     self._settings_page.key_section.btn_regen.clicked.connect(_on_regen)
                 def _on_export():
-                    path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "导出公钥", os.path.join(os.getcwd(), "keys", "pub_export.pem"), filter="PEM (*.pem)")
+                    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+                    default_path = os.path.join(project_root, "keys", "pub_export.pem")
+                    path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "导出公钥", default_path, filter="PEM (*.pem)")
                     if not path:
                         return
                     res = getattr(backend, 'export_pubkey', lambda p: None)(path)
@@ -1089,10 +1091,12 @@ class MainWindow(QtWidgets.QMainWindow):
             painter.end()
 
             # 保存到截图目录
+            # Prefer backend-configured screenshot dir; fallback to project-root screenshots
+            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
             try:
-                base_dir = backend.get_screenshot_dir() or os.path.join(os.getcwd(), "screenshots")
+                base_dir = backend.get_screenshot_dir() or os.path.join(project_root, "screenshots")
             except Exception:
-                base_dir = os.path.join(os.getcwd(), "screenshots")
+                base_dir = os.path.join(project_root, "screenshots")
             try:
                 os.makedirs(base_dir, exist_ok=True)
             except Exception:

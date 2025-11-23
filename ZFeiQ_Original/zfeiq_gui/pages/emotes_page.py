@@ -16,7 +16,10 @@ class EmotesPage(QtWidgets.QWidget):
         super().__init__()
         from zfeiq_gui.lang import get_translations
         self._translations = get_translations(lang)
-        self._dir = default_dir or os.path.join(os.getcwd(), "emotes")
+        import os
+        # Project root (ZFeiQ_Original) — use file location to avoid depending on cwd
+        PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+        self._dir = default_dir or os.path.join(PROJECT_ROOT, "emotes")
         os.makedirs(self._dir, exist_ok=True)
         self._build()
         self._load_emotes()

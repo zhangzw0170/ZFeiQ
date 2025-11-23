@@ -27,7 +27,9 @@ class GuiBackend(QObject):
         self._threads = []  # keep background threads
         self._ui_theme = "light"  # light | dark
         self._ui_avatar = ""      # avatar image path (PNG/JPG)
-        self._screenshot_dir = os.path.join(os.getcwd(), "screenshots")  # 截图保存目录
+        # Screenshot dir under project root (ZFeiQ_Original)
+        PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        self._screenshot_dir = os.path.join(PROJECT_ROOT, "screenshots")  # 截图保存目录
         try:
             os.makedirs(self._screenshot_dir, exist_ok=True)
         except Exception:

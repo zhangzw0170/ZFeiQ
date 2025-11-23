@@ -1,0 +1,22 @@
+{
+"config": {
+"language": "zhCN",
+"status": "online",
+"encoding": "utf-8",
+"encrypt_mode": "off",
+"keepalive": 30.0,
+"expire": 90.0,
+"bind_ip": "",
+"download_dir": null,
+"ui_theme": "light",
+"ui_avatar": "",
+"screenshot_dir": "E:/Main/JuniorI/Course_Linux_RK3566/ZFeiQ/ZFeiQ_Original/screenshots"
+},
+"groups": {
+"测试组": [
+"User1",
+"test",
+"zhangzw0170"
+]
+}
+}
