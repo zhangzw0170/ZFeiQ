@@ -143,11 +143,10 @@ class GroupsPage(QtWidgets.QWidget):
             self.sigRename.emit(old, new_name)
 
     def update_groups(self, groups: Dict[str, set]) -> None:
-        local_groups = getattr(self, "_cached_groups", {}) or {}
-        merged = dict(local_groups)
-        for name, members in (groups or {}).items():
-            merged[name] = set(members)
-        self._cached_groups = merged
+        # Replace local cache with the authoritative groups dict from backend.
+        # Previously this method merged local and remote which caused deleted
+        # groups to persist in the UI. Use the backend-provided snapshot directly.
+        self._cached_groups = {name: set(members) for name, members in (groups or {}).items()}
         current = self._current_group()
         self.group_cards.blockSignals(True)
         self.group_cards.clear()
