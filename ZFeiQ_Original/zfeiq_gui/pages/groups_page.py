@@ -49,31 +49,31 @@ class GroupsPage(QtWidgets.QWidget):
         self.group_cards.setVerticalScrollMode(QtWidgets.QAbstractItemView.ScrollPerPixel)
         layout.addWidget(self.group_cards, 3)
 
-        bottom = QtWidgets.QVBoxLayout()
-        bottom.setSpacing(6)
-        self.members_list = QtWidgets.QListWidget()
-        self.members_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        bottom.addWidget(self.members_list, 2)
+        # Row for group operations: New / Delete / Rename (evenly distributed)
+        grp_ctrl = QtWidgets.QHBoxLayout()
+        grp_ctrl.setSpacing(8)
+        self.btn_new_group = _mk_nav_btn(t["group_new"])
+        self.btn_delete_group = _mk_nav_btn(t.get("group_delete", "删除分组"))
+        self.btn_rename = _mk_nav_btn(t["group_rename"])
+        grp_ctrl.addWidget(self.btn_new_group, 1)
+        grp_ctrl.addWidget(self.btn_delete_group, 1)
+        grp_ctrl.addWidget(self.btn_rename, 1)
+        layout.addLayout(grp_ctrl)
+
+        # Member edit row: input + Add / Remove (evenly distributed)
+        mem_ctrl = QtWidgets.QHBoxLayout()
+        mem_ctrl.setSpacing(8)
         self.member_edit = QtWidgets.QLineEdit()
         self.member_edit.setPlaceholderText(t["member_ph"])
-        bottom.addWidget(self.member_edit)
-        ctrl = QtWidgets.QHBoxLayout()
-        btn_add = NavigationButton("+")
-        btn_del = NavigationButton("-")
-        self.btn_enter_chat = NavigationButton("=>")
-        ctrl.addStretch(1)
-        ctrl.addWidget(btn_add)
-        ctrl.addWidget(btn_del)
-        ctrl.addWidget(self.btn_enter_chat)
-        bottom.addLayout(ctrl)
-        layout.addLayout(bottom, 2)
+        btn_add = _mk_nav_btn(t.get("member_add", "+"))
+        btn_del = _mk_nav_btn(t.get("member_del", "-"))
+        mem_ctrl.addWidget(self.member_edit, 2)
+        mem_ctrl.addWidget(btn_add, 1)
+        mem_ctrl.addWidget(btn_del, 1)
+        layout.addLayout(mem_ctrl)
 
         try:
             self.group_cards.itemDoubleClicked.connect(lambda item: self.sigEnterChat.emit(item.data(QtCore.Qt.UserRole)))
-        except Exception:
-            pass
-        try:
-            self.btn_enter_chat.clicked.connect(lambda: self.sigEnterChat.emit(self._current_group() or ""))
         except Exception:
             pass
 
@@ -102,8 +102,14 @@ class GroupsPage(QtWidgets.QWidget):
             except Exception:
                 pass
 
+        # connect created controls
         self.btn_new_group.clicked.connect(_create_group)
         self.btn_rename.clicked.connect(self._prompt_rename)
+        # delete group -> emit sigRemove with empty username to indicate deletion
+        try:
+            self.btn_delete_group.clicked.connect(lambda: self.sigRemove.emit(self._current_group() or "", ""))
+        except Exception:
+            pass
 
         btn_add.clicked.connect(lambda: self._apply_member_edit(self.member_edit.text().strip(), self.sigAdd))
         btn_del.clicked.connect(lambda: self._apply_member_edit(self.member_edit.text().strip(), self.sigRemove))

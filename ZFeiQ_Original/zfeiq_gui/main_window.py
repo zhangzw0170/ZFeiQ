@@ -728,9 +728,17 @@ class MainWindow(QtWidgets.QMainWindow):
                 refresh_groups_page()
 
             def on_group_remove(group: str, user: str):
-                if group and user:
-                    backend.group_remove(group, user)
-                    refresh_groups_page()
+                if not group:
+                    return
+                try:
+                    # If user is empty, interpret as delete-group request
+                    if user:
+                        backend.group_remove(group, user)
+                    else:
+                        backend.group_remove(group, None)
+                except Exception:
+                    pass
+                refresh_groups_page()
 
             self._groups_page.sigAdd.connect(on_group_add)
             self._groups_page.sigRemove.connect(on_group_remove)
