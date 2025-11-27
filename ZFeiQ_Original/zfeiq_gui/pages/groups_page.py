@@ -37,11 +37,7 @@ class GroupsPage(QtWidgets.QWidget):
             btn.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
             return btn
 
-        self.btn_new_group = _mk_nav_btn(t["group_new"])
-        self.btn_rename = _mk_nav_btn(t["group_rename"])
         top_row.addWidget(self.member_filter, 1)
-        top_row.addWidget(self.btn_new_group)
-        top_row.addWidget(self.btn_rename)
         layout.addLayout(top_row)
 
         self.group_cards = QtWidgets.QListWidget()
@@ -59,18 +55,22 @@ class GroupsPage(QtWidgets.QWidget):
         grp_ctrl.addWidget(self.btn_delete_group, 1)
         grp_ctrl.addWidget(self.btn_rename, 1)
         layout.addLayout(grp_ctrl)
-
-        # Member edit row: input + Add / Remove (evenly distributed)
-        mem_ctrl = QtWidgets.QHBoxLayout()
-        mem_ctrl.setSpacing(8)
+        # Member input row: single line input
+        mem_input_row = QtWidgets.QHBoxLayout()
+        mem_input_row.setSpacing(8)
         self.member_edit = QtWidgets.QLineEdit()
         self.member_edit.setPlaceholderText(t["member_ph"])
+        mem_input_row.addWidget(self.member_edit, 1)
+        layout.addLayout(mem_input_row)
+
+        # Member action row: Add / Remove buttons (evenly distributed)
+        mem_buttons_row = QtWidgets.QHBoxLayout()
+        mem_buttons_row.setSpacing(8)
         btn_add = _mk_nav_btn(t.get("member_add", "+"))
         btn_del = _mk_nav_btn(t.get("member_del", "-"))
-        mem_ctrl.addWidget(self.member_edit, 2)
-        mem_ctrl.addWidget(btn_add, 1)
-        mem_ctrl.addWidget(btn_del, 1)
-        layout.addLayout(mem_ctrl)
+        mem_buttons_row.addWidget(btn_add, 1)
+        mem_buttons_row.addWidget(btn_del, 1)
+        layout.addLayout(mem_buttons_row)
 
         try:
             self.group_cards.itemDoubleClicked.connect(lambda item: self.sigEnterChat.emit(item.data(QtCore.Qt.UserRole)))
