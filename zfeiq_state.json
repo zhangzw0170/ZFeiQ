@@ -3,7 +3,7 @@
 "language": "zhCN",
 "status": "online",
 "encoding": "utf-8",
-"encrypt_mode": "on",
+"encrypt_mode": "off",
 "keepalive": 30.0,
 "expire": 90.0,
 "bind_ip": "",
@@ -12,7 +12,5 @@
 "ui_avatar": "",
 "screenshot_dir": "/home/zhangzw0170/proj/ZFeiQ/ZFeiQ_Original/commons/screenshots"
 },
-"groups": {
-"测试组": []
-}
+"groups": {}
 }

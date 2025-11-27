@@ -10,10 +10,10 @@
 "download_dir": null,
 "ui_theme": "light",
 "ui_avatar": "E:/Main/JuniorI/first_avatar.jpg",
-"screenshot_dir": "E:/Main/JuniorI/Course_Linux_RK3566/ZFeiQ/ZFeiQ_Original/screenshots"
+"screenshot_dir": "/home/zhangzw0170/proj/ZFeiQ/ZFeiQ_Original/commons/screenshots"
 },
 "groups": {
-"NG1": [
+"NG2": [
 "zhangzw0170-rk3566",
 "zhangzw0170-win"
 ]

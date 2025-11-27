@@ -1,5 +1,5 @@
 
-# ZFeiQ（IPMSG/飞秋互通 · CLI + GUI） — Alpha 4.0
+# ZFeiQ（IPMSG/飞秋互通 · CLI + GUI） — Alpha 4.2
 
 ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG 协议，支持 Windows 与 Linux（含 Ubuntu Kylin aarch64 / RK3566）。
 
@@ -13,7 +13,7 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 4. 支持表情包发送(可自定义表情包)、截图功能。
 5. 调用RK3569/3566的NPU，实现典型边缘AI智能的加速功能
 
-## 最新特性（Alpha 4.0）
+## 最新特性（Alpha 4.2）
 
 - **语言切换与文本管理完全模块化**：所有界面文本集中管理，切换语言时所有页面即时刷新。
 - **所有页面命名与引用统一**：如 chat_page、userlist_page，代码结构更清晰。
@@ -27,24 +27,31 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 - **加密通讯**：支持 RSA‑3072 + AES‑256‑GCM 混合加密，指纹展示，严格模式下无公钥拒绝发送。
 - **配置持久化**：所有设置（语言、状态、主题、下载目录、头像等）自动保存。
 
+新增要点（Alpha 4.2）：
+
+- **Linux 友好与路径规范化**：程序创建的持久化目录（如 `downloads/`、`screenshots/`、`emotes/`、`keys/` 等）在运行时会统一映射到程序主目录下的 `commons/` 子目录（即 `<program-root>/commons/*`），避免不同平台（例如由 Windows 占位符导致的分散路径）引起的文件散落问题。设置页和启动信息将显示已解析的真实路径。
+- **分组（Groups）健壮性改进**：修复了组重命名冲突、创建后未持久化、重命名空组导致丢失成员等问题；增加了后端/CLI 的原子重命名支持，GUI 在发生重名冲突时会给出提示并阻止覆盖。
+- **国际化补齐**：补齐若干翻译项（例如 `group_delete` 等），Groups 页面与相关按钮现已使用集中管理的 `lang.py` 文本，切换语言时页面即时刷新。
+- **OCR 集成规划**：添加了 PP-OCR v4 的分期集成设计（NPU 与 CPU 降级策略），未来版本将提供 CLI `/ocr` 命令和 GUI 的异步 OCR 按钮以便截图/图片快速识别。
+
 ## 快速开始
 
 1. 安装依赖（建议 Python 3.8+，需 pip）：
 
-   ```pwsh
+   ```bash
    pip install -r requirements.txt
    pip install "PyQt5==5.15.0"
    ```
 
 2. 启动 GUI：
 
-   ```pwsh
+   ```bash
    python main.py
    ```
 
 3. 启动 CLI（命令行模式）：
 
-   ```pwsh
+   ```bash
    python main.py --cli
    ```
 
@@ -53,15 +60,15 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 - 默认网络端口：`2425`。可传入 `--port <num>` 或使用环境变量 `ZFEIQ_PORT` 覆盖。
 - 指定绑定地址：使用 `--bind <ip>`（例如 `--bind 192.168.1.5`）来锁定本地网卡，CLI 在未显式绑定时会尝试自动选择最佳本地 IP。
 - GUI 平台注意：GUI 需要 `PyQt5==5.15.0`。在嵌入式或 RK3566/aarch64 上如果出现 OpenGL 问题，可强制软件渲染：
-  - PowerShell (临时)：
+   - PowerShell (临时)：
 
-   ```pwsh
-   $env:ZFEIQ_FORCE_SOFTGL = '1'
-   python main.py
-   ```
+    ```bash
+    export ZFEIQ_FORCE_SOFTGL=1
+    python main.py
+    ```
 
-- RSA 密钥：程序会在第一次需要时自动生成密钥对并写入 `./keys/priv.pem` 与 `./keys/pub.pem`。要强制重新生成，删除 `./keys/` 下的文件后重启程序。
-- 文件传输：IPMSG 附件互操作通过内置的小型 TCP 服务（默认端口 2425）实现；发送方会创建一个 TCP offer，接收方通过 offer 下载文件，相关映射存于 CLI 的 `_attach_map`。
+- RSA 密钥：程序会在第一次需要时自动生成密钥对并写入 `./keys/priv.pem` 与 `./keys/pub.pem`。在 Alpha 4.2 中程序生成的 `keys/` 会被映射到 `commons/keys/`（即 `<program-root>/commons/keys/`）。要强制重新生成，删除相应 `commons/keys/` 下的文件后重启程序。
+- 文件传输：IPMSG 附件互操作通过内置的小型 TCP 服务（默认端口 2425）实现；发送方会创建一个 TCP offer，接收方通过 offer 下载文件，相关映射存于 CLI 的 `_attach_map`。默认保存目录若未在设置中显式指定，将被创建为程序主目录下的 `commons/downloads/`，便于嵌入式部署与权限管理。
 
 ## 开发与调试要点
 

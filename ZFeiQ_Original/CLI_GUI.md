@@ -1,5 +1,5 @@
 
-# CLI 与 GUI 功能对照表（Alpha 4.0）
+# CLI 与 GUI 功能对照表（Alpha 4.2）
 
 | 功能点/说明 | GUI支持 | CLI支持/命令 | 备注 |
 |---|---|---|---|
@@ -23,7 +23,7 @@
 | 入站要约列表 | ✅ 聊天区卡片 | `/file list` |  |
 | 接受要约 | ✅ Accept按钮 | `/file accept <id>` |  |
 | 取消要约 | ✅ Cancel按钮 | `/file cancel <id>` |  |
-| 下载目录 | ✅ 设置页 | 默认当前目录 | CLI不可配置 |
+| 下载目录 | ✅ 设置页 | 默认当前目录（GUI 可修改；程序默认映射到 `commons/downloads/`） | CLI不可配置 |
 | 粘贴文件 | ✅ 文件块 | ❌ | GUI专属 |
 | “文件块”合并发送 | ✅ | ❌ | GUI专属 |
 | 区域截图 | ✅ 区域选择+遮罩 | `/screenshot send <target>` | CLI仅全屏，无区域选择 |
@@ -31,7 +31,7 @@
 | 添加/移除成员 | ✅ 组页按钮 | `/group <group> -add|-delete [username]` |  |
 | 进入群聊 | ✅ “进入聊天” | `/send group:<group> <text>` |  |
 | 新建分组 | ✅ 新建按钮 | `/group <group> -add` |  |
-| 重命名分组 | ✅ 重命名按钮 | 手动新建+迁移+删除 | CLI无直接命令 |
+| 重命名分组 | ✅ 重命名按钮 | `/group <group> -rename <newname>` | CLI 支持原子重命名（新增 `-rename` 子命令） |
 | 加密模式 | ✅ 密钥页 | `/set encrypt <off|on|strict>` |  |
 | 密钥生成/加载 | ✅ 密钥页 | 自动生成/加载 | CLI无显式命令 |
 | 指纹展示/公钥导出/重生成 | ✅ 密钥页 | ❌ | GUI专属 |
@@ -47,7 +47,7 @@
 | Keepalive/Expire | ✅ 设置页 | `/set keepalive <sec>`, `/set expire <sec>` |  |
 | 主题（深色/浅色） | ✅ 设置页 | ❌ | GUI专属 |
 | 头像 | ✅ 设置页 | ❌ | GUI专属 |
-| 截图/下载目录 | ✅ 设置页 | 默认当前目录 | CLI不可配置 |
+| 截图/下载目录 | ✅ 设置页 | 默认当前目录（默认映射到 `commons/downloads/`） | CLI不可配置 |
 | RK3566 OpenGL/Emoji回退 | ✅ | ❌ | GUI专属 |
 | 多网卡自动/手动绑定 | ✅ 设置页 | `/set bind <ip>` |  |
 
