@@ -285,6 +285,18 @@ class GuiBackend(QObject):
         except Exception:
             pass
 
+    def group_rename(self, old: str, new: str):
+        """Atomically rename a group on the backend."""
+        try:
+            # delegate to CLI command which handles rename semantics
+            self.zcli.cmd_group(old, "-rename", new)
+            try:
+                self._flush_state_async()
+            except Exception:
+                pass
+        except Exception:
+            pass
+
     def group_remove(self, group: str, username: str):
         # Equivalent to: /group <group> -delete <username>
         self.zcli.cmd_group(group, "-delete", username)

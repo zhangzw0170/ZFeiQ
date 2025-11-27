@@ -747,29 +747,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 if not old or not new or old == new:
                     return
                 try:
-                    groups = backend.list_groups() or {}
-                    members = list(groups.get(old, []))
-                    # Ensure the target group exists even if old group has no members
                     try:
-                        backend.group_add(new, None)
+                        backend.group_rename(old, new)
                     except Exception:
                         pass
-                    # 迁移成员（若有）
-                    for u in members:
-                        try:
-                            backend.group_add(new, u)
-                        except Exception:
-                            pass
-                    # 删除旧组
-                    try:
-                        backend.group_remove(old, None)
-                    except Exception:
-                        pass
-                    # 刷新分组页
+                    # 刷新分组页与用户页视图
                     refresh_groups_page()
-                    # 刷新用户页/分组视图
                     refresh_users_page()
-                    # 刷新用户页分组列表
                     if hasattr(self._userlist_page, "update_nodes"):
                         self._userlist_page.update_nodes(backend.get_nodes(), backend.list_groups(), backend.get_net_info().get('local_ip',''))
                 except Exception:

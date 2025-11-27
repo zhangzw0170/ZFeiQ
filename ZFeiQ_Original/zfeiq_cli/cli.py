@@ -1514,6 +1514,27 @@ class ZFeiQCli:
                 self._user_print(self._t("group.send_usage_legacy"))
                 return
             self.cmd_send(f"group:{group_name}", text)
+        elif sub == "rename":
+            # Rename group atomically: move members to new name, fail if target exists
+            new_name = arg or ""
+            if not new_name:
+                self._user_print(self._t("group.rename_usage", old=group_name))
+                return
+            if group_name == new_name:
+                self._user_print(self._t("group.rename_same", name=group_name))
+                return
+            if new_name in self.groups:
+                self._user_print(self._t("group.rename_exists", name=new_name))
+                return
+            # perform rename
+            members = self.groups.get(group_name, set())
+            self.groups[new_name] = members
+            if group_name in self.groups:
+                try:
+                    del self.groups[group_name]
+                except Exception:
+                    pass
+            self._user_print(f"group '{group_name}' renamed to '{new_name}'")
         else:
             self._user_print(self._t("group.unsupported"))
 
