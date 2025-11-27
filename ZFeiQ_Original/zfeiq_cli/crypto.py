@@ -19,7 +19,8 @@ def generate_rsa_keypair(bits: int = 3072) -> Tuple[bytes, bytes]:
     if _CRYPTO_BACKEND == "cryptography":
         from cryptography.hazmat.primitives.asymmetric import rsa  # local import
         from cryptography.hazmat.primitives import serialization  # local import
-        key = rsa.generate_private_key(public_exponent=65537, key_size=bits)
+        from cryptography.hazmat.backends import default_backend  # local import
+        key = rsa.generate_private_key(public_exponent=65537, key_size=bits, backend=default_backend())
         priv_pem = key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,

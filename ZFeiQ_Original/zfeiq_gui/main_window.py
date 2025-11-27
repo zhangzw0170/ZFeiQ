@@ -291,6 +291,20 @@ class MainWindow(QtWidgets.QMainWindow):
                     pass
             except Exception:
                 pass
+            # 将 backend 注入 key_section（如果存在），并刷新指纹显示
+            try:
+                try:
+                    kp = getattr(self._settings_page, 'key_section', None)
+                except Exception:
+                    kp = None
+                if kp is not None:
+                    try:
+                        kp.set_backend(backend)
+                        kp.refresh_fingerprint()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             # 聊天目标由子选项卡驱动
             def _find_node_by_ip(ip: str):
                 for n in backend.get_nodes():

@@ -1,3 +1,0 @@
-[SET] bind -> 127.0.0.1
-[SET] bind unlocked; auto-rebind allowed
-test_bind_unlock: PASS
