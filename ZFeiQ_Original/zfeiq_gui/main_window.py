@@ -1,8 +1,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from typing import Dict, Optional
 import os
-from zfeiq_common.fsutils import ensure_dir
-from zfeiq_common.fsutils import ensure_dir
+from ZFeiQ_Original.zfeiq_common.fsutils import ensure_dir
 import datetime
 
 from .pages import ChatPage, LoginPage, UserListPage, GroupsPage, SettingsPage
@@ -253,14 +252,22 @@ class MainWindow(QtWidgets.QMainWindow):
                     try:
                         dld = getattr(z, 'download_dir', '') or ''
                         if dld:
-                            self._settings_page.edit_dir.setText(dld)
+                            try:
+                                dld_show = ensure_dir(dld)
+                            except Exception:
+                                dld_show = dld
+                            self._settings_page.edit_dir.setText(dld_show)
                     except Exception:
                         pass
                 self._settings_page.cmb_theme.setCurrentText(backend.get_ui_theme())
                 try:
                     ss = backend.get_screenshot_dir() or ''
                     if ss:
-                        self._settings_page.edit_ss_dir.setText(ss)
+                        try:
+                            ss_show = ensure_dir(ss)
+                        except Exception:
+                            ss_show = ss
+                        self._settings_page.edit_ss_dir.setText(ss_show)
                 except Exception:
                     pass
                 # 保活/过期时长优先用后端值，无则用默认

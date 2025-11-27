@@ -1,6 +1,6 @@
 from typing import Optional, Dict, Set
 import os, json, time
-from zfeiq_common.fsutils import ensure_dir
+from ZFeiQ_Original.zfeiq_common.fsutils import ensure_dir
 from PyQt5.QtCore import QObject, pyqtSignal, QThread
 import hashlib
 from zfeiq_cli.cli import ZFeiQCli
@@ -409,7 +409,12 @@ class GuiBackend(QObject):
                     pass
             if cfg.get("download_dir"):
                 try:
-                    self.zcli.download_dir = cfg.get("download_dir")
+                    # normalize persisted download_dir through ensure_dir so UI shows real path
+                    try:
+                        dd = ensure_dir(cfg.get("download_dir"))
+                    except Exception:
+                        dd = cfg.get("download_dir")
+                    self.zcli.download_dir = dd
                 except Exception:
                     pass
             if cfg.get("bind_ip"):
@@ -422,11 +427,11 @@ class GuiBackend(QObject):
             if isinstance(cfg.get("ui_avatar"), str):
                 self._ui_avatar = cfg.get("ui_avatar") or ""
             if isinstance(cfg.get("screenshot_dir"), str) and cfg.get("screenshot_dir"):
-                self._screenshot_dir = cfg.get("screenshot_dir")
                 try:
-                    ensure_dir(self._screenshot_dir)
+                    self._screenshot_dir = ensure_dir(cfg.get("screenshot_dir"))
                 except Exception:
-                    pass
+                    # fallback to raw value
+                    self._screenshot_dir = cfg.get("screenshot_dir")
         except Exception:
             pass
 
