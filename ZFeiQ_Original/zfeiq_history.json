@@ -1,0 +1,66 @@
+[
+{
+"ts": 1764120013.9995432,
+"direction": "out",
+"user": "zhangzw0170-win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "你好，这里是 ZFeiQ 测试的上位机，此消息未加密"
+},
+{
+"ts": 1764120064.2079024,
+"direction": "in",
+"user": "zhangzw0170-rk3566",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "Hello, this is the board of ZFeiQ Test, and the text is NOT encrypted"
+},
+{
+"ts": 1764120081.6101406,
+"direction": "out",
+"user": "zhangzw0170-win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "[FILE]zfeiq_icon_128x128.ico"
+},
+{
+"ts": 1764120579.359263,
+"direction": "out",
+"user": "zhangzw0170-win",
+"ip": "192.168.1.102",
+"target": "all",
+"text": "😀"
+},
+{
+"ts": 1764120596.8405302,
+"direction": "out",
+"user": "zhangzw0170-win",
+"ip": "192.168.1.102",
+"target": "all",
+"text": "[FILE]shot_20251126_092955.png"
+},
+{
+"ts": 1764120627.8094406,
+"direction": "out",
+"user": "zhangzw0170-win",
+"ip": "192.168.1.102",
+"target": "all",
+"text": "[FILE]shot_20251126_093025.png"
+},
+{
+"ts": 1764120664.9748635,
+"direction": "out",
+"user": "zhangzw0170-win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "稍等一下～"
+},
+{
+"ts": 1764120725.5483513,
+"direction": "out",
+"user": "zhangzw0170-win",
+"ip": "192.168.1.102",
+"target": "group:NG1",
+"text": "尝试发送加密消息"
+}
+]

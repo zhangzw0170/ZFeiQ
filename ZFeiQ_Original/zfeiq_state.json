@@ -1,10 +1,21 @@
 {
-  "keepalive": 1,
-  "expire": 2,
-  "bind": null,
-  "download_dir": "E:\\Main\\JuniorI\\Course_Linux_RK3566\\ZFeiQ\\mydownloads",
-  "bind_locked": true,
-  "config": {
-    "language": "enUS"
-  }
+"config": {
+"language": "zhCN",
+"status": "online",
+"encoding": "utf-8",
+"encrypt_mode": "on",
+"keepalive": 30.0,
+"expire": 90.0,
+"bind_ip": "",
+"download_dir": null,
+"ui_theme": "light",
+"ui_avatar": "E:/Main/JuniorI/first_avatar.jpg",
+"screenshot_dir": "E:/Main/JuniorI/Course_Linux_RK3566/ZFeiQ/ZFeiQ_Original/screenshots"
+},
+"groups": {
+"NG1": [
+"zhangzw0170-rk3566",
+"zhangzw0170-win"
+]
+}
 }
