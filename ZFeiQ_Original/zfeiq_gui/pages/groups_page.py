@@ -95,6 +95,13 @@ class GroupsPage(QtWidgets.QWidget):
             except Exception:
                 pass
 
+            # Notify listeners to persist/create the new group (no members yet)
+            try:
+                # emit empty username to indicate creation-only
+                self.sigAdd.emit(group_name, "")
+            except Exception:
+                pass
+
         self.btn_new_group.clicked.connect(_create_group)
         self.btn_rename.clicked.connect(self._prompt_rename)
 

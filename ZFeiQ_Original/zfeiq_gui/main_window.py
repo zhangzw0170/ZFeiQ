@@ -718,9 +718,14 @@ class MainWindow(QtWidgets.QMainWindow):
             timer3.start(3000)
 
             def on_group_add(group: str, user: str):
-                if group and user:
-                    backend.group_add(group, user)
-                    refresh_groups_page()
+                if not group:
+                    return
+                try:
+                    # allow empty user to indicate creation-only
+                    backend.group_add(group, user if user else None)
+                except Exception:
+                    pass
+                refresh_groups_page()
 
             def on_group_remove(group: str, user: str):
                 if group and user:
