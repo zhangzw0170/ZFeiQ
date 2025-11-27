@@ -1,6 +1,7 @@
 import threading
 import socket
 import os
+from zfeiq_common.fsutils import ensure_dir
 import sys
 from typing import Dict, Any, Optional
 
@@ -74,14 +75,16 @@ class CLIAdapter:
         import os
         dd = self.core.get_config('download_dir', None)
         if not dd:
-            default_dd = os.path.join(os.getcwd(), 'downloads')
             try:
-                os.makedirs(default_dd, exist_ok=True)
+                self.download_dir = ensure_dir('downloads')
             except Exception:
-                pass
-            self.download_dir = default_dd
+                self.download_dir = os.path.join(os.getcwd(), 'downloads')
         else:
-            self.download_dir = dd
+            try:
+                # normalize persisted path into commons
+                self.download_dir = ensure_dir(dd)
+            except Exception:
+                self.download_dir = dd
 
         self._running = False
 
@@ -363,7 +366,7 @@ class CLIAdapter:
     def cmd_set_download_dir(self, path: str) -> None:
         if not os.path.exists(path):
             try:
-                os.makedirs(path, exist_ok=True)
+                ensure_dir(path)
             except Exception as e:
                 print(t['set_create_dir_failed'] + str(e))
                 return
