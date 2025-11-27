@@ -10,7 +10,7 @@
 "download_dir": null,
 "ui_theme": "light",
 "ui_avatar": "",
-"screenshot_dir": "E:/Main/JuniorI/Course_Linux_RK3566/ZFeiQ/ZFeiQ_Original/screenshots"
+"screenshot_dir": "/home/zhangzw0170/proj/ZFeiQ/ZFeiQ_Original/commons/screenshots"
 },
 "groups": {
 "测试组": []
