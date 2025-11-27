@@ -749,7 +749,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 try:
                     groups = backend.list_groups() or {}
                     members = list(groups.get(old, []))
-                    # 新建新组并迁移成员
+                    # Ensure the target group exists even if old group has no members
+                    try:
+                        backend.group_add(new, None)
+                    except Exception:
+                        pass
+                    # 迁移成员（若有）
                     for u in members:
                         try:
                             backend.group_add(new, u)
