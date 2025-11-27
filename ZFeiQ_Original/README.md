@@ -91,9 +91,17 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 - 局域网即时通信、文件收发、分组群聊
 - 教学演示、嵌入式板卡（RK3566/Ubuntu Kylin）
 
-## OCR/NPU 文字识别集成规划（PaddleOCR on RK3566）
 
-本节为新增集成规划，原“项目要求（禁止修改）”保持不变。目标：在 RK3566（aarch64 Ubuntu Kylin）环境，利用已有 `zfeiq_ocr_deploy` 中的检测/识别模型与 NPU 加速，实现截图与图片消息的快捷文字识别，并兼容 Windows/Linux 普通 PC（自动降级到 CPU）。
+## OCR/NPU 文字识别集成规划（PP-OCR v4 for RK3566）
+
+本节为集成 PP-OCR v4 详细规划，原“项目要求（禁止修改）”保持不变。目标：在 RK3566（aarch64 Ubuntu Kylin）环境，利用 `PPOCRv4/build_output/` 下的 PP-OCR v4 检测/识别模型（ONNX/RKNN 格式）与 NPU 加速，实现截图与图片消息的快捷文字识别，并兼容 Windows/Linux 普通 PC（自动降级到 CPU）。
+
+### 模型与工具来源
+- 检测模型：`PPOCRv4/build_output/ocr_det_rk3566_v4.rknn`、`ocr_det_static.onnx`
+- 识别模型：`PPOCRv4/build_output/ocr_rec_rk3566_v4.rknn`、`ocr_rec_static.onnx`
+- 字典文件：`PPOCRv4/ppocr_keys_v1.txt`
+- 后处理工具：`PPOCRv4/utils/db_postprocess.py`、`rec_postprocess.py`、`operators.py`
+- 测试/转换脚本：`build_fp16_v4.py`、`gen_test_img.py`、`simulate.py`
 
 ### 0. 目标与使用场景
 
@@ -104,14 +112,15 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 
 ### 1. 代码结构调整
 
-1. 新建目录：`zfeiq_ocr/`（从现有 `zfeiq_ocr_deploy/` 中抽取核心推理与后处理），包含：
-    - `__init__.py`
-    - `engine.py`：统一封装加载、前处理、推理、后处理；暴露 `run(image)` 返回文本。
-    - `runtime_npu.py`：NPU 推理（RKNN Lite2），检测模型 + 识别模型加载与推理。
-    - `runtime_cpu.py`：CPU/降级路径（初期可直接用 ONNX Runtime 或简化为抛出未启用提示；后续迭代加入 CPU 推理）。
-    - `postprocess.py`：基于现有 `db_postprocess.py`, `rec_postprocess.py` 整理；封装 boxes 过滤、文本按置信度排序。
-    - `utils_image.py`：图像加载、缩放、旋转检测（可后续扩展）。
-2. 保留原始部署目录 `zfeiq_ocr_deploy` 作为模型与示例来源，后期可迁移/精简。
+1. 新建目录：`zfeiq_ocr/`（抽取自 `PPOCRv4/utils/` 的核心推理与后处理），包含：
+   - `__init__.py`
+   - `engine.py`：统一封装加载、前处理、推理、后处理；暴露 `run(image)` 返回文本。
+   - `runtime_npu.py`：NPU 推理（RKNN Lite2），加载 `ocr_det_rk3566_v4.rknn` 和 `ocr_rec_rk3566_v4.rknn`。
+   - `runtime_cpu.py`：CPU/降级路径（初期用 `ocr_det_static.onnx` 和 `ocr_rec_static.onnx`，后续可用 ONNXRuntime）。
+   - `postprocess.py`：整合 `db_postprocess.py`, `rec_postprocess.py`，负责 boxes 过滤、文本排序。
+   - `utils_image.py`：图像加载、缩放、旋转检测。
+   - `ppocr_keys_v1.txt`：字符集字典。
+2. 保留 `PPOCRv4/` 作为模型和工具来源，后期可迁移/精简。
 3. GUI：在 `zfeiq_gui/backend.py` 增加 OCR 调度接口；在截图/图片处理页面（或相关 `pages/` 下组件）增加触发按钮与异步回调。
 4. CLI：在 `zfeiq_cli/cli.py` 中注册命令 `/ocr`，解析路径并调用 `OcrEngine.run`；增加参数 `--send`、`--raw`（只输出纯文本不加提示）。
 
@@ -122,18 +131,18 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 ```text
 OcrEngine(mode='auto'):
    if mode == 'npu' or (mode=='auto' and arch=='aarch64' and rknn libs present):
-      try load RKNN models
+      try load PPOCRv4/build_output/*.rknn 模型
       else fallback cpu
    elif mode == 'cpu':
-      load CPU backend (后续加入 ONNXRuntime)
+      load PPOCRv4/build_output/*.onnx 模型（后续可用 ONNXRuntime）
    else: raise
 ```
 
 运行时：
 
 1. 前处理：统一 RGB、resize 不超过设定长边（默认 1600），保持宽高比；规范化到 float32。
-2. 调用检测模型 -> 文本区域 boxes；过滤低分。
-3. 对每个 box 进行裁剪、识别模型推理 -> 文本 + 置信度。
+2. 调用检测模型（PP-OCR v4 DB）-> 文本区域 boxes；过滤低分。
+3. 对每个 box 裁剪，识别模型（PP-OCR v4 CRNN）推理 -> 文本 + 置信度。
 4. 排序（行方向 + 左到右），合并结果；返回拼接文本与结构（供后续高亮）。
 5. 性能：首次调用完成后缓存上下文；提供 `warmup()` 在 GUI 启动异步执行。
 
@@ -167,8 +176,13 @@ ocr_max_image_side: int   # 默认 1600
 
 ```pwsh
 pip install numpy Pillow
-pip install ./zfeiq_ocr_deploy/rknn_toolkit_lite2-1.6.0-cp38-cp38-linux_aarch64.whl
+pip install ./PPOCRv4/rknn_toolkit_lite2-1.6.0-cp38-cp38-linux_aarch64.whl
 ```
+
+模型文件：
+- RKNN 模型：`PPOCRv4/build_output/ocr_det_rk3566_v4.rknn`、`ocr_rec_rk3566_v4.rknn`
+- ONNX 模型：`PPOCRv4/build_output/ocr_det_static.onnx`、`ocr_rec_static.onnx`
+- 字典：`PPOCRv4/ppocr_keys_v1.txt`
 
 环境变量：
 
@@ -242,8 +256,14 @@ zfeiq_ocr/
    __init__.py
    engine.py
    runtime_npu.py
+   runtime_cpu.py
    postprocess.py
    utils_image.py
+   ppocr_keys_v1.txt
+PPOCRv4/build_output/ocr_det_rk3566_v4.rknn
+PPOCRv4/build_output/ocr_rec_rk3566_v4.rknn
+PPOCRv4/build_output/ocr_det_static.onnx
+PPOCRv4/build_output/ocr_rec_static.onnx
 tests/test_ocr_integration.py
 ```
 

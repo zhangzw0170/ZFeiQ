@@ -201,12 +201,27 @@ class ChatPage(QtWidgets.QWidget):
         self.quicktext_btn = _make_action_btn(t['quick'])
         self.history_btn = _make_action_btn(t['history'])
         self.send_file_btn = _make_action_btn(t['sendfile'])
+        self.ocr_btn = _make_action_btn(t.get('ocr', '文字识别'))
         actions_row.addWidget(self.emoji_btn)
         actions_row.addWidget(self.screenshot_btn)
         actions_row.addWidget(self.quicktext_btn)
         actions_row.addWidget(self.history_btn)
         actions_row.addWidget(self.send_file_btn)
+        actions_row.addWidget(self.ocr_btn)
         actions_row.addStretch()
+
+        def _open_ocr_page():
+            from .ocr_page import OcrPage
+            dlg = QtWidgets.QDialog(self)
+            dlg.setWindowTitle(t.get('ocr', '文字识别'))
+            layout = QtWidgets.QVBoxLayout(dlg)
+            layout.setContentsMargins(8, 8, 8, 8)
+            layout.setSpacing(8)
+            ocr_widget = OcrPage()
+            layout.addWidget(ocr_widget)
+            dlg.resize(800, 520)
+            dlg.exec_()
+        self.ocr_btn.clicked.connect(_open_ocr_page)
 
         def _open_emotes_picker():
             t_local = self._translations
