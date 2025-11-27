@@ -131,6 +131,15 @@ class GroupsPage(QtWidgets.QWidget):
         )
         new_name = (new_name or "").strip()
         if ok and new_name and new_name != old:
+            # Prevent renaming to an existing group name
+            existing = set(getattr(self, "_cached_groups", {}).keys())
+            if new_name in existing:
+                try:
+                    msg = t.get("group_rename_conflict", "组名已存在，请换一个名称。")
+                    QtWidgets.QMessageBox.warning(self, t.get("error", "错误"), msg)
+                except Exception:
+                    pass
+                return
             self.sigRename.emit(old, new_name)
 
     def update_groups(self, groups: Dict[str, set]) -> None:
