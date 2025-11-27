@@ -191,18 +191,11 @@ class GroupsPage(QtWidgets.QWidget):
         self._update_members()
 
     def _update_members(self) -> None:
-        group_name = self._current_group()
-        members = sorted(list(self._cached_groups.get(group_name, []))) if group_name else []
-        self.members_list.clear()
-        for member in members:
-            item = QtWidgets.QListWidgetItem(member)
-            try:
-                font = item.font()
-                font.setPointSize(font.pointSize() + 1)
-                item.setFont(font)
-            except Exception:
-                pass
-            self.members_list.addItem(item)
+        # Members are displayed inside each group item in `self.group_cards`.
+        # This method is kept as a no-op to avoid referencing the removed
+        # `members_list` widget. UI updates happen in `update_groups()` which
+        # rebuilds the group_cards contents.
+        return
 
     def _current_group(self) -> str:
         item = self.group_cards.currentItem()
