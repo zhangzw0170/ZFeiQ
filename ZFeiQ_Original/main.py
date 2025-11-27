@@ -31,6 +31,13 @@ def parse_port_and_bind(argv):
     return port, bind_ip
 
 def main():
+    # Ensure project root is on sys.path so top-level packages (e.g. zfeiq_common)
+    # are importable when running this script from its directory.
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(script_dir, '..'))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
     if "--cli" in sys.argv: # CLI mode
         port, bind_ip = parse_port_and_bind(sys.argv[1:])
         from zfeiq_cli.cli import ZFeiQCli

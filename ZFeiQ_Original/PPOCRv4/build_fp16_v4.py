@@ -1,6 +1,7 @@
 import onnx
 from rknn.api import RKNN
 import os
+from ZFeiQ_Original.zfeiq_common.fsutils import ensure_dir
 import sys
 
 # --- 配置 ---
@@ -63,7 +64,7 @@ def build_rknn(onnx_path, rknn_path, mean_values, std_values):
 if __name__ == '__main__':
     # 0. 准备输出目录
     if not os.path.exists(OUT_DIR):
-        os.makedirs(OUT_DIR)
+        ensure_dir(OUT_DIR)
         print(f"Created output directory: {OUT_DIR}")
 
     # 定义所有文件路径

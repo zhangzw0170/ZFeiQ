@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
+from zfeiq_common.fsutils import ensure_dir
 from typing import Dict, Optional
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -19,8 +20,7 @@ class EmotesPage(QtWidgets.QWidget):
         import os
         # Project root (ZFeiQ_Original) — use file location to avoid depending on cwd
         PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-        self._dir = default_dir or os.path.join(PROJECT_ROOT, "emotes")
-        os.makedirs(self._dir, exist_ok=True)
+        self._dir = default_dir or ensure_dir('emotes')
         self._build()
         self._load_emotes()
 
@@ -84,7 +84,7 @@ class EmotesPage(QtWidgets.QWidget):
         files, _ = QtWidgets.QFileDialog.getOpenFileNames(self, "选择图片作为表情", filter="Images (*.png *.jpg *.jpeg *.gif)")
         if not files:
             return
-        os.makedirs(self._dir, exist_ok=True)
+        ensure_dir(self._dir)
         for src in files:
             try:
                 dst = os.path.join(self._dir, os.path.basename(src))

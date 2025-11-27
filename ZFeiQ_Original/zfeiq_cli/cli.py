@@ -3,6 +3,7 @@ import threading
 import time
 from typing import Optional, Tuple
 import os
+from zfeiq_common.fsutils import ensure_dir
 import subprocess
 import re
 import ipaddress
@@ -242,8 +243,7 @@ class ZFeiQCli:
         # emotes support (CLI): default directory
         try:
             PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-            self.emotes_dir = os.path.join(PROJECT_ROOT, "emotes")
-            os.makedirs(self.emotes_dir, exist_ok=True)
+            self.emotes_dir = ensure_dir('emotes')
         except Exception:
             self.emotes_dir = os.getcwd()
         # load keys if present
@@ -297,12 +297,10 @@ class ZFeiQCli:
     # ---- crypto helpers ----
     def _keys_dir(self) -> str:
         PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        d = os.path.join(PROJECT_ROOT, "keys")
         try:
-            os.makedirs(d, exist_ok=True)
+            return ensure_dir('keys')
         except Exception:
-            pass
-        return d
+            return os.path.join(PROJECT_ROOT, "keys")
 
     def _load_keys(self) -> None:
         d = self._keys_dir()
@@ -1372,7 +1370,7 @@ class ZFeiQCli:
         ip = meta["ip"]
         name = meta["name"]
         save_dir = save_dir or self.download_dir or os.getcwd()
-        os.makedirs(save_dir, exist_ok=True)
+        ensure_dir(save_dir)
         save_path = os.path.join(save_dir, name)
         try:
             last = 0
@@ -1410,7 +1408,7 @@ class ZFeiQCli:
         ip = meta["ip"]
         name = meta["name"]
         save_dir = save_dir or self.download_dir or os.getcwd()
-        os.makedirs(save_dir, exist_ok=True)
+        ensure_dir(save_dir)
         save_path = os.path.join(save_dir, name)
         try:
             cb = on_progress if callable(on_progress) else None

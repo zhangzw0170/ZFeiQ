@@ -3,7 +3,7 @@
 "language": "zhCN",
 "status": "online",
 "encoding": "utf-8",
-"encrypt_mode": "off",
+"encrypt_mode": "on",
 "keepalive": 30.0,
 "expire": 90.0,
 "bind_ip": "",

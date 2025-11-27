@@ -1,5 +1,6 @@
 from typing import Optional, Dict, Set
 import os, json, time
+from zfeiq_common.fsutils import ensure_dir
 from PyQt5.QtCore import QObject, pyqtSignal, QThread
 import hashlib
 from zfeiq_cli.cli import ZFeiQCli
@@ -29,11 +30,7 @@ class GuiBackend(QObject):
         self._ui_avatar = ""      # avatar image path (PNG/JPG)
         # Screenshot dir under project root (ZFeiQ_Original)
         PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        self._screenshot_dir = os.path.join(PROJECT_ROOT, "screenshots")  # 截图保存目录
-        try:
-            os.makedirs(self._screenshot_dir, exist_ok=True)
-        except Exception:
-            pass
+        self._screenshot_dir = ensure_dir('screenshots')  # 截图保存目录
 
         # persistence paths
         self._state_path = os.path.join(os.getcwd(), "zfeiq_state.json")
@@ -427,7 +424,7 @@ class GuiBackend(QObject):
             if isinstance(cfg.get("screenshot_dir"), str) and cfg.get("screenshot_dir"):
                 self._screenshot_dir = cfg.get("screenshot_dir")
                 try:
-                    os.makedirs(self._screenshot_dir, exist_ok=True)
+                    ensure_dir(self._screenshot_dir)
                 except Exception:
                     pass
         except Exception:
@@ -469,7 +466,7 @@ class GuiBackend(QObject):
         try:
             if path:
                 self._screenshot_dir = (path or "").replace("\\", "/")
-                os.makedirs(self._screenshot_dir, exist_ok=True)
+                ensure_dir(self._screenshot_dir)
             self._flush_state_async()
         except Exception:
             pass
@@ -528,7 +525,7 @@ class GuiBackend(QObject):
             pub = getattr(self.zcli, '_pub_pem', b"") or b""
             if not pub:
                 return None
-            os.makedirs(os.path.dirname(path) or os.getcwd(), exist_ok=True)
+            ensure_dir(os.path.dirname(path) or os.getcwd())
             with open(path, 'wb') as f:
                 f.write(pub)
             return path

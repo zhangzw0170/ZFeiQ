@@ -1,6 +1,8 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from typing import Dict, Optional
 import os
+from zfeiq_common.fsutils import ensure_dir
+from zfeiq_common.fsutils import ensure_dir
 import datetime
 
 from .pages import ChatPage, LoginPage, UserListPage, GroupsPage, SettingsPage
@@ -226,9 +228,11 @@ class MainWindow(QtWidgets.QMainWindow):
                         try:
                             dl_dir = getattr(getattr(backend,'zcli',None),'download_dir','')
                             if not dl_dir:
-                                dl_dir = os.path.join(os.getcwd(), 'downloads')
+                                dl_dir = ensure_dir('downloads')
+                            else:
+                                dl_dir = ensure_dir(dl_dir)
                         except Exception:
-                            dl_dir = os.path.join(os.getcwd(), 'downloads')
+                            dl_dir = ensure_dir('downloads')
                         backend.accept_offer(oid, dl_dir)
                     elif href.startswith('cancel:'):
                         oid = href.split(':',1)[1]
@@ -849,8 +853,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 if hasattr(self._settings_page, 'key_section'):
                     self._settings_page.key_section.btn_regen.clicked.connect(_on_regen)
                 def _on_export():
-                    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-                    default_path = os.path.join(project_root, "keys", "pub_export.pem")
+                    default_path = os.path.join(ensure_dir('keys'), "pub_export.pem")
                     path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "导出公钥", default_path, filter="PEM (*.pem)")
                     if not path:
                         return
@@ -1094,13 +1097,13 @@ class MainWindow(QtWidgets.QMainWindow):
             # Prefer backend-configured screenshot dir; fallback to project-root screenshots
             project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
             try:
-                base_dir = backend.get_screenshot_dir() or os.path.join(project_root, "screenshots")
+                raw = backend.get_screenshot_dir()
             except Exception:
-                base_dir = os.path.join(project_root, "screenshots")
+                raw = None
             try:
-                os.makedirs(base_dir, exist_ok=True)
+                base_dir = ensure_dir(raw or 'screenshots')
             except Exception:
-                pass
+                base_dir = ensure_dir('screenshots')
             ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"shot_{ts}.png"
             path = os.path.join(base_dir, filename)
