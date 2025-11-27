@@ -66,10 +66,10 @@ class GroupsPage(QtWidgets.QWidget):
         # Member action row: Add / Remove buttons (evenly distributed)
         mem_buttons_row = QtWidgets.QHBoxLayout()
         mem_buttons_row.setSpacing(8)
-        btn_add = _mk_nav_btn(t.get("member_add", "+"))
-        btn_del = _mk_nav_btn(t.get("member_del", "-"))
-        mem_buttons_row.addWidget(btn_add, 1)
-        mem_buttons_row.addWidget(btn_del, 1)
+        self.btn_add = _mk_nav_btn(t.get("member_add", "+"))
+        self.btn_del = _mk_nav_btn(t.get("member_del", "-"))
+        mem_buttons_row.addWidget(self.btn_add, 1)
+        mem_buttons_row.addWidget(self.btn_del, 1)
         layout.addLayout(mem_buttons_row)
 
         try:
@@ -78,7 +78,8 @@ class GroupsPage(QtWidgets.QWidget):
             pass
 
         def _create_group():
-            base = "New Group "
+            # base name for auto-created groups comes from translations when available
+            base = t.get("group_new_prefix", t.get("group_new", "New Group") + " ")
             idx = 1
             names = set(self._cached_groups.keys())
             while f"{base}{idx}" in names:
@@ -111,8 +112,8 @@ class GroupsPage(QtWidgets.QWidget):
         except Exception:
             pass
 
-        btn_add.clicked.connect(lambda: self._apply_member_edit(self.member_edit.text().strip(), self.sigAdd))
-        btn_del.clicked.connect(lambda: self._apply_member_edit(self.member_edit.text().strip(), self.sigRemove))
+        self.btn_add.clicked.connect(lambda: self._apply_member_edit(self.member_edit.text().strip(), self.sigAdd))
+        self.btn_del.clicked.connect(lambda: self._apply_member_edit(self.member_edit.text().strip(), self.sigRemove))
 
     def _apply_member_edit(self, username: str, signal):
         group = self._current_group()
@@ -128,6 +129,15 @@ class GroupsPage(QtWidgets.QWidget):
             self.member_edit.setPlaceholderText(translations.get("member_ph", "添加/移除成员…"))
             self.btn_new_group.setText(translations.get("group_new", "新建分组"))
             self.btn_rename.setText(translations.get("group_rename", "重命名"))
+            try:
+                self.btn_delete_group.setText(translations.get("group_delete", "删除分组"))
+            except Exception:
+                pass
+            try:
+                self.btn_add.setText(translations.get("member_add", "添加成员"))
+                self.btn_del.setText(translations.get("member_del", "移除成员"))
+            except Exception:
+                pass
         except Exception:
             pass
 
