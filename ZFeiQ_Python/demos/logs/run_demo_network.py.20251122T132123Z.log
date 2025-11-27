@@ -1,2 +1,0 @@
-[demo-net] raw udp: {'data': b'Hello from network demo', 'addr': ('127.0.0.1', 2425)}
-[demo-net] msg incoming: {'id': 1, 'from_user': '127.0.0.1', 'to': 'all', 'text': 'Hello from network demo', 'ts': 1763817683.4200714}
