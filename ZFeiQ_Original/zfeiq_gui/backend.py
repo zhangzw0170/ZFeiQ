@@ -99,6 +99,7 @@ class GuiBackend(QObject):
                 elif base == IPMSG_GETFILEDATA:
                     # ignore
                     pass
+                pass
             except Exception:
                 pass
 
@@ -444,6 +445,7 @@ class GuiBackend(QObject):
                 except Exception:
                     # fallback to raw value
                     self._screenshot_dir = cfg.get("screenshot_dir")
+            
         except Exception:
             pass
 
@@ -474,6 +476,7 @@ class GuiBackend(QObject):
             self._flush_state_async()
         except Exception:
             pass
+    
 
     # ---- screenshot dir helpers ----
     def get_screenshot_dir(self) -> str:

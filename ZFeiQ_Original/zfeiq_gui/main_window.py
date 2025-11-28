@@ -282,16 +282,16 @@ class MainWindow(QtWidgets.QMainWindow):
                 except Exception:
                     self._settings_page.edit_keepalive.setText('30')
                     self._settings_page.edit_expire.setText('90')
-                # 头像预览始终强制刷新
-                try:
-                    av = backend.get_ui_avatar() if hasattr(backend, 'get_ui_avatar') else ''
-                    self._settings_page.edit_avatar.setText(av)
-                    if hasattr(self._settings_page, 'refresh_avatar_preview'):
-                        self._settings_page.refresh_avatar_preview()
-                    elif hasattr(self._settings_page, '_update_avatar_preview'):
-                        self._settings_page._update_avatar_preview()
-                except Exception:
-                    pass
+                # 头像预览已隐藏/禁用；跳过填充与刷新逻辑
+                # try:
+                #     av = backend.get_ui_avatar() if hasattr(backend, 'get_ui_avatar') else ''
+                #     self._settings_page.edit_avatar.setText(av)
+                #     if hasattr(self._settings_page, 'refresh_avatar_preview'):
+                #         self._settings_page.refresh_avatar_preview()
+                #     elif hasattr(self._settings_page, '_update_avatar_preview'):
+                #         self._settings_page._update_avatar_preview()
+                # except Exception:
+                #     pass
             except Exception:
                 pass
             # 将 backend 注入 key_section（如果存在），并刷新指纹显示
@@ -383,6 +383,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self._chat_page.tabs.currentChanged.connect(_on_tabs_changed)
             _refresh_target_header(self._chat_page.current_target_id())
+
+            
 
             def _focus_target(target_id: str):
                 if not target_id:
@@ -806,14 +808,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._apply_theme(theme)
             except Exception:
                 pass
-            # 初始头像应用（若已配置）
-            try:
-                if hasattr(backend, 'get_ui_avatar'):
-                    ap = backend.get_ui_avatar()
-                    if ap:
-                        self._chat_page.set_avatar(ap)
-            except Exception:
-                pass
+            # 初始头像应用已禁用（头像控件隐藏）
+            # try:
+            #     if hasattr(backend, 'get_ui_avatar'):
+            #         ap = backend.get_ui_avatar()
+            #         if ap:
+            #             self._chat_page.set_avatar(ap)
+            # except Exception:
+            #     pass
 
             # 表情页与截图页发送绑定（按当前聊天目标发送）
             def _current_target():
@@ -949,16 +951,17 @@ class MainWindow(QtWidgets.QMainWindow):
                     backend.set_screenshot_dir(cfg["screenshot_dir"]) 
                 except Exception:
                     pass
-            if "ui_avatar" in cfg and cfg["ui_avatar"]:
-                try:
-                    backend.set_ui_avatar(cfg["ui_avatar"]) 
-                    # 更新界面头像显示
-                    try:
-                        self._chat_page.set_avatar(cfg["ui_avatar"]) 
-                    except Exception:
-                        pass
-                except Exception:
-                    pass
+            # ui_avatar 已隐藏/禁用：不对后端或界面做变更
+            # if "ui_avatar" in cfg and cfg["ui_avatar"]:
+            #     try:
+            #         backend.set_ui_avatar(cfg["ui_avatar"]) 
+            #         # 更新界面头像显示
+            #         try:
+            #             self._chat_page.set_avatar(cfg["ui_avatar"]) 
+            #         except Exception:
+            #             pass
+            #     except Exception:
+            #         pass
             # persist after applying
             backend.save_state()
         except Exception:

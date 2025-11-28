@@ -113,10 +113,12 @@ class ChatPage(QtWidgets.QWidget):
 
     def set_avatar(self, path: str):
         try:
-            if path and os.path.isfile(path):
-                pm = QtGui.QPixmap(path)
-                if not pm.isNull():
-                    self.avatar.setPixmap(pm.scaled(80, 80, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
+            # 注释掉头像实际渲染以隐藏头像控件（保留方法以防外部调用）
+            # if path and os.path.isfile(path):
+            #     pm = QtGui.QPixmap(path)
+            #     if not pm.isNull():
+            #         self.avatar.setPixmap(pm.scaled(80, 80, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
+            pass
         except Exception:
             pass
 
@@ -124,19 +126,20 @@ class ChatPage(QtWidgets.QWidget):
         t = self._translations
         root = QtWidgets.QVBoxLayout(self)
         root.setContentsMargins(20, 20, 20, 20)
-        root.setSpacing(15)
 
         header = QtWidgets.QHBoxLayout()
         self.avatar = QtWidgets.QLabel()
-        self.avatar.setFixedSize(80, 80)
-        self.avatar.setStyleSheet("background-color: #d9d9d9; border-radius: 8px;")
-        self.avatar.setAlignment(QtCore.Qt.AlignCenter)
-        self.avatar.setText(t['avatar'])
+        # 注释掉头像控件的可视化设置与初始文本，保持属性以避免引用错误
+        # self.avatar.setFixedSize(80, 80)
+        # self.avatar.setStyleSheet("background-color: #d9d9d9; border-radius: 8px;")
+        # self.avatar.setAlignment(QtCore.Qt.AlignCenter)
+        # self.avatar.setText(t['avatar'])
 
         info_box = QtWidgets.QVBoxLayout()
         self.username_label = QtWidgets.QLabel(f"{t['username']}：未登录")
         self.status_label = QtWidgets.QLabel(f"{t['status_prefix']}-")
         self.ip_label = QtWidgets.QLabel(f"{t['ip_label_prefix']}：-.-.-.-")
+        # 将用户名与状态放在同一行（左对齐），IP 右对齐
         self.status_indicator = QtWidgets.QLabel()
         self.status_indicator.setFixedSize(10, 10)
         self.status_indicator.setStyleSheet("background:#c4c4c4; border-radius:5px;")
@@ -145,18 +148,25 @@ class ChatPage(QtWidgets.QWidget):
         self.ip_label.setStyleSheet("color:#555555; font-size:13px;")
         self.me_info_label = QtWidgets.QLabel("")
         self.me_info_label.setStyleSheet("color:#777777; font-size:12px;")
-        info_box.addWidget(self.username_label)
-        status_row = QtWidgets.QHBoxLayout()
-        status_row.setSpacing(6)
-        status_row.addWidget(self.status_indicator, 0, QtCore.Qt.AlignVCenter)
-        status_row.addWidget(self.status_label, 0, QtCore.Qt.AlignVCenter)
-        status_row.addStretch()
-        info_box.addLayout(status_row)
-        info_box.addWidget(self.ip_label)
+
+        top_row = QtWidgets.QHBoxLayout()
+        # 左侧：用户名 + 状态指示器与状态文本
+        left_group = QtWidgets.QWidget()
+        left_layout = QtWidgets.QHBoxLayout(left_group)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(8)
+        left_layout.addWidget(self.username_label)
+        left_layout.addWidget(self.status_indicator, 0, QtCore.Qt.AlignVCenter)
+        left_layout.addWidget(self.status_label, 0, QtCore.Qt.AlignVCenter)
+        top_row.addWidget(left_group)
+        top_row.addStretch(1)
+        top_row.addWidget(self.ip_label)
+        info_box.addLayout(top_row)
         info_box.addWidget(self.me_info_label)
         info_box.addStretch()
 
-        header.addWidget(self.avatar)
+        # 不将头像控件加入布局，从而在界面中隐藏该控件
+        # header.addWidget(self.avatar)
         header.addLayout(info_box)
 
         self.tabs = QtWidgets.QTabWidget()
@@ -563,7 +573,8 @@ class ChatPage(QtWidgets.QWidget):
                 translations.get("away", "away"): "#9ca3af",
             }
         )
-        self.avatar.setText(translations.get("avatar", self.avatar.text()))
+        # 头像标签已隐藏/移除到布局，跳过语言文本更新
+        # self.avatar.setText(translations.get("avatar", self.avatar.text()))
         prefix = self._localization.get("status_prefix", "状态：")
         self.status_label.setText(f"{prefix}{self._current_status_display}")
         ip_prefix = translations.get("ip_label_prefix", "IP")

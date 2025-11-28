@@ -41,6 +41,10 @@ class KeyPage(QtWidgets.QWidget):
 
         # 指纹说明文本（单独一行）
         self.lbl_fp_desc = QtWidgets.QLabel(t['key_fp'])
+        # 允许换行并将标签高度固定，避免在调整时影响下方的指纹文本框高度
+        self.lbl_fp_desc.setWordWrap(True)
+        self.lbl_fp_desc.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        self.lbl_fp_desc.setFixedHeight(40)
         layout.addWidget(self.lbl_fp_desc)
 
         # 指纹内容文本框（不可编辑，每两位一组，每行8组）

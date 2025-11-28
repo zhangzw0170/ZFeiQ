@@ -43,7 +43,7 @@ class SettingsPage(QtWidgets.QWidget):
         top_info.addWidget(self.lbl_platform)
         top_info.addStretch(1)
         top_info.addWidget(self.lbl_version)
-        outer.addLayout(top_info)
+        # 原先将平台/版本显示在设置页顶部；现在改为移动到“关于”页，故不在此处加入布局
 
         tabs = QtWidgets.QTabWidget()
         self._tabs = tabs
@@ -83,18 +83,26 @@ class SettingsPage(QtWidgets.QWidget):
             visible = t.get(code, code) if isinstance(t, dict) else code
             self.cmb_status.addItem(icon, visible, code)
         pform.addRow(self.lbl_status, self.cmb_status)
-        self.edit_avatar = QtWidgets.QLineEdit()
-        self.edit_avatar.setPlaceholderText(t['avatar_placeholder'])
-        self.btn_pick_avatar = NavigationButton(t['pick_avatar'])
-        # 这里更新了“头像”文本框
-        self.lbl_avatar = QtWidgets.QLabel(t['avatar'])
-        pform.addRow(self.lbl_avatar, self._row_widget(self.edit_avatar, self.btn_pick_avatar))
+        # 头像输入与选择（已隐藏，保留代码以便将来恢复）
+        # self.edit_avatar = QtWidgets.QLineEdit()
+        # self.edit_avatar.setPlaceholderText(t['avatar_placeholder'])
+        # self.btn_pick_avatar = NavigationButton(t['pick_avatar'])
+        # # 这里更新了“头像”文本框
+        # self.lbl_avatar = QtWidgets.QLabel(t['avatar'])
+        # pform.addRow(self.lbl_avatar, self._row_widget(self.edit_avatar, self.btn_pick_avatar))
         try:
             self.key_section = KeyPage()
             group = QtWidgets.QGroupBox(t['key_section'])
             vbox = QtWidgets.QVBoxLayout(group)
             vbox.setContentsMargins(8, 8, 8, 8)
             vbox.addWidget(self.key_section)
+            # 限制安全与密钥区的最大高度，避免占满整个个人页
+            # 使用最大高度允许在窄窗或响应式布局下收缩，但不会无限拉伸。
+            try:
+                group.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+                group.setMaximumHeight(440)
+            except Exception:
+                pass
             pform.addRow(group)
         except Exception:
             pass
@@ -169,6 +177,63 @@ class SettingsPage(QtWidgets.QWidget):
         fform.addRow(self.lbl_download, self._row_widget(self.edit_dir, self.btn_browse_dir))
         fform.addRow(self.lbl_ss_dir, self._row_widget(self.edit_ss_dir, self.btn_browse_ss))
 
+        # 关于页：显示 Logo、当前平台、版本和 GitHub 链接
+        try:
+            tab_about = QtWidgets.QWidget()
+            tabs.addTab(tab_about, t.get('about_tab', '关于'))
+            about_layout = QtWidgets.QVBoxLayout(tab_about)
+            about_layout.setContentsMargins(12, 12, 12, 12)
+            about_layout.setSpacing(8)
+            # 将关于页内容放到一个居中的容器中（四向居中）
+            center_widget = QtWidgets.QWidget()
+            center_layout = QtWidgets.QVBoxLayout(center_widget)
+            center_layout.setContentsMargins(0, 0, 0, 0)
+            center_layout.setSpacing(8)
+
+            # Logo
+            logo_lbl = QtWidgets.QLabel()
+            try:
+                icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'zfeiq_icon_128x128.ico'))
+                pix = QtGui.QPixmap(icon_path)
+                if not pix.isNull():
+                    pix = pix.scaled(128, 128, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+                    logo_lbl.setPixmap(pix)
+            except Exception:
+                pass
+            logo_lbl.setAlignment(QtCore.Qt.AlignCenter)
+            center_layout.addWidget(logo_lbl, 0, QtCore.Qt.AlignHCenter)
+
+            # 平台与版本（使用顶部创建的 self.lbl_platform / self.lbl_version）
+            try:
+                self.lbl_platform.setAlignment(QtCore.Qt.AlignCenter)
+                self.lbl_version.setAlignment(QtCore.Qt.AlignCenter)
+                center_layout.addWidget(self.lbl_platform)
+                center_layout.addWidget(self.lbl_version)
+            except Exception:
+                pass
+
+            # GitHub 按钮
+            try:
+                self.gh_btn = QtWidgets.QPushButton(self._translations.get('gh_button', '跳转到源码仓库'))
+                self.gh_btn.setFixedHeight(self.gh_btn.fontMetrics().height() + 12)
+                self.gh_btn.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+                def _open_repo():
+                    try:
+                        QtGui.QDesktopServices.openUrl(QtCore.QUrl("https://github.com/zhangzw0170/ZFeiQ"))
+                    except Exception:
+                        pass
+                self.gh_btn.clicked.connect(_open_repo)
+                center_layout.addWidget(self.gh_btn, 0, QtCore.Qt.AlignHCenter)
+            except Exception:
+                pass
+
+            # 在 about_layout 中四向居中显示 center_widget
+            about_layout.addStretch()
+            about_layout.addWidget(center_widget, 0, QtCore.Qt.AlignHCenter)
+            about_layout.addStretch()
+        except Exception:
+            pass
+
         btn_row = QtWidgets.QHBoxLayout()
         self.btn_apply = NavigationButton(t['apply'])
         self.btn_logout = NavigationButton(t['logout_long'])
@@ -181,18 +246,19 @@ class SettingsPage(QtWidgets.QWidget):
         self.btn_browse_dir.clicked.connect(self._pick_download_dir)
         self.btn_browse_ss.clicked.connect(self._pick_screenshot_dir)
         self.btn_logout.clicked.connect(lambda: self.sigLogout.emit())
-        self.btn_pick_avatar.clicked.connect(self._pick_avatar)
+        # 头像选择与预览已隐藏：保持方法存在但不连接信号或创建控件
+        # self.btn_pick_avatar.clicked.connect(self._pick_avatar)
         self.btn_enc_test.clicked.connect(lambda: self.sigEncodingSelfTest.emit())
-        if not hasattr(self, "avatar_preview"):
-            self.avatar_preview = QtWidgets.QLabel("预览")
-            self.avatar_preview.setFixedSize(90, 90)
-            self.avatar_preview.setAlignment(QtCore.Qt.AlignCenter)
-            self.avatar_preview.setStyleSheet(
-                "background:#e0e0e0; border:1px solid #ccc; border-radius:6px;"
-            )
-            pform.insertRow(pform.rowCount() - 1, self.avatar_preview)
-        self.edit_avatar.textChanged.connect(self._update_avatar_preview)
-        self._update_avatar_preview()
+        # if not hasattr(self, "avatar_preview"):
+        #     self.avatar_preview = QtWidgets.QLabel("预览")
+        #     self.avatar_preview.setFixedSize(90, 90)
+        #     self.avatar_preview.setAlignment(QtCore.Qt.AlignCenter)
+        #     self.avatar_preview.setStyleSheet(
+        #         "background:#e0e0e0; border:1px solid #ccc; border-radius:6px;"
+        #     )
+        #     pform.insertRow(pform.rowCount() - 1, self.avatar_preview)
+        # self.edit_avatar.textChanged.connect(self._update_avatar_preview)
+        # self._update_avatar_preview()
         # 语言切换统一用 apply_language，不再保留 apply_translations
 
     def _detect_platform_desc(self) -> str:
@@ -228,9 +294,6 @@ class SettingsPage(QtWidgets.QWidget):
                         name = f"macOS {ver}"
                 except Exception:
                     pass
-            else:
-                name = sysname or "Unknown"
-
             return f"{name} {arch_str}".strip()
         except Exception:
             return "Unknown"
@@ -242,7 +305,6 @@ class SettingsPage(QtWidgets.QWidget):
         layout.addWidget(left, 1)
         layout.addWidget(right)
         return widget
-
     def _emit_apply(self) -> None:
         prefer_iface_ip = self.cmb_iface.currentText().strip()
         cfg = dict(
@@ -258,7 +320,7 @@ class SettingsPage(QtWidgets.QWidget):
             subnet_mask=self.edit_mask.text().strip(),
             download_dir=self.edit_dir.text().strip().replace("\\", "/"),
             screenshot_dir=self.edit_ss_dir.text().strip().replace("\\", "/"),
-            ui_avatar=self.edit_avatar.text().strip().replace("\\", "/"),
+            # ui_avatar=self.edit_avatar.text().strip().replace("\\", "/"),
         )
         self.sigApply.emit(cfg)
 
@@ -276,8 +338,10 @@ class SettingsPage(QtWidgets.QWidget):
             filter=t['images_filter'],
         )
         if path:
-            self.edit_avatar.setText(path.replace("\\", "/"))
-            self._update_avatar_preview()
+            # 头像输入已隐藏，暂不自动填充或更新预览
+            # self.edit_avatar.setText(path.replace("\\", "/"))
+            # self._update_avatar_preview()
+            pass
 
     def _pick_screenshot_dir(self) -> None:
         t = self._translations
@@ -294,9 +358,10 @@ class SettingsPage(QtWidgets.QWidget):
         # 个人信息区
         self.update_personal_info(self._personal_username, self._personal_ip)
         self.lbl_status.setText(translations.get('status', self.lbl_status.text()))
-        self.lbl_avatar.setText(translations.get('avatar', self.lbl_avatar.text()))
-        self.edit_avatar.setPlaceholderText(translations.get('avatar_placeholder', self.edit_avatar.placeholderText()))
-        self.btn_pick_avatar.setText(translations.get('pick_avatar', self.btn_pick_avatar.text()))
+        # 头像文本与控件被隐藏，不更新语言
+        # self.lbl_avatar.setText(translations.get('avatar', self.lbl_avatar.text()))
+        # self.edit_avatar.setPlaceholderText(translations.get('avatar_placeholder', self.edit_avatar.placeholderText()))
+        # self.btn_pick_avatar.setText(translations.get('pick_avatar', self.btn_pick_avatar.text()))
 
         # KeyPage 分组标题
         if hasattr(self, 'key_section'):
@@ -311,7 +376,7 @@ class SettingsPage(QtWidgets.QWidget):
         # tab页标题
         tabs = getattr(self, '_tabs', None)
         if tabs:
-            tab_titles = ['personal_tab', 'general_tab', 'network_tab', 'files_tab']
+            tab_titles = ['personal_tab', 'general_tab', 'network_tab', 'files_tab', 'about_tab']
             for idx, key in enumerate(tab_titles):
                 tabs.setTabText(idx, translations.get(key, tabs.tabText(idx)))
 
@@ -360,8 +425,15 @@ class SettingsPage(QtWidgets.QWidget):
         self.btn_apply.setText(translations.get('apply', self.btn_apply.text()))
         self.btn_logout.setText(translations.get('logout_long', self.btn_logout.text()))
 
-        # 头像预览
-        self.avatar_preview.setText(translations.get('preview', self.avatar_preview.text()))
+        # 关于页 GitHub 按钮文本
+        try:
+            if hasattr(self, 'gh_btn') and self.gh_btn:
+                self.gh_btn.setText(translations.get('gh_button', self.gh_btn.text()))
+        except Exception:
+            pass
+
+        # 头像预览（已隐藏）
+        # self.avatar_preview.setText(translations.get('preview', self.avatar_preview.text()))
 
     def update_personal_info(self, username: str, ip: str) -> None:
         self._personal_username = username or "-"
@@ -371,25 +443,28 @@ class SettingsPage(QtWidgets.QWidget):
         self.lbl_p_ip.setText(f"{t['ip']}：{self._personal_ip}")
 
     def _update_avatar_preview(self) -> None:
-        t = self._translations
-        try:
-            path = self.edit_avatar.text().strip()
-            if path and os.path.isfile(path):
-                pixmap = QtGui.QPixmap(path)
-                if not pixmap.isNull():
-                    self.avatar_preview.setPixmap(
-                        pixmap.scaled(90, 90, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
-                    )
-                    self.avatar_preview.setText("")
-                    return
-            # 路径无效或图片加载失败时，仅清空图片，不覆盖 setText
-            self.avatar_preview.setPixmap(QtGui.QPixmap())
-        except Exception:
-            self.avatar_preview.setPixmap(QtGui.QPixmap())
+        # 头像预览功能已隐藏；保留方法以便将来恢复但不执行任何操作
+        # t = self._translations
+        # try:
+        #     path = self.edit_avatar.text().strip()
+        #     if path and os.path.isfile(path):
+        #         pixmap = QtGui.QPixmap(path)
+        #         if not pixmap.isNull():
+        #             self.avatar_preview.setPixmap(
+        #                 pixmap.scaled(90, 90, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+        #             )
+        #             self.avatar_preview.setText("")
+        #             return
+        #     # 路径无效或图片加载失败时，仅清空图片，不覆盖 setText
+        #     self.avatar_preview.setPixmap(QtGui.QPixmap())
+        # except Exception:
+        #     self.avatar_preview.setPixmap(QtGui.QPixmap())
+        return
 
     def refresh_avatar_preview(self) -> None:
         """Public wrapper to refresh avatar preview (safe to call from outside)."""
         try:
-            self._update_avatar_preview()
+            # no-op while avatar UI is hidden
+            return
         except Exception:
             pass
