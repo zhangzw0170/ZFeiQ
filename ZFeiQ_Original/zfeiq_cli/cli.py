@@ -8,6 +8,7 @@ from zfeiq_common.fsutils import ensure_dir
 import re
 import ipaddress
 from zfeiq_version import APP_VERSION, APP_LAST_UPDATE
+import hashlib
 
 from .protocol import (
     IPMSG_BR_ENTRY,
@@ -208,6 +209,7 @@ class ZFeiQCli:
         self._priv_pem: Optional[bytes] = None
         self._pub_pem: Optional[bytes] = None
         self._peer_pubkeys: dict = {}  # ip -> pub_pem bytes
+        self._peer_fps: dict = {}  # ip -> fingerprint hex
         # Linux 上绑定 0.0.0.0 以可靠接收广播，同时通过 iface_ip 指定发送所依据的网卡地址
         listen_ip = self.local_ip if os.name == "nt" else "0.0.0.0"
         self.encoding: str = "utf-8"  # utf-8 | gbk
@@ -380,8 +382,7 @@ class ZFeiQCli:
             if self.username:
                 try:
                     cmd = IPMSG_BR_ENTRY if self.status != "away" else IPMSG_BR_ABSENCE
-                    pkt = build_packet(self.username or "?", self.hostname, cmd,
-                                       f"{self.username}\0\0status={self.status};cap=ack", encoding=self.encoding)
+                    pkt = build_packet(self.username or "?", self.hostname, cmd, self._build_status_ext(), encoding=self.encoding)
                     self.transport.send_broadcast(pkt)
                     # 更新在线表：移除旧 IP 的自我条目，加入新 IP
                     try:
@@ -479,7 +480,7 @@ class ZFeiQCli:
                 try:
                     # 扩展字段第1段作为昵称（兼容 FeiQ 展示），第2段留空（避免被当作组名），第3段起为自定义键值
                     # 广播在线或缺席（away -> BR_ABSENCE）并声明能力 cap=ack
-                    ext = f"{self.username}\0\0status={self.status};cap=ack"
+                    ext = self._build_status_ext()
                     cmd = IPMSG_BR_ENTRY if self.status != "away" else IPMSG_BR_ABSENCE
                     pkt = build_packet(self.username, self.hostname, cmd, ext, encoding=self.encoding)
                     self.transport.send_broadcast(pkt)
@@ -599,9 +600,15 @@ class ZFeiQCli:
                     except Exception:
                         pem_bytes = None
                 if pem_bytes:
+                    # compute fingerprint and warn on mismatch with previously announced fp
+                    fp = hashlib.sha256(pem_bytes).hexdigest()
+                    prev_fp = self._peer_fps.get(src_ip)
+                    if prev_fp and prev_fp != fp:
+                        print(f"[WARN] fingerprint mismatch for {src_ip}: announced={prev_fp} actual={fp}")
                     self._peer_pubkeys[src_ip] = pem_bytes
+                    self._peer_fps[src_ip] = fp
                     if self.debug:
-                        print(f"[DBG] learned pubkey from {src_ip} ({len(pem_bytes)} bytes)")
+                        print(f"[DBG] learned pubkey from {src_ip} ({len(pem_bytes)} bytes) fp={fp}")
                         self._print_prompt(suppress_next=False)
             except Exception:
                 pass
@@ -614,6 +621,13 @@ class ZFeiQCli:
             was = self.registry.get_by_ip(src_ip)
             st = self._parse_status_from_ext(ext) or ("away" if base == IPMSG_BR_ABSENCE else None)
             cap_ack = self._parse_cap_ack_from_ext(ext)
+            # parse announced fingerprint if present
+            try:
+                fp = self._parse_fp_from_ext(ext)
+                if fp:
+                    self._peer_fps[src_ip] = fp
+            except Exception:
+                pass
             old_status = was.status if was else None
             self.registry.upsert(src_ip, user, host, st, supports_ack=cap_ack)
             if was is None and src_ip != self.local_ip:
@@ -626,19 +640,38 @@ class ZFeiQCli:
                 self._print_prompt(suppress_next=False)
             # 若启用加密且未知对端公钥，主动请求（不影响上面的 if/elif 链）
             try:
-                if self.encrypt_mode in ("on","strict") and src_ip not in self._peer_pubkeys:
+                # 若对端声明支持加密能力且我们拥有本地公钥，则主动推送公钥；否则在需要发送时再请求
+                peer_cap_enc = self._parse_cap_enc_from_ext(ext)
+                if peer_cap_enc and (self._pub_pem and len(self._pub_pem) > 0):
+                    try:
+                        pem_txt = (self._pub_pem or b"").decode("utf-8", errors="ignore")
+                        pkt_pub = build_packet(self.username or "?", self.hostname, IPMSG_ANSPUBKEY, pem_txt, encoding=self.encoding)
+                        self.transport.send_unicast(src_ip, pkt_pub)
+                    except Exception:
+                        pass
+                elif self.encrypt_mode in ("on", "strict") and src_ip not in self._peer_pubkeys:
                     req = build_packet(self.username or "?", self.hostname, IPMSG_GETPUBKEY, "GETPUBKEY", encoding=self.encoding)
                     self.transport.send_unicast(src_ip, req)
             except Exception:
                 pass
             if self.username:
-                pkt = build_packet(self.username, self.hostname, IPMSG_ANSENTRY,
-                                   f"{self.username}\0\0status={self.status};cap=ack", encoding=self.encoding)
-                self.transport.send_unicast(src_ip, pkt)
+                try:
+                    pkt = build_packet(self.username, self.hostname, IPMSG_ANSENTRY, self._build_status_ext(), encoding=self.encoding)
+                    self.transport.send_unicast(src_ip, pkt)
+                except Exception:
+                    # transport may not be started in tests or headless modes
+                    pass
         elif base == IPMSG_ANSENTRY:
             was = self.registry.get_by_ip(src_ip)
             st = self._parse_status_from_ext(ext)
             cap_ack = self._parse_cap_ack_from_ext(ext)
+            # parse announced fingerprint if present
+            try:
+                fp = self._parse_fp_from_ext(ext)
+                if fp:
+                    self._peer_fps[src_ip] = fp
+            except Exception:
+                pass
             old_status = was.status if was else None
             self.registry.upsert(src_ip, user, host, st, supports_ack=cap_ack)
             if was is None and src_ip != self.local_ip:
@@ -802,7 +835,7 @@ class ZFeiQCli:
             self._user_print(self._t("login.empty"))
             return
         self.username = name
-        ext = f"{self.username}\0\0status={self.status};cap=ack"
+        ext = self._build_status_ext()
         cmd = IPMSG_BR_ENTRY if self.status != "away" else IPMSG_BR_ABSENCE
         pkt = build_packet(self.username, self.hostname, cmd, ext, encoding=self.encoding)
         self.transport.send_broadcast(pkt)
@@ -846,7 +879,7 @@ class ZFeiQCli:
         if not self.username:
             self._user_print(self._t("common.login_first"))
             return
-        ext = f"{self.username}\0\0status={self.status};cap=ack"
+        ext = self._build_status_ext()
         cmd = IPMSG_BR_ENTRY if self.status != "away" else IPMSG_BR_ABSENCE
         pkt = build_packet(self.username, self.hostname, cmd, ext, encoding=self.encoding)
         if target_ip:
@@ -904,6 +937,55 @@ class ZFeiQCli:
                     token = token.strip().lower()
                     if token == "cap=ack":
                         return True
+        except Exception:
+            pass
+        return None
+
+    def _parse_cap_enc_from_ext(self, ext: str) -> Optional[bool]:
+        """解析扩展字段中是否声明了 cap=enc（表示支持公钥交换/加密）。"""
+        try:
+            segments = (ext or "").split("\0")
+            for seg in segments:
+                for token in seg.split(";"):
+                    token = token.strip().lower()
+                    if token == "cap=enc":
+                        return True
+        except Exception:
+            pass
+        return None
+
+    def _build_status_ext(self) -> str:
+        """构造 BR_ENTRY/ANSENTRY 使用的扩展字段，包含用户名、状态与能力位。"""
+        caps = ["cap=ack"]
+        # 若本地存在公钥或当前加密模式非 off，则声明支持加密能力
+        try:
+            if (self._pub_pem and len(self._pub_pem) > 0) or self.encrypt_mode in ("on", "strict"):
+                caps.append("cap=enc")
+        except Exception:
+            pass
+        # 若存在本地公钥，计算并广播其指纹（SHA256 hex）以供指纹比对
+        fp_token = None
+        try:
+            if self._pub_pem and len(self._pub_pem) > 0:
+                fp = hashlib.sha256(self._pub_pem).hexdigest()
+                fp_token = f"fp={fp}"
+        except Exception:
+            fp_token = None
+        cap_parts = caps[:]  # copy
+        if fp_token:
+            cap_parts.append(fp_token)
+        cap_str = ";".join(cap_parts)
+        return f"{self.username}\0\0status={self.status};{cap_str}"
+
+    def _parse_fp_from_ext(self, ext: str) -> Optional[str]:
+        """从扩展字段解析 fp=<hex> 指纹（返回小写 hex 字符串）。"""
+        try:
+            segments = (ext or "").split("\0")
+            for seg in segments:
+                for token in seg.split(";"):
+                    token = token.strip()
+                    if token.lower().startswith("fp="):
+                        return token.split("=", 1)[1].strip().lower()
         except Exception:
             pass
         return None
@@ -1708,8 +1790,7 @@ class ZFeiQCli:
                                 # 立即广播一次状态变更
                                 try:
                                     cmd = IPMSG_BR_ENTRY if self.status != "away" else IPMSG_BR_ABSENCE
-                                    pkt = build_packet(self.username or "?", self.hostname, cmd,
-                                                       f"{self.username}\0\0status={self.status};cap=ack", encoding=self.encoding)
+                                    pkt = build_packet(self.username or "?", self.hostname, cmd, self._build_status_ext(), encoding=self.encoding)
                                     self.transport.send_broadcast(pkt)
                                 except Exception:
                                     pass

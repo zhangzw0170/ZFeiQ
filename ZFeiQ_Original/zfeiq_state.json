@@ -9,7 +9,7 @@
 "bind_ip": "",
 "download_dir": null,
 "ui_theme": "light",
-"ui_avatar": "E:/Main/JuniorI/first_avatar.jpg",
+"ui_avatar": "/home/zhangzw0170/proj/ZFeiQ/ZFeiQ_Original/PPOCRv4/test.jpg",
 "screenshot_dir": "/home/zhangzw0170/proj/ZFeiQ/ZFeiQ_Original/commons/screenshots"
 },
 "groups": {}
