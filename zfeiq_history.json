@@ -254,5 +254,21 @@
 "ip": "172.26.88.222",
 "target": "all",
 "text": "🤩"
+},
+{
+"ts": 1764307091.942521,
+"direction": "out",
+"user": "w",
+"ip": "172.26.88.222",
+"target": "ip:172.26.88.222",
+"text": "编码自检：中文✓ English✓ Emoji😀 αßé"
+},
+{
+"ts": 1764307092.129854,
+"direction": "in",
+"user": "w",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "ENC;alg=aes256gcm;ekey=CpN/V2jXdT6x2qVbjHsft80Lk6N8bED11YpvN6iDRcqRjLyOcskiFQNIkOUJx1GZd9w8IfsWgOl72gxQaUKZtHGH7aX7QSjwDhhnTcxTFhT5JUlKPjHDknwsg7vI3HcCJtzJOeeckQPRc7q8/CDs/eQLSOvB0pF8Qwtqm6tZ7yOEbHK48T3rWIS+xDfjnQ46UVFlCMnue9UejVPrI5CnUfm8If+0Hb70B20gsXqj7PQiKB96nCkdwr6/pZB1eOWT8a1E3mEDFoAZvri4f27tDsrBR3d/5uNJ/KcITZgTtY3+KTrYtbycn/mXNxkdxL9NK2KPRLx/Duz+sq+h0z/ENVVw1dw1NiSQ2/4b2GpSaz5wptwjDAQ6lzQ2U6/bFEx8UXv7kCxHhYzLdfNvUIQ2coLpQxdM2mzCzcG4F7QgLbe8Z37R1OhY0Ue30UW22MIL35y79vmWsFdZK6SRCrAXa2iDBBOmG00KYMDDneVmxu9waTxyBte5Q5BDMu7HQPFq;nonce=+iy6lGz4Oilcphy3;tag=KQ4Qguaa43hbQgT1jHa1jA==;b64=ggw+9eNYwslaQUW5sq77DhSxjx8WhUksETVC/taJQAiXtCo4naUs+CqDSFT/j18q9pLAKg=="
 }
 ]

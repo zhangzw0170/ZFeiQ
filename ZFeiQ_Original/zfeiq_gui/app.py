@@ -80,14 +80,15 @@ def launch_gui() -> None:
                 fams = db.families()
             except Exception:
                 fams = []
+            # Prefer an editable, monospaced UI font so that code/keys align nicely.
+            # Fall back through common monospace families across platforms.
             preferred_ui = [
-                'Noto Sans',
-                'Noto Sans CJK SC',
-                'Noto Sans CJK JP',
-                'Noto Sans CJK KR',
-                'PingFang SC',
-                'Microsoft YaHei',
-                'WenQuanYi Zen Hei',
+                'Noto Sans Mono',
+                'DejaVu Sans Mono',
+                'Consolas',
+                'Courier New',
+                'WenQuanYi Zen Hei Mono',
+                'Microsoft YaHei Mono',
                 'DejaVu Sans',
                 'Arial',
                 'Segoe UI',
@@ -102,6 +103,12 @@ def launch_gui() -> None:
                     continue
             if chosen:
                 ui_font = QtGui.QFont(chosen, 11)
+                # Encourage monospace rendering where possible
+                try:
+                    ui_font.setStyleHint(QtGui.QFont.Monospace)
+                    ui_font.setFixedPitch(True)
+                except Exception:
+                    pass
                 try:
                     app.setFont(ui_font)
                 except Exception:

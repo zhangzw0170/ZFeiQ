@@ -57,20 +57,17 @@ class MainWindow(QtWidgets.QMainWindow):
             except Exception:
                 pass
         font.setPointSize(11)
-        # 尝试设置为全局字体；若失败则设置到主窗口上（兼顾运行与静态分析）
+        # 不在此处设置全局应用字体：全局字体应由 `zfeiq_gui.app.launch_gui` 统一配置。
+        # 仅在没有 QApplication 实例（例如测试/嵌入环境）时，将字体设置到当前窗口，
+        # 否则让窗口继承应用级字体，避免重复或冲突的全局覆盖。
         try:
             app = QtWidgets.QApplication.instance()
-            if app is not None:
-                setter = getattr(app, 'setFont', None)
-                if callable(setter):
-                    try:
-                        setter(font)
-                    except Exception:
-                        self.setFont(font)
-                else:
+            if app is None:
+                try:
                     self.setFont(font)
-            else:
-                self.setFont(font)
+                except Exception:
+                    pass
+            # 如果存在 app，则不修改 app font here; app.launch_gui 应负责全局字体。
         except Exception:
             try:
                 self.setFont(font)
@@ -246,7 +243,13 @@ class MainWindow(QtWidgets.QMainWindow):
             try:
                 z = getattr(backend, 'zcli', None)
                 if z:
-                    self._settings_page.cmb_lang.setCurrentText(getattr(z, 'language', 'zhCN'))
+                    lang = getattr(z, 'language', 'zhCN')
+                    self._settings_page.cmb_lang.setCurrentText(lang)
+                    # Ensure UI translations reflect backend-configured language immediately
+                    try:
+                        self._apply_language(lang)
+                    except Exception:
+                        pass
                     self._settings_page.cmb_status.setCurrentText(getattr(z, 'status', 'online'))
                     self._settings_page.cmb_enc.setCurrentText(getattr(z, 'encoding', 'utf-8'))
                     try:
