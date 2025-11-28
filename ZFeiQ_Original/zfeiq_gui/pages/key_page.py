@@ -114,18 +114,24 @@ class KeyPage(QtWidgets.QWidget):
     def on_refresh_clicked(self):
         try:
             self.refresh_fingerprint()
-            QtWidgets.QMessageBox.information(self, "刷新指纹", "指纹已刷新。")
+            title = self._translations.get('key_refresh', '刷新指纹')
+            msg = self._translations.get('key_refresh_success', '指纹已刷新。')
+            QtWidgets.QMessageBox.information(self, title, msg)
         except Exception as e:
-            QtWidgets.QMessageBox.warning(self, "刷新指纹失败", f"刷新指纹失败：{e}")
+            title = self._translations.get('key_refresh', '刷新指纹')
+            msg = self._translations.get('key_refresh_failed', '刷新指纹失败') + f": {e}"
+            QtWidgets.QMessageBox.warning(self, title, msg)
 
     def on_regen_clicked(self):
         try:
             if not self._backend:
-                QtWidgets.QMessageBox.warning(self, "重生成密钥", "未绑定后端，无法重生成密钥。")
+                title = self._translations.get('key_regen', '重生成密钥')
+                QtWidgets.QMessageBox.warning(self, title, self._translations.get('key_regen_no_backend', '未绑定后端，无法重生成密钥。'))
                 return
             z = getattr(self._backend, 'zcli', None)
             if not z:
-                QtWidgets.QMessageBox.warning(self, "重生成密钥", "后端内部错误：找不到 zcli 实例。")
+                title = self._translations.get('key_regen', '重生成密钥')
+                QtWidgets.QMessageBox.warning(self, title, self._translations.get('key_regen_no_zcli', '后端内部错误：找不到 zcli 实例。'))
                 return
             # 生成新密钥对并保存
             from zfeiq_cli.crypto import generate_rsa_keypair
@@ -136,18 +142,23 @@ class KeyPage(QtWidgets.QWidget):
             except Exception:
                 pass
             self.refresh_fingerprint()
-            QtWidgets.QMessageBox.information(self, "重生成密钥", "已重生成密钥并保存。")
+            title = self._translations.get('key_regen', '重生成密钥')
+            QtWidgets.QMessageBox.information(self, title, self._translations.get('key_regen_success', '已重生成密钥并保存。'))
         except Exception as e:
-            QtWidgets.QMessageBox.warning(self, "重生成密钥失败", f"重生成密钥失败：{e}")
+            title = self._translations.get('key_regen', '重生成密钥')
+            msg = self._translations.get('key_regen_failed', '重生成密钥失败') + f": {e}"
+            QtWidgets.QMessageBox.warning(self, title, msg)
 
     def on_export_clicked(self):
         try:
             if not self._backend:
-                QtWidgets.QMessageBox.warning(self, "导出公钥", "未绑定后端，无法导出公钥。")
+                title = self._translations.get('key_export', '导出公钥…')
+                QtWidgets.QMessageBox.warning(self, title, self._translations.get('key_regen_no_backend', '未绑定后端，无法重生成密钥。'))
                 return
             z = getattr(self._backend, 'zcli', None)
             if not z:
-                QtWidgets.QMessageBox.warning(self, "导出公钥", "后端内部错误：找不到 zcli 实例。")
+                title = self._translations.get('key_export', '导出公钥…')
+                QtWidgets.QMessageBox.warning(self, title, self._translations.get('key_regen_no_zcli', '后端内部错误：找不到 zcli 实例。'))
                 return
             pub = getattr(z, '_pub_pem', None)
             if not pub:
@@ -157,18 +168,23 @@ class KeyPage(QtWidgets.QWidget):
                 except Exception:
                     ok = False
                 if not ok:
-                    QtWidgets.QMessageBox.warning(self, "导出公钥", "不存在公钥且无法生成密钥对。")
+                    title = self._translations.get('key_export', '导出公钥…')
+                    QtWidgets.QMessageBox.warning(self, title, self._translations.get('key_export_no_pub', '不存在公钥且无法生成密钥对。'))
                     return
                 pub = getattr(z, '_pub_pem', None)
             # ask user for save path
-            path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "导出公钥", "pub.pem", "PEM Files (*.pem);;All Files (*)")
+            dialog_title = self._translations.get('key_export', '导出公钥…')
+            path, _ = QtWidgets.QFileDialog.getSaveFileName(self, dialog_title, "pub.pem", "PEM Files (*.pem);;All Files (*)")
             if not path:
                 return
             try:
                 with open(path, 'wb') as f:
                     f.write(pub)
-                QtWidgets.QMessageBox.information(self, "导出公钥", f"公钥已保存到: {path}")
+                title = self._translations.get('key_export', '导出公钥…')
+                QtWidgets.QMessageBox.information(self, title, self._translations.get('key_export_saved', '公钥已保存到: {path}').format(path=path))
             except Exception as e:
-                QtWidgets.QMessageBox.warning(self, "导出公钥失败", f"导出失败：{e}")
+                title = self._translations.get('key_export', '导出公钥…')
+                QtWidgets.QMessageBox.warning(self, title, self._translations.get('key_export_failed', '导出失败：{error}').format(error=e))
         except Exception as e:
-            QtWidgets.QMessageBox.warning(self, "导出公钥失败", f"导出失败：{e}")
+            title = self._translations.get('key_export', '导出公钥…')
+            QtWidgets.QMessageBox.warning(self, title, self._translations.get('key_export_failed', '导出失败：{error}').format(error=e))

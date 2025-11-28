@@ -1,5 +1,10 @@
 import os
 import sys
+import faulthandler
+import signal
+import warnings
+import traceback
+import platform
 
 
 def parse_port_and_bind(argv):
@@ -45,6 +50,39 @@ def main():
         app.start()
         app.loop()
     else: # GUI mode
+        # enable faulthandler to get Python-level traceback on native crashes
+        try:
+            faulthandler.enable()
+            # register signals to dump trace on crash-like signals
+            try:
+                faulthandler.register(signal.SIGSEGV, all_threads=True)
+                faulthandler.register(signal.SIGABRT, all_threads=True)
+            except Exception:
+                # some platforms may not allow registering signals
+                pass
+        except Exception:
+            pass
+
+        # show helpful runtime / dependency hints to stderr (non-fatal)
+        try:
+            sys.stderr.write(f"Python: {platform.python_version()} ({platform.platform()})\n")
+            try:
+                import importlib
+                def _print_mod(name):
+                    try:
+                        m = importlib.import_module(name)
+                        ver = getattr(m, '__version__', None) or getattr(m, 'version', None)
+                        sys.stderr.write(f"  {name}: present, version={ver}\n")
+                    except Exception as _:
+                        sys.stderr.write(f"  {name}: not installed or import failed\n")
+                # avoid importing heavy packages that may register Qt plugins (e.g. OpenCV) before the GUI
+                for modname in ('paddle', 'paddleocr', 'PIL', 'rknnlite', 'cryptography', 'requests', 'urllib3', 'chardet'):
+                    _print_mod(modname)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
         try:
             from zfeiq_gui import launch_gui
         except ImportError as exc:

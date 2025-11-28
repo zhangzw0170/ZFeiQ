@@ -217,10 +217,32 @@ class ChatPage(QtWidgets.QWidget):
             layout = QtWidgets.QVBoxLayout(dlg)
             layout.setContentsMargins(8, 8, 8, 8)
             layout.setSpacing(8)
-            ocr_widget = OcrPage()
+            ocr_widget = OcrPage(parent=dlg, lang=self._current_language)
+            # connect send signal to insert into outbox and close dialog
+            def _on_send(text: str):
+                try:
+                    # insert into outbox
+                    self.outbox.insertPlainText(text)
+                    # move cursor to end
+                    cursor = self.outbox.textCursor()
+                    cursor.movePosition(QtGui.QTextCursor.End)
+                    self.outbox.setTextCursor(cursor)
+                except Exception:
+                    pass
+                try:
+                    dlg.accept()
+                except Exception:
+                    pass
+
+            try:
+                ocr_widget.sigSend.connect(_on_send)
+            except Exception:
+                pass
+
             layout.addWidget(ocr_widget)
             dlg.resize(800, 520)
             dlg.exec_()
+
         self.ocr_btn.clicked.connect(_open_ocr_page)
 
         def _open_emotes_picker():

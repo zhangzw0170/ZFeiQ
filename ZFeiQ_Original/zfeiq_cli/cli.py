@@ -3,8 +3,8 @@ import threading
 import time
 from typing import Optional, Tuple
 import os
-from ZFeiQ_Original.zfeiq_common.fsutils import ensure_dir
 import subprocess
+from zfeiq_common.fsutils import ensure_dir
 import re
 import ipaddress
 from zfeiq_version import APP_VERSION, APP_LAST_UPDATE
@@ -1814,8 +1814,55 @@ class ZFeiQCli:
                         self.cmd_screenshot_send(tgt)
                     else:
                         print("usage: /screenshot send user|ip|group|all")
-                else:
-                    print(self._t("common.unknown"))
+              
+                elif cmdline.startswith("/ocr "):
+                    # 用法: /ocr <image_path> [--send [target]]
+                    args = cmdline.split()
+                    if len(args) < 2:
+                        print("usage: /ocr <image_path> [--send target]")
+                        continue
+                        
+                    path = args[1]
+                    do_send = False
+                    target = None
+                    
+                    if len(args) > 2 and args[2] == "--send":
+                        do_send = True
+                        if len(args) > 3:
+                            target = args[3]
+                    
+                    try:
+                        from .ocr import ZFeiQOcr
+                        # 获取单例，触发懒加载
+                        engine = ZFeiQOcr.get_instance()
+                        
+                        if not engine.ready:
+                            print("OCR engine initialization failed. Check logs/dependencies.")
+                            continue
+                            
+                        # 【调试信息】显式指出当前使用的硬件后端
+                        backend_type = "NPU (RK3566/RKNN)" if engine.use_npu else "CPU (ONNX Runtime)"
+                        print(f"[OCR Info] Engine: {backend_type}")
+                        
+                        print(f"Recognizing {path} ...")
+                        start_t = time.time()
+                        text = engine.run(path)
+                        cost_t = time.time() - start_t
+                        
+                        print(f"\n------------ Result ({cost_t:.2f}s) -----------")
+                        print(text)
+                        print("---------------------------------------")
+                        
+                        if do_send and text and "Error" not in text:
+                            if not target:
+                                target = "all" 
+                            print(f"Sending result to {target}...")
+                            self.cmd_send(target, f"[OCR Result]\n{text}")
+                            
+                    except ImportError:
+                        print("Error: zfeiq_cli.ocr module not found. Please install requirements.")
+                    except Exception as e:
+                        print(f"OCR Execution Error: {e}")
         except KeyboardInterrupt:
             print()
         except EOFError:
@@ -2013,9 +2060,19 @@ class ZFeiQCli:
             ("/file cancel <id>", self._t("放弃/取消文件要约") if self.language=="zhCN" else "cancel an incoming/outgoing file offer"),
             ("/group <group> -add [username]", self._t("创建群组或添加成员") if self.language=="zhCN" else "create group or add member"),
             ("/group <group> -delete [username]", self._t("删除群组或移除成员") if self.language=="zhCN" else "delete group or remove member"),
+            ("/ocr <path> [--send]", self._t("识别图片文字(支持NPU/CPU)") if self.language=="zhCN" else "OCR image text (NPU/CPU auto)"),
         ]
         return rows
 
+    def _info_all_groups(self):
+        print(self._t("groups.header"))
+        if not self.groups:
+            print(" - (none)")
+            return
+        for name, members in sorted(self.groups.items()):
+            mems = ",".join(sorted(members)) if members else "-"
+            print(self._t("groups.one", name=name, count=len(members), members=mems))
+        
     def _info_all_groups(self):
         print(self._t("groups.header"))
         if not self.groups:
