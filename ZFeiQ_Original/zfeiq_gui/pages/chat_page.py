@@ -146,6 +146,9 @@ class ChatPage(QtWidgets.QWidget):
         self.username_label = QtWidgets.QLabel(f"{t['username']}：未登录")
         self.status_label = QtWidgets.QLabel(f"{t['status_prefix']}-")
         self.ip_label = QtWidgets.QLabel(f"{t['ip_label_prefix']}：-.-.-.-")
+        from zfeiq_gui.lang import t
+        self.enc_label = QtWidgets.QLabel(t['enc_off'])
+        self.enc_label.setStyleSheet("color:#a33; font-size:12px;")
         # 将用户名与状态放在同一行（左对齐），IP 右对齐
         self.status_indicator = QtWidgets.QLabel()
         self.status_indicator.setFixedSize(10, 10)
@@ -167,7 +170,14 @@ class ChatPage(QtWidgets.QWidget):
         left_layout.addWidget(self.status_label, 0, QtCore.Qt.AlignVCenter)
         top_row.addWidget(left_group)
         top_row.addStretch(1)
-        top_row.addWidget(self.ip_label)
+        enc_wrap = QtWidgets.QHBoxLayout()
+        enc_wrap.setContentsMargins(0,0,0,0)
+        enc_wrap.setSpacing(6)
+        enc_wrap.addWidget(self.enc_label)
+        enc_wrap.addWidget(self.ip_label)
+        enc_container = QtWidgets.QWidget()
+        enc_container.setLayout(enc_wrap)
+        top_row.addWidget(enc_container)
         info_box.addLayout(top_row)
         info_box.addWidget(self.me_info_label)
         info_box.addStretch()
@@ -597,6 +607,28 @@ class ChatPage(QtWidgets.QWidget):
         except Exception:
             pass
 
+    def set_encryption_state(self, on: bool):
+        try:
+            if on:
+                from zfeiq_gui.lang import t
+                self.enc_label.setText(t['enc_on'])
+                self.enc_label.setStyleSheet("color:#2a7; font-size:12px;")
+            else:
+                from zfeiq_gui.lang import t
+                self.enc_label.setText(t['enc_off'])
+                self.enc_label.setStyleSheet("color:#a33; font-size:12px;")
+        except Exception:
+            pass
+
+    def set_local_profile(self, uname: str, status_disp: str, ip: str):
+        try:
+            prefix = self._localization.get("status_prefix", "状态：")
+            ip_prefix = self._translations.get('ip_label_prefix', 'IP')
+            txt = f"我：{uname}  {prefix}{status_disp}  {ip_prefix}：{ip or '-.-.-.-'}"
+            self.me_info_label.setText(txt)
+        except Exception:
+            pass
+
     def set_user_status(self, uname: str, status: str, status_tag: Optional[str] = None):
         try:
             if uname:
@@ -640,6 +672,10 @@ class ChatPage(QtWidgets.QWidget):
         self.status_label.setText(f"{prefix}{self._current_status_display}")
         ip_prefix = translations.get("ip_label_prefix", "IP")
         self.ip_label.setText(f"{ip_prefix}：{self._current_ip_display}")
+        try:
+            self.enc_label.setText(translations.get('enc_off', self.enc_label.text()))
+        except Exception:
+            pass
         self.emoji_btn.setText(translations.get("emoji", self.emoji_btn.text()))
         self.screenshot_btn.setText(translations.get("screenshot", self.screenshot_btn.text()))
         self.quicktext_btn.setText(translations.get("quick", self.quicktext_btn.text()))

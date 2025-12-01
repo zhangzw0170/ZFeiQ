@@ -4,5 +4,9 @@ commons/
 ZFeiQ_Original/zfeiq_cli/__pycache__/
 ZFeiQ_Original/zfeiq_gui/__pycache__/
 ZFeiQ_Original/zfeiq_tui/__pycache__/
+ZFeiQ_Original/zfeiq_tui/screens/__pycache__/
+ZFeiQ_Original/zfeiq_tui/services/__pycache__/
+ZFeiQ_Original/zfeiq_tui/widgets/__pycache__/
 ZFeiQ_Original/PPOCRv4/__pycache__/
+ZFeiQ_Original/PPOCRv4/utils/__pycache__/
 ZFeiQ_Original/tests/__pycache__/

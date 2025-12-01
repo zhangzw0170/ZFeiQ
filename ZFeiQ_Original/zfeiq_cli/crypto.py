@@ -79,11 +79,14 @@ def rsa_decrypt(priv_pem: bytes, data: bytes) -> bytes:
         raise RuntimeError("No crypto backend")
 
 
-def aes_gcm_encrypt(key32: bytes, plaintext: bytes, aad: Optional[bytes] = None) -> Tuple[bytes, bytes, bytes]:
-    """Return (nonce12, ciphertext, tag16)."""
+def aes_gcm_encrypt(key32: bytes, plaintext: bytes, aad: Optional[bytes] = None, nonce: Optional[bytes] = None) -> Tuple[bytes, bytes, bytes]:
+    """Return (nonce12, ciphertext, tag16).
+
+    If `nonce` is provided (12 bytes), use it; otherwise generate a random 12-byte nonce.
+    """
     if len(key32) != 32:
         raise ValueError("AES-GCM key must be 32 bytes (256-bit)")
-    nonce = os.urandom(12)
+    nonce = nonce if (isinstance(nonce, (bytes, bytearray)) and len(nonce) == 12) else os.urandom(12)
     if _CRYPTO_BACKEND == "cryptography":
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM  # local import
         aead = AESGCM(key32)
@@ -126,3 +129,43 @@ def b64e(b: bytes) -> str:
 
 def b64d(s: str) -> bytes:
     return base64.b64decode(s.encode('ascii'))
+
+
+def hkdf_sha256(ikm: bytes, info: bytes = b"zfeiq-aes256gcm", length: int = 32, salt: Optional[bytes] = None) -> bytes:
+    """HKDF-SHA256 key derivation.
+
+    Tries cryptography first, then PyCryptodome, and finally a minimal HMAC-based fallback.
+    """
+    if not isinstance(ikm, (bytes, bytearray)):
+        raise TypeError("ikm must be bytes")
+    if salt is None:
+        salt = b"\x00" * 32
+    # Prefer cryptography
+    if _CRYPTO_BACKEND == "cryptography":
+        try:
+            from cryptography.hazmat.primitives.kdf.hkdf import HKDF  # local import
+            from cryptography.hazmat.primitives import hashes  # local import
+            kdf = HKDF(algorithm=hashes.SHA256(), length=length, salt=salt, info=info)
+            return kdf.derive(bytes(ikm))
+        except Exception:
+            pass
+    # Try PyCryptodome
+    try:
+        from Crypto.Protocol.KDF import HKDF as _HKDF  # type: ignore
+        from Crypto.Hash import SHA256 as _SHA256  # type: ignore
+        return _HKDF(bytes(ikm), length, salt, _SHA256, context=info)
+    except Exception:
+        pass
+    # Minimal fallback per RFC5869
+    import hmac, hashlib
+    def _hmac_sha256(key: bytes, data: bytes) -> bytes:
+        return hmac.new(key, data, hashlib.sha256).digest()
+    prk = _hmac_sha256(salt or b"", bytes(ikm))
+    t = b""
+    okm = b""
+    counter = 1
+    while len(okm) < length:
+        t = _hmac_sha256(prk, t + info + bytes([counter]))
+        okm += t
+        counter += 1
+    return okm[:length]

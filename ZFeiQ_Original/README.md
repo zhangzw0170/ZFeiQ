@@ -1,5 +1,5 @@
 
-# ZFeiQ（IPMSG/飞秋互通 · CLI + GUI） — Alpha 4.2
+# ZFeiQ（IPMSG/飞秋互通 · CLI + GUI） — Alpha 5.0
 
 ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG 协议，支持 Windows 与 Linux（含 Ubuntu Kylin aarch64 / RK3566）。
 
@@ -13,26 +13,22 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 4. 支持表情包发送(可自定义表情包)、截图功能。
 5. 调用RK3569/3566的NPU，实现典型边缘AI智能的加速功能
 
-## 最新特性（Alpha 4.2）
+## 最新特性（Alpha 5.0）
 
-- **语言切换与文本管理完全模块化**：所有界面文本集中管理，切换语言时所有页面即时刷新。
-- **所有页面命名与引用统一**：如 chat_page、userlist_page，代码结构更清晰。
-- **设置页控件宽度自适应**：右侧栏缩小时内容仍能完整显示。
-- **头像预览逻辑更健壮**：仅在有效路径时显示图片。
-- **侧栏间距完全可调**：QSplitter 逻辑优化，体验更灵活。
-- **嵌入式适配与异常保护**：RK3566/aarch64 环境自动启用软件 OpenGL，字体优先系统回退本地，关键操作多层异常保护，缺少依赖时可降级运行。
-- **气泡式聊天体验**：本地消息右对齐绿色气泡，对端消息左对齐白色气泡，均显示用户名与 IP。
-- **文件块统一发送**：输入框支持拖拽/粘贴/对话框选择文件，统一以“文件块”形式发送，进度与完成提示嵌入聊天区。
-- **中英双语支持**：界面、设置、提示文本均支持简体中文与英文，主题可选深色/浅色。
-- **加密通讯**：支持 RSA‑3072 + AES‑256‑GCM 混合加密，指纹展示，严格模式下无公钥拒绝发送。
-- **配置持久化**：所有设置（语言、状态、主题、下载目录、头像等）自动保存。
+- **加密通讯（Level B）**：新增 KX1/KX2 握手与 ENC2 会话消息，使用 RSA‑3072（OAEP‑SHA256）+ HKDF‑SHA256 + AES‑256‑GCM，支持会话 `sid/ctr` 与重放窗口；严格模式（strict）下无安全会话拒绝发送。
+- **聊天页加密指示**：在聊天头部 IP 左侧显示“通讯已加密/未加密”（本地化）。
+- **用户列表三行显示**：非本机节点显示“状态+用户名 / @IP / [主机名]”；本机节点 `LOCAL` 保持单行以减少噪音。
+- **组页优化**：补充顶端“全员（All）”入口、成员显示稳态，单成员组不再压缩为省略号。
+- **路径与平台兼容**：保持嵌入式适配与异常保护（RK3566/aarch64 软件 OpenGL、字体与权限降级）。
+- **UI 体验**：气泡聊天、文件块统一发送、双语主题等维持与增强。
 
-新增要点（Alpha 4.2）：
+新增要点（Alpha 5.0）：
 
-- **Linux 友好与路径规范化**：程序创建的持久化目录（如 `downloads/`、`screenshots/`、`emotes/`、`keys/` 等）在运行时会统一映射到程序主目录下的 `commons/` 子目录（即 `<program-root>/commons/*`），避免不同平台（例如由 Windows 占位符导致的分散路径）引起的文件散落问题。设置页和启动信息将显示已解析的真实路径。
-- **分组（Groups）健壮性改进**：修复了组重命名冲突、创建后未持久化、重命名空组导致丢失成员等问题；增加了后端/CLI 的原子重命名支持，GUI 在发生重名冲突时会给出提示并阻止覆盖。
-- **国际化补齐**：补齐若干翻译项（例如 `group_delete` 等），Groups 页面与相关按钮现已使用集中管理的 `lang.py` 文本，切换语言时页面即时刷新。
-- **OCR 集成规划**：添加了 PP-OCR v4 的分期集成设计（NPU 与 CPU 降级策略），未来版本将提供 CLI `/ocr` 命令和 GUI 的异步 OCR 按钮以便截图/图片快速识别。
+- **Level B 会话加密已落地**：KX1/KX2/ENC2 全流程实现，旧版仍可回退到传统 ENC 路径以保持互通。
+- **strict 模式**：当启用 strict 且未建立安全会话时，客户端将拒绝发送敏感消息。
+- **本地化与显示**：新增加密状态本地化文案；用户/组列表显示与高度细化。
+- **Linux 友好与路径规范化**：运行期持久化目录统一映射到 `<program-root>/commons/*`，设置页与启动信息显示真实路径。
+- **OCR 规划**：保留 PP‑OCR v4 的集成设计与降级策略，后续提供 CLI `/ocr` 与 GUI 按钮。
 
 ## 快速开始
 
@@ -60,14 +56,14 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 - 默认网络端口：`2425`。可传入 `--port <num>` 或使用环境变量 `ZFEIQ_PORT` 覆盖。
 - 指定绑定地址：使用 `--bind <ip>`（例如 `--bind 192.168.1.5`）来锁定本地网卡，CLI 在未显式绑定时会尝试自动选择最佳本地 IP。
 - GUI 平台注意：GUI 需要 `PyQt5==5.15.0`。在嵌入式或 RK3566/aarch64 上如果出现 OpenGL 问题，可强制软件渲染：
-   - PowerShell (临时)：
+   - Bash (临时)：
 
-    ```bash
-    export ZFEIQ_FORCE_SOFTGL=1
-    python main.py
-    ```
+   ```bash
+   export ZFEIQ_FORCE_SOFTGL=1
+   python main.py
+   ```
 
-- RSA 密钥：程序会在第一次需要时自动生成密钥对并写入 `./keys/priv.pem` 与 `./keys/pub.pem`。在 Alpha 4.2 中程序生成的 `keys/` 会被映射到 `commons/keys/`（即 `<program-root>/commons/keys/`）。要强制重新生成，删除相应 `commons/keys/` 下的文件后重启程序。
+- RSA 密钥：程序会在第一次需要时自动生成密钥对并写入 `./keys/priv.pem` 与 `./keys/pub.pem`。在 Alpha 5.0 中程序生成的 `keys/` 会被映射到 `commons/keys/`（即 `<program-root>/commons/keys/`）。要强制重新生成，删除相应 `commons/keys/` 下的文件后重启程序。
 - 文件传输：IPMSG 附件互操作通过内置的小型 TCP 服务（默认端口 2425）实现；发送方会创建一个 TCP offer，接收方通过 offer 下载文件，相关映射存于 CLI 的 `_attach_map`。默认保存目录若未在设置中显式指定，将被创建为程序主目录下的 `commons/downloads/`，便于嵌入式部署与权限管理。
 
 ## 开发与调试要点
@@ -79,7 +75,7 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 ## 运行示例（多端本机测试）
 
 - 在一台机器同时运行两个 CLI 实例（不同端口）用于调试：
-   ```pwsh
+   ```bash
    # 终端 1
    python main.py --cli --port 2425
 
@@ -88,10 +84,18 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
    ```
 
 - 运行测试脚本（示例）:
-   ```pwsh
+   ```bash
    python tests/discover_and_sendall.py
    python tests/group_send_demo.py
    ```
+
+## 加密通讯（Level B）简述
+
+- **握手**：通过 SENDMSG 文本前缀 `KX1;...` / `KX2;...` 完成种子交换（RSA‑OAEP），双方使用 HKDF 派生会话密钥。
+- **消息**：`ENC2;sid=<b64>;ctr=<u64>;...` 采用 AES‑256‑GCM 加密，nonce 由 `sid|dir|ctr` 派生，具备基础重放窗口检查。
+- **模式**：`/set encrypt off|on|strict`；`on` 优先使用 ENC2，失败时回退；`strict` 禁止无会话发送。
+- **兼容**：保留旧 `ENC;...` 路径与公钥交换 `GETPUBKEY/ANSPUBKEY`，平滑兼容未升级节点。
+- 详见：`docs/CRYPTO_PLAN.md`。
 
 
 ## 适用场景

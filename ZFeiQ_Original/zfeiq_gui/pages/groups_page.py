@@ -176,12 +176,29 @@ class GroupsPage(QtWidgets.QWidget):
         # 状态灯 Emoji（与用户列表保持一致）
         status_emojis = {
             "online": "🟢",
-            "busy": "🟡",
-            "away": "🔴",
+            "busy": "🟠",
+            "away": "⚪",
         }
+        # 在最顶添加 "All" 聚合页面（用于群发，通讯不加密）
+        from zfeiq_gui.lang import t
+        all_item = QtWidgets.QListWidgetItem(t['all_groups_label'])
+        all_item.setData(QtCore.Qt.UserRole, "all")
+        all_item.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        try:
+            all_item.setSizeHint(QtCore.QSize(all_item.sizeHint().width(), 24))
+        except Exception:
+            pass
+        self.group_cards.addItem(all_item)
+
         for group_name in sorted(self._cached_groups.keys()):
             members = list(self._cached_groups.get(group_name, []))
-            header = f"{group_name} ({len(members)}/{len(members)})"
+            # 在线人数：未设置为忙碌/离开的都视为在线
+            online = 0
+            for m in members:
+                st = (statuses or {}).get(m, "online")
+                if st not in ("busy", "away"):
+                    online += 1
+            header = f"{group_name} ({online}/{len(members)})"
             lines = [header]
             for idx, member in enumerate(members):
                 prefix = "┣" if idx < len(members) - 1 else "┗"
@@ -192,6 +209,12 @@ class GroupsPage(QtWidgets.QWidget):
             item = QtWidgets.QListWidgetItem(text)
             item.setData(QtCore.Qt.UserRole, group_name)
             item.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+            # 保证多行完整展示：根据行数放大高度，避免被省略为“...”
+            try:
+                h = 24 + max(0, len(lines) - 1) * 18
+                item.setSizeHint(QtCore.QSize(item.sizeHint().width(), h))
+            except Exception:
+                pass
             try:
                 font = item.font()
                 font.setPointSize(font.pointSize() + 1)

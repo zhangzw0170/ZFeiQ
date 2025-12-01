@@ -35,7 +35,7 @@ from .protocol import (
     encode_fileattach_lines,
     decode_fileattach_lines,
 )
-from .crypto import generate_rsa_keypair, rsa_encrypt, rsa_decrypt, aes_gcm_encrypt, aes_gcm_decrypt, b64e, b64d
+from .crypto import generate_rsa_keypair, rsa_encrypt, rsa_decrypt, aes_gcm_encrypt, aes_gcm_decrypt, b64e, b64d, hkdf_sha256
 from .transport import UdpTransport, DEFAULT_PORT
 from .filetransfer import create_offer, download_file, IPMsgFileServer, ipmsg_download_file
 from .state import NodeRegistry, PendingAck, ChatHistory
@@ -204,6 +204,8 @@ class ZFeiQCli:
         self.registry = NodeRegistry()
         self.pending = PendingAck()
         self.history = ChatHistory()
+        # sessions: ip -> {key: bytes, sid: bytes(8), send_ctr: int, recv_ctr: int, recv_window: set[int], last_ts: float}
+        self._sessions = {}
         # encryption settings
         self.encrypt_mode: str = "off"  # off|on|strict
         self._priv_pem: Optional[bytes] = None
@@ -251,6 +253,36 @@ class ZFeiQCli:
         # load keys if present
         try:
             self._load_keys()
+        except Exception:
+            pass
+
+    # ======== session helpers (ENC2) ========
+    def _sess_nonce(self, sid: bytes, ctr: int, direction: str) -> bytes:
+        # derive 12-byte nonce: SHA256(sid||dir||ctr)[0:12]
+        import hashlib
+        h = hashlib.sha256()
+        h.update(sid)
+        h.update(direction.encode('ascii'))
+        h.update(str(ctr).encode('ascii'))
+        return h.digest()[:12]
+
+    def _ensure_session(self, ip: str) -> bool:
+        s = self._sessions.get(ip)
+        return bool(s and isinstance(s.get('key'), (bytes, bytearray)))
+
+    def _start_kx(self, ip: str) -> None:
+        # Send KX1 if we have peer pubkey and no session
+        try:
+            if self._ensure_keys() and (ip in self._peer_pubkeys) and (not self._ensure_session(ip)):
+                import os
+                seed = os.urandom(32)
+                ekey = rsa_encrypt(self._peer_pubkeys[ip], seed)
+                fp = self._peer_fps.get(self.local_ip) or (hashlib.sha256(self._pub_pem or b"").hexdigest() if self._pub_pem else "")
+                text = f"KX1;ver=1;fp={fp};ekeyA={b64e(ekey)}"
+                pkt = build_packet(self.username or "?", self.hostname, IPMSG_SENDMSG, text, encoding=self.encoding)
+                self.transport.send_unicast(ip, pkt)
+                # cache local seed until peer responds
+                self._sessions[ip] = {"local_seed": seed, "last_ts": time.time()}
         except Exception:
             pass
 
@@ -615,6 +647,65 @@ class ZFeiQCli:
             # 不进一步处理为在线/消息
             return
 
+        # 会话握手：KX1/KX2（级别B）
+        if base == IPMSG_SENDMSG and (ext or "").startswith("KX1;"):
+            try:
+                # parse ekeyA
+                fields = dict(x.split("=",1) for x in (seg.strip() for seg in ext.split(";") ) if "=" in x)
+                eA = b64d(fields.get("ekeyA",""))
+                seedA = rsa_decrypt(self._priv_pem or b"", eA)
+                # prepare our seedB and reply KX2
+                import os
+                seedB = os.urandom(32)
+                eB = rsa_encrypt(self._peer_pubkeys.get(src_ip, b"") or b"", seedB)
+                fpB = self._peer_fps.get(self.local_ip) or (hashlib.sha256(self._pub_pem or b"").hexdigest() if self._pub_pem else "")
+                text2 = f"KX2;ver=1;fp={fpB};ekeyB={b64e(eB)}"
+                pkt2 = build_packet(self.username or "?", self.hostname, IPMSG_SENDMSG, text2, encoding=self.encoding)
+                self.transport.send_unicast(src_ip, pkt2)
+                # derive session
+                # order by fingerprints to fix ikm ordering
+                fpA = fields.get("fp","")
+                order = sorted([fpA, fpB])
+                if order and order[0] == fpA:
+                    ikm = seedA + seedB
+                else:
+                    ikm = seedB + seedA
+                key = hkdf_sha256(ikm, info=b"zfeiq-aes256gcm", length=32)
+                import hashlib
+                sid = hashlib.sha256(ikm).digest()[:8]
+                self._sessions[src_ip] = {"key": key, "sid": sid, "send_ctr": 0, "recv_ctr": 0, "recv_window": set(), "last_ts": time.time(), "local_seed": seedB}
+                if self.debug:
+                    print(f"[DBG] session established with {src_ip} sid={b64e(sid)}")
+                    self._print_prompt(suppress_next=False)
+            except Exception:
+                pass
+            return
+        if base == IPMSG_SENDMSG and (ext or "").startswith("KX2;"):
+            try:
+                fields = dict(x.split("=",1) for x in (seg.strip() for seg in ext.split(";") ) if "=" in x)
+                eB = b64d(fields.get("ekeyB",""))
+                seedB = rsa_decrypt(self._priv_pem or b"", eB)
+                # fetch cached seedA
+                seedA = (self._sessions.get(src_ip) or {}).get("local_seed")
+                if isinstance(seedA, (bytes, bytearray)):
+                    fpA = self._peer_fps.get(self.local_ip) or (hashlib.sha256(self._pub_pem or b"").hexdigest() if self._pub_pem else "")
+                    fpB = fields.get("fp","")
+                    order = sorted([fpA, fpB])
+                    if order and order[0] == fpA:
+                        ikm = seedA + seedB
+                    else:
+                        ikm = seedB + seedA
+                    key = hkdf_sha256(ikm, info=b"zfeiq-aes256gcm", length=32)
+                    import hashlib
+                    sid = hashlib.sha256(ikm).digest()[:8]
+                    self._sessions[src_ip] = {"key": key, "sid": sid, "send_ctr": 0, "recv_ctr": 0, "recv_window": set(), "last_ts": time.time()}
+                    if self.debug:
+                        print(f"[DBG] session established with {src_ip} sid={b64e(sid)}")
+                        self._print_prompt(suppress_next=False)
+            except Exception:
+                pass
+            return
+
         # BR_ENTRY / BR_ABSENCE: 更新在线并回复 ANSENTRY
         if base == IPMSG_BR_ENTRY or base == IPMSG_BR_ABSENCE:
             # update and reply ANSENTRY；首次发现时提示上线
@@ -718,6 +809,36 @@ class ZFeiQCli:
                 pass
         elif base == IPMSG_SENDMSG:
             text = ext.split("\0", 1)[0] if ext else ""
+            # ENC2 会话加密
+            if text.startswith("ENC2;"):
+                try:
+                    fields = dict(x.split("=",1) for x in (seg.strip() for seg in text.split(";") ) if "=" in x)
+                    sid = b64d(fields.get("sid",""))
+                    ctr = int(fields.get("ctr","0"))
+                    s = self._sessions.get(src_ip)
+                    if not s or s.get("sid") != sid:
+                        raise ValueError("unknown session")
+                    # simple replay protection
+                    rw = s.get("recv_window") or set()
+                    if ctr in rw:
+                        raise ValueError("replayed")
+                    nonce = self._sess_nonce(sid, ctr, direction="in")
+                    cipher_b64 = fields.get("b64","")
+                    tag_b64 = fields.get("tag","")
+                    pt = aes_gcm_decrypt(s.get("key"), nonce, b64d(cipher_b64), b64d(tag_b64) if tag_b64 else b"\x00"*16)
+                    text = pt.decode(self.encoding, errors="ignore")
+                    # update window
+                    rw.add(ctr)
+                    if len(rw) > 512:
+                        # keep set small
+                        for _ in range(len(rw) - 512):
+                            try:
+                                rw.remove(min(rw))
+                            except Exception:
+                                break
+                    s["recv_window"] = rw
+                except Exception:
+                    text = "[加密消息解密失败]"
             # 解密加密消息（以 ENC; 开头）
             if text.startswith("ENC;"):
                 try:
@@ -1084,28 +1205,37 @@ class ZFeiQCli:
         cmd = IPMSG_SENDMSG | (IPMSG_SENDCHECKOPT if need_ack else 0)
         # 扩展字段：默认仅为文本；不再附加非标准的 cap=ack，避免对端显示为文本
         ext = text
-        # 加密：根据模式与是否有对端公钥决定
+        # 加密：优先使用会话 ENC2；否则根据模式与是否有对端公钥决定（旧 ENC）
         try:
             if self.encrypt_mode in ("on","strict"):
-                pub = self._peer_pubkeys.get(ip)
-                if not pub:
-                    # 主动请求对端公钥
-                    try:
-                        req = build_packet(self.username or "?", self.hostname, IPMSG_GETPUBKEY, "GETPUBKEY", encoding=self.encoding)
-                        self.transport.send_unicast(ip, req)
-                    except Exception:
-                        pass
-                    if self.encrypt_mode == "strict":
-                        print("[ENC] 无对端公钥，已请求(GETPUBKEY)，严格模式下不发送。")
-                        return
+                if self._ensure_session(ip):
+                    s = self._sessions.get(ip)
+                    ctr = (s.get("send_ctr") or 0) + 1
+                    s["send_ctr"] = ctr
+                    nonce = self._sess_nonce(s.get("sid"), ctr, direction="out")
+                    _, ct, tag = aes_gcm_encrypt(s.get("key"), text.encode(self.encoding, errors="ignore"), aad=(s.get("sid") or b""), nonce=nonce)
+                    ext = f"ENC2;sid={b64e(s.get('sid'))};ctr={ctr};tag={b64e(tag)};b64=" + b64e(ct)
                 else:
-                    # 使用 RSA-OAEP 包裹随机 AES-256-GCM 密钥
-                    import os
-                    sk = os.urandom(32)
-                    nonce, cipher, tag = aes_gcm_encrypt(sk, text.encode(self.encoding, errors="ignore"))
-                    ekey = rsa_encrypt(pub, sk)
-                    enc_head = f"ENC;alg=aes256gcm;ekey={b64e(ekey)};nonce={b64e(nonce)};tag={b64e(tag)};b64="
-                    ext = enc_head + b64e(cipher)
+                    pub = self._peer_pubkeys.get(ip)
+                    if not pub:
+                        try:
+                            req = build_packet(self.username or "?", self.hostname, IPMSG_GETPUBKEY, "GETPUBKEY", encoding=self.encoding)
+                            self.transport.send_unicast(ip, req)
+                        except Exception:
+                            pass
+                        # 触发 KX1
+                        self._start_kx(ip)
+                        if self.encrypt_mode == "strict":
+                            print("[ENC] 无对端公钥/会话，已请求握手，严格模式下不发送。")
+                            return
+                    else:
+                        # 旧路径：RSA 包裹一次性对称密钥
+                        import os
+                        sk = os.urandom(32)
+                        n0, cipher, tag = aes_gcm_encrypt(sk, text.encode(self.encoding, errors="ignore"))
+                        ekey = rsa_encrypt(pub, sk)
+                        enc_head = f"ENC;alg=aes256gcm;ekey={b64e(ekey)};nonce={b64e(n0)};tag={b64e(tag)};b64="
+                        ext = enc_head + b64e(cipher)
         except Exception as e:
             print(f"[ENC] 加密失败，退回明文: {e}")
         # 注意：不在 SENDMSG 中拼接自定义扩展键值，避免互通客户端将其当作文本显示

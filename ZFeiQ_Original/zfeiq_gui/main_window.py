@@ -389,6 +389,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 if not target_id:
                     self._chat_page.username_label.setText("聊天对象：未选择")
                     self._chat_page.ip_label.setText("IP：-.-.-.-")
+                    try:
+                        self._chat_page.set_encryption_state(False)
+                    except Exception:
+                        pass
                     self._chat_page.send_btn.setEnabled(False)
                     if getattr(self, 'nav_panel', None):
                         self.setWindowTitle("ZFeiQ")
@@ -401,15 +405,28 @@ class MainWindow(QtWidgets.QMainWindow):
                     name = getattr(node, 'username', ip)
                     self._chat_page.username_label.setText(name)
                     self._chat_page.ip_label.setText(f"IP：{ip}")
+                    try:
+                        enc_on = bool(getattr(backend, 'is_encrypted_target', lambda tid: False)(target_id))
+                        self._chat_page.set_encryption_state(enc_on)
+                    except Exception:
+                        pass
                     title = f"{name}[IP:{ip}] - ZFeiQ"
                 elif target_id.startswith("group:"):
                     g = target_id[6:]
                     self._chat_page.username_label.setText(f"群组：{g}")
                     self._chat_page.ip_label.setText("")
+                    try:
+                        self._chat_page.set_encryption_state(False)
+                    except Exception:
+                        pass
                     title = f"群组:{g} - ZFeiQ"
                 else:
                     self._chat_page.username_label.setText(target_id)
                     self._chat_page.ip_label.setText("")
+                    try:
+                        self._chat_page.set_encryption_state(False)
+                    except Exception:
+                        pass
                     title = f"{target_id} - ZFeiQ"
                 self.setWindowTitle(title)
 
@@ -589,8 +606,8 @@ class MainWindow(QtWidgets.QMainWindow):
                             'enUS': {'online':'online','busy':'busy','away':'away'},
                         }
                         status_disp = status_map.get(lang, status_map['zhCN']).get(status_raw, status_raw)
-                        self._chat_page.set_local_ip(local_ip)
-                        self._chat_page.set_user_status(uname, status_disp, status_raw)
+                        # 改为只在次行显示本机资料，避免覆盖当前聊天对象头部
+                        self._chat_page.set_local_profile(uname, status_disp, local_ip)
                         # 设置页网卡 IP 下拉选中登录时选择的 IP
                         try:
                             if local_ip:
@@ -737,8 +754,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     }
                     status_disp = status_map.get(lang, status_map['zhCN']).get(status_raw, status_raw)
                     if uname:
-                        self._chat_page.set_local_ip(local_ip)
-                        self._chat_page.set_user_status(uname, status_disp, status_raw)
+                        self._chat_page.set_local_profile(uname, status_disp, local_ip)
                         # 同步到设置页个人信息
                         try:
                             self._settings_page.update_personal_info(uname, local_ip)
@@ -837,7 +853,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 if not g:
                     return
                 try:
-                    _focus_target(f"group:{g}")
+                    if g == "all":
+                        _focus_target("all")
+                    else:
+                        _focus_target(f"group:{g}")
                 finally:
                     self._stack.setCurrentWidget(self._chat_page)
             self._groups_page.sigEnterChat.connect(_enter_group_chat)

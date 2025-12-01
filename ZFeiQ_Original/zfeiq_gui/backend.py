@@ -566,3 +566,16 @@ class GuiBackend(QObject):
             return path
         except Exception:
             return None
+
+    def is_encrypted_target(self, target_id: str) -> bool:
+        try:
+            if not target_id:
+                return False
+            if target_id.startswith("ip:"):
+                ip = target_id[3:]
+                sess = getattr(self.zcli, "_sessions", {}).get(ip)
+                return bool(sess and sess.get("key") and sess.get("sid"))
+            # group/all not encrypted per-session at present
+            return False
+        except Exception:
+            return False

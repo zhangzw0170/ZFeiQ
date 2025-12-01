@@ -88,7 +88,7 @@ def main():
                 # avoid importing heavy packages that may register Qt plugins (e.g. OpenCV) before the GUI
                 # Only check for optional modules that the codebase actively uses.
                 # Removed checks for modules not referenced in the repository (requests, urllib3, chardet, paddleocr).
-                for modname in ('paddle', 'PIL', 'rknnlite', 'cryptography'):
+                for modname in ('PIL', 'rknnlite', 'cryptography'):
                     _print_mod(modname)
             except Exception:
                 pass
