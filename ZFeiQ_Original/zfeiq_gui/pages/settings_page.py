@@ -28,7 +28,8 @@ class SettingsPage(QtWidgets.QWidget):
         self._personal_username = "-"
         self._personal_ip = "-.-.-.-"
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        # self.setMinimumSize(600, 400)
+        # 放宽最小尺寸，避免切换到本页时强制增高窗口
+        self.setMinimumSize(0, 0)
         self._build()
         self.apply_language(self._translations)
 
@@ -90,20 +91,15 @@ class SettingsPage(QtWidgets.QWidget):
         # # 这里更新了“头像”文本框
         # self.lbl_avatar = QtWidgets.QLabel(t['avatar'])
         # pform.addRow(self.lbl_avatar, self._row_widget(self.edit_avatar, self.btn_pick_avatar))
+        # 将密钥/安全管理移到独立的 tab：Security (与个人/文件同级)
         try:
             self.key_section = KeyPage()
-            group = QtWidgets.QGroupBox(t['key_section'])
-            vbox = QtWidgets.QVBoxLayout(group)
-            vbox.setContentsMargins(8, 8, 8, 8)
-            vbox.addWidget(self.key_section)
-            # 限制安全与密钥区的最大高度，避免占满整个个人页
-            # 使用最大高度允许在窄窗或响应式布局下收缩，但不会无限拉伸。
-            try:
-                group.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
-                group.setMaximumHeight(440)
-            except Exception:
-                pass
-            pform.addRow(group)
+            tab_security = QtWidgets.QWidget()
+            sec_layout = QtWidgets.QVBoxLayout(tab_security)
+            sec_layout.setContentsMargins(12, 12, 12, 12)
+            sec_layout.setSpacing(8)
+            sec_layout.addWidget(self.key_section)
+            tabs.addTab(tab_security, t.get('security_tab', '安全'))
         except Exception:
             pass
 
@@ -142,10 +138,11 @@ class SettingsPage(QtWidgets.QWidget):
         nform.setContentsMargins(12, 12, 12, 12)
         nform.setSpacing(10)
         self.cmb_iface = QtWidgets.QComboBox()
-        self.edit_bind = QtWidgets.QLineEdit()
-        self.edit_bind.setPlaceholderText(t['bind_ip'])
         self.edit_mask = QtWidgets.QLineEdit()
         self.edit_mask.setPlaceholderText(t['subnet_mask'])
+        # 新增端口号输入（位于绑定 IP 与子网掩码之间）
+        self.edit_port = QtWidgets.QLineEdit()
+        self.edit_port.setPlaceholderText(t.get('port', '端口号'))
         self.edit_keepalive = QtWidgets.QLineEdit()
         self.edit_keepalive.setPlaceholderText(t['keepalive'])
         self.edit_expire = QtWidgets.QLineEdit()
@@ -153,10 +150,10 @@ class SettingsPage(QtWidgets.QWidget):
         self.lbl_iface = QtWidgets.QLabel(t['iface'])
         self.lbl_keepalive = QtWidgets.QLabel(t['keepalive'])
         self.lbl_expire = QtWidgets.QLabel(t['expire'])
-        self.lbl_bind = QtWidgets.QLabel(t['bind_ip'])
         self.lbl_mask = QtWidgets.QLabel(t['subnet_mask'])
+        self.lbl_port = QtWidgets.QLabel(t.get('port', '端口号'))
         nform.addRow(self.lbl_iface, self.cmb_iface)
-        nform.addRow(self.lbl_bind, self.edit_bind)
+        nform.addRow(self.lbl_port, self.edit_port)
         nform.addRow(self.lbl_mask, self.edit_mask)
         nform.addRow(self.lbl_keepalive, self.edit_keepalive)
         nform.addRow(self.lbl_expire, self.edit_expire)
@@ -319,7 +316,8 @@ class SettingsPage(QtWidgets.QWidget):
             trace=self.chk_trace.isChecked(),
             keepalive=self.edit_keepalive.text().strip(),
             expire=self.edit_expire.text().strip(),
-            bind_ip=(prefer_iface_ip or self.edit_bind.text().strip()),
+            bind_ip=(prefer_iface_ip or None),
+            port=self.edit_port.text().strip(),
             subnet_mask=self.edit_mask.text().strip(),
             download_dir=self.edit_dir.text().strip().replace("\\", "/"),
             screenshot_dir=self.edit_ss_dir.text().strip().replace("\\", "/"),
@@ -379,9 +377,10 @@ class SettingsPage(QtWidgets.QWidget):
         # tab页标题
         tabs = getattr(self, '_tabs', None)
         if tabs:
-            tab_titles = ['personal_tab', 'general_tab', 'network_tab', 'files_tab', 'about_tab']
+            tab_titles = ['personal_tab', 'security_tab', 'general_tab', 'network_tab', 'files_tab', 'about_tab']
             for idx, key in enumerate(tab_titles):
-                tabs.setTabText(idx, translations.get(key, tabs.tabText(idx)))
+                if idx < tabs.count():
+                    tabs.setTabText(idx, translations.get(key, tabs.tabText(idx)))
 
         # 通用设置区
         self.lbl_lang.setText(translations.get('lang', self.lbl_lang.text()))
@@ -409,10 +408,14 @@ class SettingsPage(QtWidgets.QWidget):
         self.lbl_iface.setText(translations.get('iface', self.lbl_iface.text()))
         self.lbl_keepalive.setText(translations.get('keepalive', self.lbl_keepalive.text()))
         self.lbl_expire.setText(translations.get('expire', self.lbl_expire.text()))
-        self.lbl_bind.setText(translations.get('bind_ip', self.lbl_bind.text()))
         self.lbl_mask.setText(translations.get('subnet_mask', self.lbl_mask.text()))
-        self.edit_bind.setPlaceholderText(translations.get('bind_ip', self.edit_bind.placeholderText()))
+        if hasattr(self, 'lbl_port'):
+            self.lbl_port.setText(translations.get('port', self.lbl_port.text()))
+        if hasattr(self, 'edit_port'):
+            self.edit_port.setPlaceholderText(translations.get('port', self.edit_port.placeholderText()))
         self.edit_mask.setPlaceholderText(translations.get('subnet_mask', self.edit_mask.placeholderText()))
+        if hasattr(self, 'edit_port'):
+            self.edit_port.setPlaceholderText(translations.get('port', self.edit_port.placeholderText()))
 
         # 文件设置区
         self.lbl_download.setText(translations.get('download_dir', self.lbl_download.text()))

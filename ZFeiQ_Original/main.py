@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import sys
 import faulthandler
@@ -49,6 +50,15 @@ def main():
         app = ZFeiQCli(port=port if port else 2425, bind_ip=bind_ip if bind_ip else None)
         app.start()
         app.loop()
+    elif "--tui" in sys.argv:
+        # Textual TUI mode
+        try:
+            from zfeiq_tui.app import ZFeiQTuiApp
+        except Exception as exc:
+            print("[ERROR] 无法加载 TUI 组件，确保 Textual 可用并且 zfeiq_tui 模块存在。")
+            print("详细: {}".format(exc))
+            sys.exit(1)
+        ZFeiQTuiApp().run()
     else: # GUI mode
         # enable faulthandler to get Python-level traceback on native crashes
         try:
@@ -65,18 +75,20 @@ def main():
 
         # show helpful runtime / dependency hints to stderr (non-fatal)
         try:
-            sys.stderr.write(f"Python: {platform.python_version()} ({platform.platform()})\n")
+            sys.stderr.write("Python: {} ({})\n".format(platform.python_version(), platform.platform()))
             try:
                 import importlib
                 def _print_mod(name):
                     try:
                         m = importlib.import_module(name)
                         ver = getattr(m, '__version__', None) or getattr(m, 'version', None)
-                        sys.stderr.write(f"  {name}: present, version={ver}\n")
+                        sys.stderr.write("  {}: present, version={}\n".format(name, ver))
                     except Exception as _:
-                        sys.stderr.write(f"  {name}: not installed or import failed\n")
+                        sys.stderr.write("  {}: not installed or import failed\n".format(name))
                 # avoid importing heavy packages that may register Qt plugins (e.g. OpenCV) before the GUI
-                for modname in ('paddle', 'paddleocr', 'PIL', 'rknnlite', 'cryptography', 'requests', 'urllib3', 'chardet'):
+                # Only check for optional modules that the codebase actively uses.
+                # Removed checks for modules not referenced in the repository (requests, urllib3, chardet, paddleocr).
+                for modname in ('paddle', 'PIL', 'rknnlite', 'cryptography'):
                     _print_mod(modname)
             except Exception:
                 pass

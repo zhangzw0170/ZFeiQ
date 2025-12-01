@@ -104,15 +104,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.content_panel = self._build_content_panel()
         self.nav_panel = self._build_nav_panel()
 
-        # 为侧边导航增加滚动容器，确保小屏下仍可触达底部“设置”按钮
-        nav_scroll = QtWidgets.QScrollArea()
-        nav_scroll.setWidgetResizable(True)
-        nav_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        nav_scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
-        nav_scroll.setWidget(self.nav_panel)
-
+        # 直接将侧边导航面板放入 splitter（不使用额外的滚动容器）
         splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
-        splitter.addWidget(nav_scroll)
+        splitter.addWidget(self.nav_panel)
         splitter.addWidget(self.content_panel)
         splitter.setCollapsible(0, True)
         splitter.setCollapsible(1, False)
@@ -129,18 +123,21 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # 保留 splitter 为成员，避免后续切换页面时重建影响比例
         self._splitter = splitter
-        self._nav_scroll = nav_scroll
+        # 不再使用 nav_scroll；保留属性以兼容后续引用判断，但设为 None
+        self._nav_scroll = None
         self.setCentralWidget(self._splitter)
         
-        # 未登录前隐藏侧边导航
+        # 未登录前隐藏侧边导航（直接隐藏 nav_panel）
         try:
-            nav_scroll.setVisible(False)
+            self.nav_panel.setVisible(False)
         except Exception:
             pass
 
     def _build_nav_panel(self) -> QtWidgets.QWidget:
         panel = QtWidgets.QWidget()
         panel.setObjectName("navPanel")
+        # Allow the nav panel to expand vertically so its children can fill splitter height
+        panel.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
         # 不再固定宽度，交由 QSplitter 调整；设置一个合理的最小宽度
         outer = QtWidgets.QVBoxLayout(panel)
         # 收紧边距以减少总高度占用
@@ -156,11 +153,11 @@ class MainWindow(QtWidgets.QMainWindow):
             f = self.sidebar_tabs.font(); f.setPointSize(f.pointSize() - 1); self.sidebar_tabs.setFont(f)
         except Exception:
             pass
+        # Allow tabs area to expand vertically to occupy the available height
+        self.sidebar_tabs.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
         self.sidebar_tabs.addTab(self._userlist_page, "用户")
         self.sidebar_tabs.addTab(self._groups_page, "组")
         outer.addWidget(self.sidebar_tabs, 1)
-        # 使用较小的伸缩以预留空间给设置按钮
-        outer.addStretch(1)
 
         # 设置按钮：若当前在设置页则返回聊天页，否则进入设置页
         self.btn_settings = NavigationButton("设置")
@@ -169,6 +166,12 @@ class MainWindow(QtWidgets.QMainWindow):
             if cur is self._settings_page:
                 self._stack.setCurrentWidget(self._chat_page)
             else:
+                # 切换到设置页前放宽其内部尺寸限制，避免窗口被动增高
+                try:
+                    if hasattr(self, '_settings_page') and hasattr(self._settings_page, 'relax_sizes'):
+                        self._settings_page.relax_sizes(max_w=self.mw_width, max_h=self.mw_height)
+                except Exception:
+                    pass
                 self._stack.setCurrentWidget(self._settings_page)
         self.btn_settings.clicked.connect(_toggle_settings)
         outer.addWidget(self.btn_settings)
@@ -700,6 +703,13 @@ class MainWindow(QtWidgets.QMainWindow):
                                 pass
                     if mask:
                         self._settings_page.edit_mask.setText(mask)
+                    # 显示端口号（若后端提供）
+                    try:
+                        port_val = info.get('port') or getattr(getattr(backend, 'zcli', None), 'port', None)
+                        if port_val and hasattr(self._settings_page, 'edit_port'):
+                            self._settings_page.edit_port.setText(str(port_val))
+                    except Exception:
+                        pass
                 except Exception:
                     pass
                 try:
@@ -776,7 +786,20 @@ class MainWindow(QtWidgets.QMainWindow):
             # 组管理页绑定
             def refresh_groups_page():
                 try:
-                    self._groups_page.update_groups(backend.list_groups())
+                    groups = backend.list_groups()
+                except Exception:
+                    groups = {}
+                # 构建用户名 -> status 映射，用于组页面彩色灯展示
+                statuses = {}
+                try:
+                    for n in backend.get_nodes():
+                        uname = getattr(n, 'username', None)
+                        if uname:
+                            statuses[uname] = getattr(n, 'status', 'online')
+                except Exception:
+                    pass
+                try:
+                    self._groups_page.update_groups(groups, statuses)
                 except Exception:
                     pass
 
@@ -921,8 +944,19 @@ class MainWindow(QtWidgets.QMainWindow):
                             self._settings_page.key_section.lbl_fp.setText("指纹：(error)")
                 _refresh_fp()
                 if hasattr(self._settings_page, 'key_section'):
-                    self._settings_page.key_section.btn_refresh.clicked.connect(_refresh_fp)
-                    self._settings_page.key_section.cmb_mode.currentTextChanged.connect(lambda v: (backend.set_encrypt_mode(v), backend.save_state()))
+                    # btn_refresh 已移除；仅在存在该属性时再尝试连接
+                    try:
+                        if hasattr(self._settings_page.key_section, 'btn_refresh'):
+                            try:
+                                self._settings_page.key_section.btn_refresh.clicked.connect(_refresh_fp)
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+                    try:
+                        self._settings_page.key_section.cmb_mode.currentTextChanged.connect(lambda v: (backend.set_encrypt_mode(v), backend.save_state()))
+                    except Exception:
+                        pass
                 def _on_regen():
                     ok = getattr(backend, 'regenerate_keys', lambda: False)()
                     _refresh_fp()
@@ -993,6 +1027,20 @@ class MainWindow(QtWidgets.QMainWindow):
                 backend.set_expire(float(cfg["expire"]))
             if "bind_ip" in cfg and cfg["bind_ip"]:
                 backend.bind_ip(cfg["bind_ip"]) 
+            if "port" in cfg and cfg["port"]:
+                try:
+                    # 若后端支持运行期端口设置（通常需要重启/重新绑定），尝试调用
+                    if hasattr(backend, 'set_port'):
+                        backend.set_port(int(cfg["port"]))
+                    else:
+                        # 回退：直接写入 zcli.port 供后续持久化或重启生效
+                        if hasattr(backend, 'zcli') and hasattr(backend.zcli, 'port'):
+                            try:
+                                backend.zcli.port = int(cfg["port"])  # type: ignore[attr-defined]
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
             if "subnet_mask" in cfg and cfg["subnet_mask"]:
                 try:
                     if hasattr(backend, 'set_subnet_mask'):

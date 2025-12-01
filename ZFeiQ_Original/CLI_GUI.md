@@ -32,9 +32,9 @@
 | 进入群聊 | ✅ “进入聊天” | `/send group:<group> <text>` |  |
 | 新建分组 | ✅ 新建按钮 | `/group <group> -add` |  |
 | 重命名分组 | ✅ 重命名按钮 | `/group <group> -rename <newname>` | CLI 支持原子重命名（新增 `-rename` 子命令） |
-| 加密模式 | ✅ 密钥页 | `/set encrypt <off|on|strict>` |  |
-| 密钥生成/加载 | ✅ 密钥页 | 自动生成/加载 | CLI无显式命令 |
-| 指纹展示/公钥导出/重生成 | ✅ 密钥页 | ❌ | GUI专属 |
+| 加密模式 | ✅ 安全（密钥）页 | `/set encrypt <off|on|strict>` |  |
+| 密钥生成/加载 | ✅ 安全（密钥）页 | 自动生成/加载 | CLI无显式命令 |
+| 指纹展示/公钥导出/重生成 | ✅ 安全（密钥）页 | ❌ | GUI专属 |
 | 查看与用户历史 | ✅ 历史窗口 | `/info user:<name>` |  |
 | 查看群组历史 | ✅ 聊天页聚合 | `/info group:<name>` |  |
 | 搜索用户/组/IP | ✅ 搜索框 | `/search user|group|ip` |  |
@@ -67,3 +67,8 @@
 | 设置 | `/set language|status|debug|trace|encoding|keepalive|expire|bind|encrypt <value>` |
 
 > 说明：GUI 的“文件块”、气泡样式、主题/头像、区域截图选择器等为 GUI 专属交互；CLI 保留核心协议和自动化能力，优先保证在纯文本环境的易用性。
+
+### 注记（安全/密钥）
+
+- “刷新指纹”按钮已移除：重生成密钥后指纹会自动更新，无需手动刷新。
+- 指纹显示采用 16‑bit 分组（每 4 个十六进制字符为一组），并使用等宽小号字体以提升可读性。

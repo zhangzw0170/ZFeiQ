@@ -10,8 +10,10 @@ class KeyPage(QtWidgets.QWidget):
 
     @staticmethod
     def format_fingerprint(hexstr: str) -> str:
-        groups = [hexstr[i:i+2] for i in range(0, len(hexstr), 2)]
+        # Display in 16-bit groups (4 hex chars) for readability
+        groups = [hexstr[i:i+4] for i in range(0, len(hexstr), 4)]
         lines = []
+        # Keep 8 groups per line to maintain readable block width
         for i in range(0, len(groups), 8):
             lines.append(' '.join(groups[i:i+8]))
         return '\n'.join(lines)
@@ -50,17 +52,23 @@ class KeyPage(QtWidgets.QWidget):
         self.txt_fp = QtWidgets.QTextEdit()
         self.txt_fp.setReadOnly(True)
         # 允许指纹文本框自适应，但保留最大高度避免占用过多空间
-        # self.txt_fp.setMinimumHeight(40)
-        self.txt_fp.setMaximumHeight(80)
-        layout.addWidget(self.txt_fp)
-
-        # 刷新指纹按钮（单独一行）
-        self.btn_refresh = QtWidgets.QPushButton(t["key_refresh"])
+        # 使用较小字体以便 16-bit 分组能在较窄窗口内显示
         try:
-            self.btn_refresh.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+            f = self.txt_fp.font()
+            # reduce by 1 point if possible
+            try:
+                f.setPointSize(max(8, f.pointSize() - 1))
+            except Exception:
+                pass
+            try:
+                f.setStyleHint(QtGui.QFont.Monospace)
+            except Exception:
+                pass
+            self.txt_fp.setFont(f)
         except Exception:
             pass
-        layout.addWidget(self.btn_refresh)
+        self.txt_fp.setMaximumHeight(80)
+        layout.addWidget(self.txt_fp)
 
         # 重生成密钥按钮（单独一行）
         self.btn_regen = QtWidgets.QPushButton(t["key_regen"])
@@ -79,7 +87,7 @@ class KeyPage(QtWidgets.QWidget):
         layout.addWidget(self.btn_export)
 
         # 信号连接
-        self.btn_refresh.clicked.connect(self.on_refresh_clicked)
+        # 刷新按钮已移除：Key 重新生成会自动更新指纹
         self.btn_regen.clicked.connect(self.on_regen_clicked)
         self.btn_export.clicked.connect(self.on_export_clicked)
 
@@ -118,7 +126,6 @@ class KeyPage(QtWidgets.QWidget):
         try:
             self.lbl_enc_mode.setText(translations.get("enc_mode", self.lbl_enc_mode.text()))
             self.lbl_fp_desc.setText(translations.get("key_fp", self.lbl_fp_desc.text()))
-            self.btn_refresh.setText(translations.get("key_refresh", "刷新指纹"))
             self.btn_regen.setText(translations.get("key_regen", "重生成密钥"))
             self.btn_export.setText(translations.get("key_export", "导出公钥…"))
         except Exception:

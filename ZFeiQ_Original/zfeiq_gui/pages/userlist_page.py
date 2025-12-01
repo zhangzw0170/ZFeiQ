@@ -94,11 +94,25 @@ class UserListPage(QtWidgets.QWidget):
     def update_nodes(self, nodes, groups=None, local_ip: str = "") -> None:
         self.list.clear()
         items: List[Tuple[str, Tuple[str, object]]] = []
+        # 状态指示灯：使用彩色圆形 Emoji，避免富文本与委托复杂度
+        status_emojis = {
+            "online": "🟢",  # 绿色
+            "busy": "🟡",    # 黄色 / 橙黄
+            "away": "🔴",    # 红色（离开/不可用）
+        }
         for node in nodes:
             host = getattr(node, "hostname", "")
             local_tag = "[LOCAL] " if local_ip and getattr(node, "ip", None) == local_ip else ""
-            status_suffix = f" [{node.status}]" if getattr(node, "status", "online") != "online" else ""
-            items.append((f"{local_tag}{node.username} @ {node.ip} ({host}){status_suffix}", ("user", node)))
+            status_code = getattr(node, "status", "online")
+            light = status_emojis.get(status_code, status_emojis["online"])
+            # 第一行：状态灯 + [LOCAL] + 用户名
+            line1 = f"{light} {local_tag}{node.username}".rstrip()
+            # 第二行：@ IP 地址
+            line2 = f"@ {node.ip}"
+            # 第三行：单独一行显示主机名（方括号），若无主机名则省略
+            line3 = f"[{host}]" if host else ""
+            text_block = f"{line1}\n{line2}" + (f"\n{line3}" if line3 else "")
+            items.append((text_block, ("user", node)))
         if groups:
             for group_name, members in sorted(groups.items()):
                 items.append((f"[组] {group_name} ({len(members)})", ("group", group_name)))
@@ -108,7 +122,7 @@ class UserListPage(QtWidgets.QWidget):
             item.setData(QtCore.Qt.UserRole, meta)
             try:
                 font = item.font()
-                font.setPointSize(font.pointSize() + 1)
+                font.setPointSize(max(8, font.pointSize()))
                 item.setFont(font)
             except Exception:
                 pass

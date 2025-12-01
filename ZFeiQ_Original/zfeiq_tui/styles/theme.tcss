@@ -1,0 +1,48 @@
+/* Global theme for ZFeiQ TUI */
+Screen { background: $surface; }
+.sub-text { color: $text-muted; text-style: italic; }
+.bold { text-style: bold; }
+
+/* Sidebar */
+#sidebar { width: 40; dock: left; border-right: solid $secondary; height: 100%; layout: vertical; }
+
+/* Tabs & Lists */
+TabbedContent { height: 1fr; }
+TabPane { height: 100%; padding: 0; layout: vertical; }
+ListView { height: 1fr; border: none; scrollbar-gutter: stable; }
+
+/* Footer panes */
+#net_info_box { height: 10; border-top: solid $secondary; background: $surface-darken-1; padding: 1; layout: vertical; }
+#chat_input_container { height: 10; border-top: solid $secondary; background: $surface-darken-1; padding: 0 1 1 1; }
+
+/* Chat area */
+#chat_container { height: 100%; layout: vertical; }
+#chat_header { height: 3; background: $accent; color: $surface; content-align: left middle; padding-left: 2; text-style: bold; width: 100%; }
+#chat_log { height: 1fr; padding: 0 1; overflow-y: scroll; }
+
+/* Text area */
+ChatTextArea { height: 100%; border: solid $secondary; background: $surface; }
+ChatTextArea:focus { border: double $accent; }
+
+/* Modals */
+ModalScreen { align: center middle; background: rgba(0,0,0,0.7); }
+.modal-box { background: $surface; border: panel $primary; padding: 1; layout: vertical; }
+.modal-title { text-align: center; text-style: bold; border-bottom: solid $secondary; padding-bottom: 1; margin-bottom: 1; }
+.modal-message { text-align: center; margin: 1 0; }
+.modal-sm { width: 50; height: auto; }
+.modal-md { width: 60; height: 60%; }
+.key-hint { text-align: center; color: $text-muted; margin-top: 1; }
+#file_tree { height: 1fr; }
+#sel_list { height: 1fr; }
+
+/* Login */
+.login-top-bar { dock: top; height: 3; align-horizontal: right; padding: 0 1; }
+.login-title { text-align: center; color: $accent; margin-bottom: 1; text-style: bold; }
+.login-label { color: $text-muted; }
+.login-label-margin { color: $text-muted; margin-top: 1; }
+#login_center { align: center middle; height: 100%; }
+#login_box { width: 50; height: auto; border: heavy $accent; padding: 1 2; }
+
+/* Settings */
+.settings-box { border: panel $accent; padding: 2; width: auto; height: auto; }
+.settings-text { text-align: center; margin-bottom: 2; }

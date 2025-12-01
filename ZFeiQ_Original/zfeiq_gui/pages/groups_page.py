@@ -165,7 +165,7 @@ class GroupsPage(QtWidgets.QWidget):
                 return
             self.sigRename.emit(old, new_name)
 
-    def update_groups(self, groups: Dict[str, set]) -> None:
+    def update_groups(self, groups: Dict[str, set], statuses: Dict[str, str] | None = None) -> None:
         # Replace local cache with the authoritative groups dict from backend.
         # Previously this method merged local and remote which caused deleted
         # groups to persist in the UI. Use the backend-provided snapshot directly.
@@ -173,13 +173,21 @@ class GroupsPage(QtWidgets.QWidget):
         current = self._current_group()
         self.group_cards.blockSignals(True)
         self.group_cards.clear()
+        # 状态灯 Emoji（与用户列表保持一致）
+        status_emojis = {
+            "online": "🟢",
+            "busy": "🟡",
+            "away": "🔴",
+        }
         for group_name in sorted(self._cached_groups.keys()):
             members = list(self._cached_groups.get(group_name, []))
             header = f"{group_name} ({len(members)}/{len(members)})"
             lines = [header]
             for idx, member in enumerate(members):
                 prefix = "┣" if idx < len(members) - 1 else "┗"
-                lines.append(f"{prefix} {member}")
+                st = (statuses or {}).get(member, "online")
+                light = status_emojis.get(st, status_emojis["online"])
+                lines.append(f"{prefix} {light} {member}")
             text = "\n".join(lines)
             item = QtWidgets.QListWidgetItem(text)
             item.setData(QtCore.Qt.UserRole, group_name)
