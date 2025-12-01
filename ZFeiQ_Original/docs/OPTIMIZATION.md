@@ -15,6 +15,75 @@
 - 异步信号限流：高频刷新（如 3s 定时器）中合并 UI 更新；若数据未变化不重建列表。
 - 文案集中管理：所有新增字符串进入 `lang.py`，减少界面硬编码导致的查找与维护成本。
 
+### 禁用设置页面子选项卡切换动画（RK3566 建议）
+
+当前 `SettingsPage` 使用 `QTabWidget`，未显式启用任何过渡/动画；在低功耗设备上仍建议确保“瞬时切换、最少重绘”，并在全局禁用 Qt 的 UI 动画以避免样式插件的潜在开销。
+
+落地方案：
+
+- 在应用初始化（如 `zfeiq_gui/app.py` 的 `launch_gui()` 里）增加全局 UI 动画关闭（如平台支持）：
+
+  ```python
+  from PyQt5 import QtCore, QtWidgets
+
+  def _disable_ui_animations():
+	  try:
+		  # 部分平台/样式支持以下开关（Qt::UIEffect）；不支持的平台会被忽略
+		  for eff in (
+			  QtCore.Qt.UI_AnimateMenu,
+			  QtCore.Qt.UI_AnimateCombo,
+			  QtCore.Qt.UI_AnimateTooltip,
+			  QtCore.Qt.UI_FadeMenu,
+			  QtCore.Qt.UI_FadeTooltip,
+		  ):
+			  try:
+				  QtWidgets.QApplication.setEffectEnabled(eff, False)
+			  except Exception:
+				  pass
+	  except Exception:
+		  pass
+  ```
+
+- 在 `SettingsPage` 构建后确保选项卡切换“即时”且避免滚动按钮与重排：
+
+  ```python
+  tabs = QtWidgets.QTabWidget()
+  tabs.setUsesScrollButtons(False)       # 关闭滚动按钮，避免额外绘制
+  tabs.setMovable(False)                 # 禁止拖动，减少 hover/drag 处理
+  tabs.setTabBarAutoHide(True)           # 标签少时隐藏 TabBar，减少渲染
+  # 若使用 QToolBox，启用：toolbox.setAnimated(False)
+  ```
+
+- 切换过程“无动画”的代码约定：如后续引入 `QStackedWidget` 的过渡封装（例如淡入淡出/滑动），统一通过配置开关屏蔽：
+
+  ```python
+  ANIMATIONS_ENABLED = False  # 全局/配置开关（设置页也可暴露）
+  if not ANIMATIONS_ENABLED:
+	  # 直接 setCurrentIndex，不走 QPropertyAnimation/QGraphicsEffect
+	  stacked.setCurrentIndex(target)
+  else:
+	  # 仅在桌面/性能充足时启用动画
+	  run_slide_or_fade_animation(stacked, target)
+  ```
+
+- 语言应用时减少重绘抖动：
+
+  ```python
+  self.setUpdatesEnabled(False)
+  self.blockSignals(True)
+  try:
+	  self.apply_language(t)
+  finally:
+	  self.blockSignals(False)
+	  self.setUpdatesEnabled(True)
+  ```
+
+验证要点：
+
+- 切换 `SettingsPage` 子标签时 CPU 峰值降低、帧丢失现象减少；
+- `QTabWidget` 不产生滚动按钮/渐隐特效；
+- 在 RK3566 上全局动画关闭不会影响核心交互（菜单/下拉/提示）。
+
 ## 密钥与加密
 - HKDF 统一：仅使用 HKDF-SHA256 派生 32B 会话密钥，AES-256-GCM；避免多实现分歧。
 - Nonce 派生：`nonce = H(sid||dir||ctr)[0:12]`，计数单调递增确保唯一；遇到冲突立即重键并报警。

@@ -24,6 +24,25 @@ def _ensure_qt_plugin_paths() -> None:
     except Exception:
         pass
 
+def _disable_ui_animations() -> None:
+    """Best-effort: disable global UI animations/effects to reduce CPU/GPU cost."""
+    try:
+        # Some effects may not be supported on all styles/platforms; ignore failures.
+        for eff in (
+            getattr(QtCore.Qt, 'UI_AnimateMenu', None),
+            getattr(QtCore.Qt, 'UI_AnimateCombo', None),
+            getattr(QtCore.Qt, 'UI_AnimateTooltip', None),
+            getattr(QtCore.Qt, 'UI_FadeMenu', None),
+            getattr(QtCore.Qt, 'UI_FadeTooltip', None),
+        ):
+            if eff is not None:
+                try:
+                    QtWidgets.QApplication.setEffectEnabled(eff, False)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
 
 def launch_gui() -> None:
     _ensure_qt_plugin_paths()
@@ -119,6 +138,9 @@ def launch_gui() -> None:
         except Exception:
             pass
         owns_app = True
+
+    # 全局关闭 UI 动画（如样式支持），减少切换/菜单等过渡开销
+    _disable_ui_animations()
 
     window = MainWindow()
     # 设置应用与窗口图标（如存在）

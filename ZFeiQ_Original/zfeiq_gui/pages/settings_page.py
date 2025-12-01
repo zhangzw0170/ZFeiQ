@@ -47,6 +47,13 @@ class SettingsPage(QtWidgets.QWidget):
         # 原先将平台/版本显示在设置页顶部；现在改为移动到“关于”页，故不在此处加入布局
 
         tabs = QtWidgets.QTabWidget()
+        try:
+            tabs.setUsesScrollButtons(False)
+            tabs.setMovable(False)
+            # 当标签数较少时自动隐藏 TabBar，减少渲染与误触
+            tabs.setTabBarAutoHide(True)
+        except Exception:
+            pass
         self._tabs = tabs
         outer.addWidget(tabs, 1)
 
