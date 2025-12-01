@@ -19,8 +19,8 @@ class InfoPage(QtWidgets.QWidget):
     def _build(self) -> None:
         t = self._translations
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(10)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
         self.lbl_local = QtWidgets.QLabel(t["local_label"].format(local="-", prefix="-"))
         self.lbl_bcast = QtWidgets.QLabel(t["broadcast_label"].format(bcast="-"))
         self.lbl_mask = QtWidgets.QLabel(t["mask_label"].format(mask="-"))
@@ -28,7 +28,10 @@ class InfoPage(QtWidgets.QWidget):
         self.disc_ip = QtWidgets.QLineEdit()
         self.disc_ip.setPlaceholderText(t["discover_ph"])
         btn_disc = QtWidgets.QPushButton(t["discover"])
-        btn_disc.setFixedHeight(btn_disc.fontMetrics().height() + 12)
+        try:
+            btn_disc.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        except Exception:
+            pass
         row.addWidget(self.disc_ip, 1)
         row.addWidget(btn_disc)
         self.nodes = QtWidgets.QListWidget()

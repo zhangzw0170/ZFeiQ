@@ -270,5 +270,141 @@
 "ip": "172.26.88.222",
 "target": "me",
 "text": "ENC;alg=aes256gcm;ekey=CpN/V2jXdT6x2qVbjHsft80Lk6N8bED11YpvN6iDRcqRjLyOcskiFQNIkOUJx1GZd9w8IfsWgOl72gxQaUKZtHGH7aX7QSjwDhhnTcxTFhT5JUlKPjHDknwsg7vI3HcCJtzJOeeckQPRc7q8/CDs/eQLSOvB0pF8Qwtqm6tZ7yOEbHK48T3rWIS+xDfjnQ46UVFlCMnue9UejVPrI5CnUfm8If+0Hb70B20gsXqj7PQiKB96nCkdwr6/pZB1eOWT8a1E3mEDFoAZvri4f27tDsrBR3d/5uNJ/KcITZgTtY3+KTrYtbycn/mXNxkdxL9NK2KPRLx/Duz+sq+h0z/ENVVw1dw1NiSQ2/4b2GpSaz5wptwjDAQ6lzQ2U6/bFEx8UXv7kCxHhYzLdfNvUIQ2coLpQxdM2mzCzcG4F7QgLbe8Z37R1OhY0Ue30UW22MIL35y79vmWsFdZK6SRCrAXa2iDBBOmG00KYMDDneVmxu9waTxyBte5Q5BDMu7HQPFq;nonce=+iy6lGz4Oilcphy3;tag=KQ4Qguaa43hbQgT1jHa1jA==;b64=ggw+9eNYwslaQUW5sq77DhSxjx8WhUksETVC/taJQAiXtCo4naUs+CqDSFT/j18q9pLAKg=="
+},
+{
+"ts": 1764333659.961412,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "[FILE]zfeiq_tui.py"
+},
+{
+"ts": 1764333729.0685782,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "[FILE]zfeiq_tui.py"
+},
+{
+"ts": 1764335115.9769769,
+"direction": "out",
+"user": "w",
+"ip": "192.168.1.102",
+"target": "ip:172.26.88.222",
+"text": "123"
+},
+{
+"ts": 1764335116.1065865,
+"direction": "in",
+"user": "w",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "ENC;alg=aes256gcm;ekey=0ayC4+J24OEerN7kQZ4r2meBWaHCIEdn8x4E7Fb0cdq4rkNIPEM2PFng9JhL269IEYRpPNMHM0pDeGiwECzEe3jAiezxBvDQL9YB8bUw2tT5Paz9SMQTxVfYwPttqnqZkhzO/PRfSGyYgrWZuE2jKYonv+ZoOLZvnHx4lBXGSZ2Wu133+8XXSuInsRN2QTFGeGJ887NzS88lcFVtfDNFm7mEI/sMliPni/P8vOB5rPWQ/d1PFeUCOFgF8/LSlWqVYZAq45H50UbaLAMJEKGWQpOsAo+Ac8ysmakHTMPXYQIfu9edl2Brdx3MtzeUYZ2IHi/svLVvT1Qmzd0cHbCTuM/OtpejPaH0w6YpgheWdf2lHJ64NE89AU6DaOoQR3ZWclsr8dJm71kl1wjpJy3XNV0bkbvhxR+v0miqHWtsM1uTQdrzptZ4wJrg5T1yUHSfftHk6vKRA4EeBnm/pM6Wyr10VlWaAMj+GW0/xKfdNoqC26y4oK4AGc+E088ifg1K;nonce=iVLY2ivEiCTF5pmh;tag=XVlZV0wtbnJsObetkJI8pw==;b64=XeC2"
+},
+{
+"ts": 1764335127.976095,
+"direction": "out",
+"user": "w",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.102",
+"text": "123"
+},
+{
+"ts": 1764335128.1067688,
+"direction": "in",
+"user": "w",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "ENC;alg=aes256gcm;ekey=ucF5L9qMT8/3tVo07AA3OmXX488dx65dQGxScC+74h2UcdXSDbqIkKG+gO7hOe3HtsbnHxWJH2YPWt27p01OoceCcZIre9kpb2Uzt86xJSPFh/RCiZNDAVisYypiQFpxe7RxCNZXlf/D8ifqa80KPLouN4l3aMKuuodvAr+QC8b2LXX8jj93Ci+VcLOiSOAmoTYjC90BEihRdsyDVyXfgncGvv51csJ59W24ZZFHWNvRGD0Xz80K0Xqqq4SN/HLDgUv9hH6m4jY2LsbE8fDfh5eS+KTLVOU57MpCmO474TEx96xzQ5Mu8UHUaRsutgfT3tVoB8+DzlncgplGN+XR0cT39eQ/EFbBn180ERUnaAcKbMeOA5IDaa0b5E6XyqqCjOvs5Y4bEYrOAk9r63NclKMs56UmJHoQ2hU6FWUqIllws9K36M4bErpFfymElbWNqmJg8ayNom3G97njqTrGqpwRGwMp+CN+meqck7tbfXEqWVEPqDRwQoUhRE9rEewb;nonce=oJoovkzlsgN5RExT;tag=+9AG8CfWJ7nO2p75enhy9A==;b64=Vyd7"
+},
+{
+"ts": 1764335144.6993306,
+"direction": "out",
+"user": "w",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.102",
+"text": "[FILE]zfeiq_state.json"
+},
+{
+"ts": 1764335779.8940954,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "hello world"
+},
+{
+"ts": 1764335805.0014467,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "hello world"
+},
+{
+"ts": 1764335848.088411,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "hello world"
+},
+{
+"ts": 1764567369.9431822,
+"direction": "out",
+"user": "w",
+"ip": "192.168.1.102",
+"target": "all",
+"text": "[FILE]shot_20251201_133605.png"
+},
+{
+"ts": 1764567686.135809,
+"direction": "out",
+"user": "w",
+"ip": "192.168.1.102",
+"target": "all",
+"text": "[FILE]shot_20251201_134124.png"
+},
+{
+"ts": 1764567863.3853698,
+"direction": "out",
+"user": "w",
+"ip": "192.168.1.102",
+"target": "all",
+"text": "[FILE]shot_20251201_134419.png"
+},
+{
+"ts": 1764568052.836114,
+"direction": "out",
+"user": "w",
+"ip": "192.168.1.102",
+"target": "all",
+"text": "[FILE]shot_20251201_134731.png"
+},
+{
+"ts": 1764568058.8711522,
+"direction": "out",
+"user": "w",
+"ip": "192.168.1.102",
+"target": "all",
+"text": "[FILE]shot_20251201_134737.png"
+},
+{
+"ts": 1764568214.6699612,
+"direction": "out",
+"user": "w",
+"ip": "192.168.1.102",
+"target": "all",
+"text": "[FILE]shot_20251201_135013.png"
+},
+{
+"ts": 1764576904.2705164,
+"direction": "out",
+"user": "w",
+"ip": "172.19.81.77",
+"target": "all",
+"text": "[FILE]shot_20251201_161503.png"
 }
 ]

@@ -19,13 +19,18 @@ class LoginPage(QtWidgets.QWidget):
     def _build(self) -> None:
         t = self._translations
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(60, 60, 60, 60)
-        layout.setSpacing(12)
+        # 缩小内边距以减少对窗口最小高度的影响，便于在小屏设备上显示
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(10)
 
         top_row = QtWidgets.QHBoxLayout()
         top_row.addStretch()
         self.btn_help = QtWidgets.QPushButton(t['help'])
-        self.btn_help.setFixedHeight(self.btn_help.fontMetrics().height() + 22)
+        # 不强制固定高度，允许布局在垂直方向上收缩
+        try:
+            self.btn_help.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        except Exception:
+            pass
         top_row.addWidget(self.btn_help)
         layout.addLayout(top_row)
 
@@ -46,7 +51,10 @@ class LoginPage(QtWidgets.QWidget):
         ip_row.addWidget(self.ip_combo, 1)
 
         self.login_btn = QtWidgets.QPushButton(t['login'])
-        self.login_btn.setFixedHeight(self.btn_help.fontMetrics().height() + 22)
+        try:
+            self.login_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
+        except Exception:
+            pass
 
         layout.addStretch()
         layout.addWidget(self.lbl_welcome)

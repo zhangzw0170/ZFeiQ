@@ -108,7 +108,8 @@ class OcrPage(QtWidgets.QWidget):
         self.img_label = QtWidgets.QLabel(self._translations.get('ocr_preview', '图片预览区域'))
         self.img_label.setAlignment(QtCore.Qt.AlignCenter)
         self.img_label.setStyleSheet("background:#f0f0f0; border:1px solid #ddd; border-radius:4px;")
-        self.img_label.setMinimumSize(320, 320)
+            # 注释掉最小尺寸限制以允许在窄屏上缩放
+            # self.img_label.setMinimumSize(320, 320)
         
         left_layout.addWidget(self.img_label, 1)
         main_split.addWidget(left_box)

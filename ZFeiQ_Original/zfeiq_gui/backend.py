@@ -1,7 +1,8 @@
 from typing import Optional, Dict, Set
 import os, json, time
 from ZFeiQ_Original.zfeiq_common.fsutils import ensure_dir
-from PyQt5.QtCore import QObject, pyqtSignal, QThread
+from PyQt5.QtCore import QObject, pyqtSignal
+import threading
 import hashlib
 from zfeiq_cli.cli import ZFeiQCli
 from zfeiq_cli.protocol import parse_packet, base_command, IPMSG_SENDMSG, IPMSG_GETFILEDATA, decode_fileattach_lines
@@ -26,6 +27,7 @@ class GuiBackend(QObject):
         # keep original recv handler
         self._orig_on_recv = self.zcli._on_recv
         self._threads = []  # keep background threads
+        self._active_downloads: Dict[str, threading.Event] = {}
         self._ui_theme = "light"  # light | dark
         self._ui_avatar = ""      # avatar image path (PNG/JPG)
         # Screenshot dir under project root (ZFeiQ_Original)
@@ -141,16 +143,20 @@ class GuiBackend(QObject):
         return dict(self.zcli._incoming_offers)
 
     def accept_offer(self, oid: str, save_dir: Optional[str] = None):
-        # run in thread with progress
+        # run in background thread with progress (use threading.Thread to avoid
+        # incorrect QThread usage that can execute the worker in the main thread)
         def run():
             def on_prog(total: int):
                 try:
                     self.file_progress.emit(oid, int(total))
                 except Exception:
                     pass
+            # create a stop event for this download and pass it down
+            stop_ev = threading.Event()
+            self._active_downloads[oid] = stop_ev
             path = None
             try:
-                path = self.zcli.accept_offer_ex(oid, save_dir, on_progress=on_prog)
+                path = self.zcli.accept_offer_ex(oid, save_dir, on_progress=on_prog, stop_event=stop_ev)
             finally:
                 try:
                     if path:
@@ -161,21 +167,30 @@ class GuiBackend(QObject):
                     self.offers_updated.emit()
                 except Exception:
                     pass
-        t = QThread()
-        def _start():
-            run()
-            t.quit()
-        def _cleanup():
+            # cleanup thread record
             try:
-                self._threads.remove(t)
+                self._threads.remove(threading.current_thread())
             except Exception:
                 pass
-        t.started.connect(_start)
-        t.finished.connect(_cleanup)
-        t.start()
-        self._threads.append(t)
+            # cleanup stop event record
+            try:
+                self._active_downloads.pop(oid, None)
+            except Exception:
+                pass
+
+        th = threading.Thread(target=run, daemon=True)
+        th.start()
+        self._threads.append(th)
 
     def cancel_offer(self, oid: str):
+        # if a download is in progress, signal cancellation first
+        try:
+            ev = self._active_downloads.get(oid)
+            if ev:
+                ev.set()
+        except Exception:
+            pass
+        # also instruct backend CLI to cancel pending offers
         self.zcli.cmd_file_cancel(oid)
         self.offers_updated.emit()
 

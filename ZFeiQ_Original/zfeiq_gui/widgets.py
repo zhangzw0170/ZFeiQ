@@ -15,7 +15,9 @@ class NavigationButton(QtWidgets.QToolButton):
 		else:
 			self.setToolButtonStyle(QtCore.Qt.ToolButtonTextOnly)
 		self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
-		self.setFixedHeight(self.fontMetrics().height() + 12)
+		# Use a flexible vertical policy instead of forcing a fixed height so the
+		# sidebar buttons can shrink on small screens.
+		self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
 
 
 class ExpandableSection(QtWidgets.QWidget):

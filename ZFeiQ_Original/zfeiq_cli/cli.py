@@ -1483,7 +1483,7 @@ class ZFeiQCli:
             print(self._t("file.download_fail", e=str(e)))
 
     # GUI 专用：接受文件并回调进度（不直接打印进度）
-    def accept_offer_ex(self, oid: str, save_dir: Optional[str] = None, on_progress=None) -> Optional[str]:
+    def accept_offer_ex(self, oid: str, save_dir: Optional[str] = None, on_progress=None, stop_event: Optional[threading.Event] = None) -> Optional[str]:
         meta = self._incoming_offers.get(oid)
         if not meta:
             return None
@@ -1497,7 +1497,7 @@ class ZFeiQCli:
             if meta.get("method") == "ipmsg":
                 pkt_no = int(meta.get("pkt_no", 0))
                 aid = int(meta.get("attach_id", 0))
-                ipmsg_download_file(ip, pkt_no, aid, save_path, self.username or "?", self.hostname, encoding=self.encoding, on_progress=cb)
+                ipmsg_download_file(ip, pkt_no, aid, save_path, self.username or "?", self.hostname, encoding=self.encoding, on_progress=cb, stop_event=stop_event)
                 # 发送 RELEASEFILES
                 try:
                     rel = f"{pkt_no}:{aid}"
@@ -1507,7 +1507,7 @@ class ZFeiQCli:
                     pass
             else:
                 port = meta["port"]
-                download_file(ip, port, save_path, on_progress=cb, retries=1)
+                download_file(ip, port, save_path, on_progress=cb, retries=1, stop_event=stop_event)
             self._incoming_offers.pop(oid, None)
             return save_path
         except Exception:

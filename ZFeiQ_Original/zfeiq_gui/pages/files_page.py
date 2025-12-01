@@ -25,15 +25,19 @@ class FilesPage(QtWidgets.QWidget):
     def _build(self) -> None:
         t = self._translations
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(10)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
 
         dir_row = QtWidgets.QHBoxLayout()
         self.dir_edit = QtWidgets.QLineEdit()
         btn_pick = QtWidgets.QPushButton(t["pickdir"])
         btn_apply = QtWidgets.QPushButton(t["setdefault"])
         for button in (btn_pick, btn_apply):
-            button.setFixedHeight(button.fontMetrics().height() + 12)
+            try:
+                # 使用较小的最小高度并允许垂直收缩
+                button.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+            except Exception:
+                pass
         dir_row.addWidget(self.dir_edit, 1)
         dir_row.addWidget(btn_pick)
         dir_row.addWidget(btn_apply)
@@ -46,7 +50,10 @@ class FilesPage(QtWidgets.QWidget):
         self.btn_accept = QtWidgets.QPushButton(t["accept"])
         self.btn_cancel = QtWidgets.QPushButton(t["cancel"])
         for button in (self.btn_accept, self.btn_cancel):
-            button.setFixedHeight(button.fontMetrics().height() + 12)
+            try:
+                button.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+            except Exception:
+                pass
         ctrl.addWidget(self.btn_accept)
         ctrl.addWidget(self.btn_cancel)
         ctrl.addStretch()

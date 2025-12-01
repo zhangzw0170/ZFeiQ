@@ -25,7 +25,7 @@ class GroupsPage(QtWidgets.QWidget):
     def _build(self) -> None:
         t = self._translations
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(8)
 
         top_row = QtWidgets.QHBoxLayout()
@@ -34,7 +34,7 @@ class GroupsPage(QtWidgets.QWidget):
 
         def _mk_nav_btn(text: str) -> NavigationButton:
             btn = NavigationButton(text)
-            btn.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+            btn.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
             return btn
 
         top_row.addWidget(self.member_filter, 1)

@@ -16,11 +16,12 @@ from .style import get_combobox_qss
 
 class MainWindow(QtWidgets.QMainWindow):
     mw_width = 800
-    mw_height = 800
+    mw_height = 400
 
     def __init__(self):
         super().__init__()
         self.setWindowTitle("ZFeiQ")
+        
         # 优先选用跨平台的等宽字体：Noto Sans Mono / DejaVu Sans Mono / Consolas / Courier New
         # 若系统不存在其中任意字体，则使用 Qt 的 Monospace hint 作为回退。
         self._FONT_PREFERENCES = [
@@ -57,6 +58,7 @@ class MainWindow(QtWidgets.QMainWindow):
             except Exception:
                 pass
         font.setPointSize(11)
+        
         # 不在此处设置全局应用字体：全局字体应由 `zfeiq_gui.app.launch_gui` 统一配置。
         # 仅在没有 QApplication 实例（例如测试/嵌入环境）时，将字体设置到当前窗口，
         # 否则让窗口继承应用级字体，避免重复或冲突的全局覆盖。
@@ -73,7 +75,24 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.setFont(font)
             except Exception:
                 pass
-        self.resize(self.mw_width, self.mw_height)
+
+        # 获取主屏幕信息
+        screen = QtWidgets.QApplication.primaryScreen()
+        if screen:
+            # 获取可用几何尺寸（不包含任务栏等）
+            avail_geo = screen.availableGeometry()
+            scr_w, scr_h = avail_geo.width(), avail_geo.height()
+            
+            # 计算目标尺寸：取默认值和屏幕尺寸90%中的较小值
+            # 这样在 1024x600 或 800x480 的屏幕上，窗口会自动缩小以适应屏幕
+            target_w = min(self.mw_width, int(scr_w * 0.9))
+            target_h = min(self.mw_height, int(scr_h * 0.9))
+            
+            self.resize(target_w, target_h)
+        else:
+            # 获取屏幕失败时的回退方案
+            self.resize(self.mw_width, self.mw_height)
+
         self._build_ui()
         self._current_theme = "light"
         # 全局样式将在 _apply_theme 中统一应用（避免在多个位置反复 setStyleSheet）
@@ -84,9 +103,16 @@ class MainWindow(QtWidgets.QMainWindow):
         # 使用 QSplitter 允许用户调整侧边栏与聊天区域宽度
         self.content_panel = self._build_content_panel()
         self.nav_panel = self._build_nav_panel()
-        
+
+        # 为侧边导航增加滚动容器，确保小屏下仍可触达底部“设置”按钮
+        nav_scroll = QtWidgets.QScrollArea()
+        nav_scroll.setWidgetResizable(True)
+        nav_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        nav_scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        nav_scroll.setWidget(self.nav_panel)
+
         splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
-        splitter.addWidget(self.nav_panel)
+        splitter.addWidget(nav_scroll)
         splitter.addWidget(self.content_panel)
         splitter.setCollapsible(0, True)
         splitter.setCollapsible(1, False)
@@ -103,11 +129,12 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # 保留 splitter 为成员，避免后续切换页面时重建影响比例
         self._splitter = splitter
+        self._nav_scroll = nav_scroll
         self.setCentralWidget(self._splitter)
         
         # 未登录前隐藏侧边导航
         try:
-            self.nav_panel.setVisible(False)
+            nav_scroll.setVisible(False)
         except Exception:
             pass
 
@@ -116,8 +143,9 @@ class MainWindow(QtWidgets.QMainWindow):
         panel.setObjectName("navPanel")
         # 不再固定宽度，交由 QSplitter 调整；设置一个合理的最小宽度
         outer = QtWidgets.QVBoxLayout(panel)
-        outer.setContentsMargins(8, 8, 8, 8)
-        outer.setSpacing(8)
+        # 收紧边距以减少总高度占用
+        outer.setContentsMargins(6, 6, 6, 6)
+        outer.setSpacing(6)
 
         # 左侧采用 QTabWidget 模拟“子选项卡”切换 用户 / 组
         self.sidebar_tabs = QtWidgets.QTabWidget()
@@ -131,7 +159,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sidebar_tabs.addTab(self._userlist_page, "用户")
         self.sidebar_tabs.addTab(self._groups_page, "组")
         outer.addWidget(self.sidebar_tabs, 1)
-        outer.addStretch()
+        # 使用较小的伸缩以预留空间给设置按钮
+        outer.addStretch(1)
 
         # 设置按钮：若当前在设置页则返回聊天页，否则进入设置页
         self.btn_settings = NavigationButton("设置")
@@ -147,6 +176,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _build_content_panel(self) -> QtWidgets.QWidget:
         self._stack = QtWidgets.QStackedWidget()
+        self._stack.setMinimumSize(0, 0)
         # 登录页（优先）
         self._login_page = LoginPage()
         self._stack.addWidget(self._login_page)
@@ -211,7 +241,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 except Exception:
                     meta = {}
                 name = meta.get('name','file')
-                self._chat_page.append_offer_saved(name, path)
+                sender = meta.get('uname') or meta.get('ip') or ''
+                ip = meta.get('ip')
+                self._chat_page.append_offer_saved(name, path, sender=sender, ip=ip)
                 self._stack.setCurrentWidget(self._chat_page)
             try:
                 backend.file_saved.connect(_on_file_saved)
@@ -519,11 +551,28 @@ class MainWindow(QtWidgets.QMainWindow):
                     refresh_users_page()
                     # 显示左侧导航
                     try:
-                        self.nav_panel.setVisible(True)
+                        # 显示左侧导航滚动容器
+                        if hasattr(self, '_nav_scroll') and self._nav_scroll:
+                            self._nav_scroll.setVisible(True)
+                        else:
+                            self.nav_panel.setVisible(True)
                         if hasattr(self, '_splitter') and self._splitter:
                             total = max(1, self.width())
                             left = max(200, int(total * 0.375))
                             self._splitter.setSizes([left, max(200, total - left)])
+                    except Exception:
+                        pass
+                    # 登录后不要盲目强制为固定尺寸（400x300），
+                    # 可能会把侧栏底部控件（如“设置”按钮）挤出可视区域。
+                    # 改为：仅当窗口高度超过屏幕可用高度的 90% 时缩小到该上限。
+                    try:
+                        screen = QtWidgets.QApplication.primaryScreen()
+                        if screen:
+                            avail = screen.availableGeometry()
+                            max_h = int(avail.height() * 0.9)
+                            if self.height() > max_h:
+                                self.resize(self.width(), max_h)
+                        # 不存在 screen 时保留当前尺寸（避免强制更小或更大）
                     except Exception:
                         pass
                     # 在发送行显示当前登录用户信息
@@ -911,7 +960,13 @@ class MainWindow(QtWidgets.QMainWindow):
             self._chat_page.me_info_label.setText("")
             self.setWindowTitle("ZFeiQ")
             # 隐藏侧边导航并回到登录页
-            self.nav_panel.setVisible(False)
+            try:
+                if hasattr(self, '_nav_scroll') and self._nav_scroll:
+                    self._nav_scroll.setVisible(False)
+                else:
+                    self.nav_panel.setVisible(False)
+            except Exception:
+                pass
             self._stack.setCurrentWidget(self._login_page)
         except Exception:
             pass
@@ -1094,24 +1149,75 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.statusBar().showMessage("截图模式：拖拽选择区域，Esc 取消", 4000)
             except Exception:
                 pass
-            # 全屏遮罩选区
+            # 使用简单稳定的方案：先选区域，再对桌面根窗口做一次整屏截图并裁剪
             sel = _RegionSelector(None)
             r = sel.exec_()
+            try:
+                sel.deleteLater()
+            except Exception:
+                pass
+            try:
+                QtWidgets.QApplication.processEvents(QtCore.QEventLoop.ExcludeUserInputEvents)
+            except Exception:
+                pass
             if r is None or r.width() <= 0 or r.height() <= 0:
                 return
+
             screen = QtWidgets.QApplication.primaryScreen()
+            if screen is None:
+                return
             pm = None
             try:
-                # 截取当前屏幕，再裁剪到选区
-                geo = screen.geometry()
-                # 使用 QApplication.desktop().winId() 获取根窗口 ID 进行整屏截图
-                root_wid = QtWidgets.QApplication.desktop().winId()
-                pm_full = screen.grabWindow(root_wid, geo.x(), geo.y(), geo.width(), geo.height())
-                if pm_full and not pm_full.isNull():
-                    pm = pm_full.copy(r)
+                # 1) 优先截取本应用窗口内容（在 Wayland 下通常更可靠）：使用 QWidget.grab()
+                try:
+                    local_top_self = self.mapFromGlobal(r.topLeft())
+                    rect_self = QtCore.QRect(local_top_self, r.size())
+                    # 与自身窗口矩形求交，避免越界
+                    rect_self = rect_self.intersected(self.rect())
+                    if rect_self.width() > 0 and rect_self.height() > 0:
+                        pm_self = self.grab(rect_self)
+                        if pm_self and not pm_self.isNull():
+                            pm = pm_self
+                except Exception:
+                    pass
+
+                # 2) 若需要截取其他窗口，尝试按选区中心查找窗口并用 winId 抓取
+                if pm is None:
+                    center = r.center()
+                    target_w = None
+                    try:
+                        wgt = QtWidgets.QApplication.widgetAt(center)
+                        if wgt is not None:
+                            target_w = wgt.window()
+                    except Exception:
+                        target_w = None
+                    if target_w is not None:
+                        try:
+                            winid = int(target_w.winId())
+                            local_top = target_w.mapFromGlobal(r.topLeft())
+                            pm_win = screen.grabWindow(winid, local_top.x(), local_top.y(), r.width(), r.height())
+                            if pm_win and not pm_win.isNull():
+                                pm = pm_win
+                        except Exception:
+                            pass
+
+                # 3) 仍失败则回退到整屏抓图再裁剪
+                if pm is None:
+                    full = screen.grabWindow(0)
+                    if full and not full.isNull():
+                        geo = screen.geometry()
+                        rel = QtCore.QRect(r.topLeft() - geo.topLeft(), r.size())
+                        rel = rel.intersected(full.rect())
+                        if rel.width() > 0 and rel.height() > 0:
+                            pm = full.copy(rel)
             except Exception:
                 pm = None
             if pm is None or pm.isNull():
+                # 给出明确提示，便于用户切换到系统截屏或粘贴流程
+                try:
+                    self.statusBar().showMessage("无法截取该区域（桌面环境可能限制截屏）。请使用系统截屏后粘贴。", 5000)
+                except Exception:
+                    pass
                 return
 
             # 在截图边缘绘制 5px 灰白色边框以强调区域
@@ -1249,7 +1355,9 @@ class _RegionSelector(QtWidgets.QWidget):
     def mouseReleaseEvent(self, a0: QtGui.QMouseEvent) -> None:
         _ = a0
         if self._rubber.isVisible():
-            self._selected = self._rubber.geometry()
+            local_rect = self._rubber.geometry()
+            top_left = self.mapToGlobal(local_rect.topLeft())
+            self._selected = QtCore.QRect(top_left, local_rect.size())
             self._rubber.hide()
         if self._loop:
             self._loop.quit()

@@ -4,6 +4,7 @@ import threading
 import uuid
 from dataclasses import dataclass
 from typing import Optional, Callable, Tuple
+import time
 from .protocol import build_packet_with_no, parse_packet, IPMSG_GETFILEDATA, IPMSG_RELEASEFILES, base_command
 
 BUFFER_SIZE = 64 * 1024
@@ -94,29 +95,56 @@ def create_offer(filepath: str, bind_ip: str = "0.0.0.0") -> OutgoingOffer:
     return OutgoingOffer(offer_id=offer_id, filepath=filepath, filename=filename, size=size, port=port, server=srv)
 
 
-def download_file(ip: str, port: int, save_path: str, timeout: float = 300.0, on_progress=None, retries: int = 0) -> None:
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.settimeout(timeout)
+def download_file(ip: str, port: int, save_path: str, timeout: float = 300.0, on_progress=None, retries: int = 0, stop_event: Optional[threading.Event] = None) -> None:
+    """Download file from TCP server with interruptible loop.
+
+    - Uses socket timeouts and checks `stop_event` between recv attempts.
+    - `stop_event` is optional; if set and becomes signalled, function raises `InterruptedError`.
+    """
     attempt = 0
     while True:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
+            # initial connect with total timeout
+            s.settimeout(min(10.0, timeout))
+            s.connect((ip, port))
+            total = 0
+            # switch to shorter recv timeout to allow interruption checks
+            s.settimeout(5.0)
             with s:
-                s.connect((ip, port))
-                total = 0
                 with open(save_path, 'wb') as f:
+                    last_progress_ts = time.time()
                     while True:
-                        data = s.recv(BUFFER_SIZE)
+                        try:
+                            data = s.recv(BUFFER_SIZE)
+                        except socket.timeout:
+                            # check for cancellation or total timeout
+                            if stop_event and stop_event.is_set():
+                                raise InterruptedError("download cancelled")
+                            # check overall timeout
+                            if (time.time() - last_progress_ts) > timeout:
+                                raise TimeoutError("download timed out")
+                            continue
                         if not data:
                             break
                         f.write(data)
                         total += len(data)
+                        last_progress_ts = time.time()
                         if on_progress:
                             try:
                                 on_progress(total)
                             except Exception:
                                 pass
             return
+        except InterruptedError:
+            # propagate cancellation
+            raise
         except Exception:
+            # on failure, retry if allowed
+            try:
+                s.close()
+            except Exception:
+                pass
             if attempt >= retries:
                 raise
             attempt += 1
@@ -173,6 +201,8 @@ class IPMsgFileServer:
                 conn, addr = self._sock.accept()
             except socket.timeout:
                 continue
+            except OSError:
+                break
             threading.Thread(target=self._handle, args=(conn, addr), daemon=True).start()
 
     def _handle(self, conn: socket.socket, addr: Tuple[str, int]) -> None:
@@ -234,30 +264,50 @@ class IPMsgFileServer:
                 pass
 
 
-def ipmsg_download_file(ip: str, packet_no: int, attach_id: int, save_path: str, username: str, hostname: str, encoding: str = "utf-8", timeout: float = 300.0, on_progress=None, send_release: bool = True) -> None:
-    """Download file via IPMSG_GETFILEDATA from peer's TCP/2425."""
+def ipmsg_download_file(ip: str, packet_no: int, attach_id: int, save_path: str, username: str, hostname: str, encoding: str = "utf-8", timeout: float = 300.0, on_progress=None, send_release: bool = True, stop_event: Optional[threading.Event] = None) -> None:
+    """Download file via IPMSG_GETFILEDATA from peer's TCP/2425.
+
+    This implementation is interruptible via `stop_event` and uses short recv timeouts
+    to periodically check for cancellation and timeouts.
+    """
     total = 0
-    with socket.create_connection((ip, 2425), timeout=timeout) as s:
-        s.settimeout(timeout)
+    # create initial connection
+    s = socket.create_connection((ip, 2425), timeout=min(10.0, timeout))
+    try:
+        s.settimeout(5.0)
         pkt = build_packet_with_no(packet_no, username, hostname, IPMSG_GETFILEDATA, f"{packet_no}:{attach_id}", encoding=encoding)
         s.sendall(pkt)
         with open(save_path, 'wb') as f:
+            last_progress_ts = time.time()
             while True:
-                data = s.recv(BUFFER_SIZE)
+                try:
+                    data = s.recv(BUFFER_SIZE)
+                except socket.timeout:
+                    if stop_event and stop_event.is_set():
+                        raise InterruptedError("download cancelled")
+                    if (time.time() - last_progress_ts) > timeout:
+                        raise TimeoutError("download timed out")
+                    continue
                 if not data:
                     break
                 f.write(data)
                 total += len(data)
+                last_progress_ts = time.time()
                 if on_progress:
                     try:
                         on_progress(total)
                     except Exception:
                         pass
+    finally:
+        try:
+            s.close()
+        except Exception:
+            pass
     # 下载完成后，按规范发送 RELEASEFILES 通知对端（可选）
     if send_release:
         try:
-            with socket.create_connection((ip, 2425), timeout=timeout) as s2:
-                s2.settimeout(timeout)
+            with socket.create_connection((ip, 2425), timeout=min(10.0, timeout)) as s2:
+                s2.settimeout(5.0)
                 rel = build_packet_with_no(packet_no, username, hostname, IPMSG_RELEASEFILES, f"{packet_no}:{attach_id}", encoding=encoding)
                 s2.sendall(rel)
         except Exception:

@@ -26,8 +26,8 @@ class KeyPage(QtWidgets.QWidget):
     def _build(self) -> None:
         t = self._translations
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(12)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
 
         # 加密模式下拉选择框（与说明同一行）
         enc_mode_row = QtWidgets.QHBoxLayout()
@@ -41,32 +41,41 @@ class KeyPage(QtWidgets.QWidget):
 
         # 指纹说明文本（单独一行）
         self.lbl_fp_desc = QtWidgets.QLabel(t['key_fp'])
-        # 允许换行并将标签高度固定，避免在调整时影响下方的指纹文本框高度
+        # 允许换行；不强制固定高度以便在小屏设备上能够收缩
         self.lbl_fp_desc.setWordWrap(True)
-        self.lbl_fp_desc.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
-        self.lbl_fp_desc.setFixedHeight(40)
+        self.lbl_fp_desc.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
         layout.addWidget(self.lbl_fp_desc)
 
         # 指纹内容文本框（不可编辑，每两位一组，每行8组）
         self.txt_fp = QtWidgets.QTextEdit()
         self.txt_fp.setReadOnly(True)
-        self.txt_fp.setMinimumHeight(60)
-        self.txt_fp.setMaximumHeight(120)
+        # 允许指纹文本框自适应，但保留最大高度避免占用过多空间
+        # self.txt_fp.setMinimumHeight(40)
+        self.txt_fp.setMaximumHeight(80)
         layout.addWidget(self.txt_fp)
 
         # 刷新指纹按钮（单独一行）
         self.btn_refresh = QtWidgets.QPushButton(t["key_refresh"])
-        self.btn_refresh.setFixedHeight(self.btn_refresh.fontMetrics().height() + 12)
+        try:
+            self.btn_refresh.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        except Exception:
+            pass
         layout.addWidget(self.btn_refresh)
 
         # 重生成密钥按钮（单独一行）
         self.btn_regen = QtWidgets.QPushButton(t["key_regen"])
-        self.btn_regen.setFixedHeight(self.btn_regen.fontMetrics().height() + 12)
+        try:
+            self.btn_regen.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        except Exception:
+            pass
         layout.addWidget(self.btn_regen)
 
         # 导出公钥按钮（单独一行）
         self.btn_export = QtWidgets.QPushButton(t["key_export"])
-        self.btn_export.setFixedHeight(self.btn_export.fontMetrics().height() + 12)
+        try:
+            self.btn_export.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        except Exception:
+            pass
         layout.addWidget(self.btn_export)
 
         # 信号连接

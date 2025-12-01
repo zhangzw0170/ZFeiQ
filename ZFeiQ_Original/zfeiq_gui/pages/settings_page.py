@@ -215,8 +215,11 @@ class SettingsPage(QtWidgets.QWidget):
             # GitHub 按钮
             try:
                 self.gh_btn = QtWidgets.QPushButton(self._translations.get('gh_button', '跳转到源码仓库'))
-                self.gh_btn.setFixedHeight(self.gh_btn.fontMetrics().height() + 12)
-                self.gh_btn.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+                # 避免固定高度，允许关于页在竖向上收缩
+                try:
+                    self.gh_btn.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+                except Exception:
+                    pass
                 def _open_repo():
                     try:
                         QtGui.QDesktopServices.openUrl(QtCore.QUrl("https://github.com/zhangzw0170/ZFeiQ"))

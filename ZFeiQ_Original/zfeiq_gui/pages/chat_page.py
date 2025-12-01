@@ -52,6 +52,7 @@ class ChatPage(QtWidgets.QWidget):
         if key not in self._chat_views:
             view = QtWidgets.QTextBrowser()
             view.setOpenExternalLinks(False)
+            view.setOpenLinks(False)
             view.setReadOnly(True)
             view.setPlaceholderText(t['chat_placeholder'])
             view.anchorClicked.connect(lambda url, self=self: self.sigAnchor.emit(url.toString()))
@@ -125,9 +126,13 @@ class ChatPage(QtWidgets.QWidget):
     def _build_ui(self) -> None:
         t = self._translations
         root = QtWidgets.QVBoxLayout(self)
-        root.setContentsMargins(20, 20, 20, 20)
+        # 收窄外边距与间距，降低整体高度占用
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(6)
 
         header = QtWidgets.QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(6)
         self.avatar = QtWidgets.QLabel()
         # 注释掉头像控件的可视化设置与初始文本，保持属性以避免引用错误
         # self.avatar.setFixedSize(80, 80)
@@ -136,6 +141,8 @@ class ChatPage(QtWidgets.QWidget):
         # self.avatar.setText(t['avatar'])
 
         info_box = QtWidgets.QVBoxLayout()
+        info_box.setContentsMargins(0, 0, 0, 0)
+        info_box.setSpacing(4)
         self.username_label = QtWidgets.QLabel(f"{t['username']}：未登录")
         self.status_label = QtWidgets.QLabel(f"{t['status_prefix']}-")
         self.ip_label = QtWidgets.QLabel(f"{t['ip_label_prefix']}：-.-.-.-")
@@ -172,14 +179,19 @@ class ChatPage(QtWidgets.QWidget):
         self.tabs = QtWidgets.QTabWidget()
         self.tabs.setTabsClosable(True)
         self.tabs.tabCloseRequested.connect(self._close_chat_tab)
+        self.tabs.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.tabs.setMinimumHeight(90)
         self._chat_views: Dict[str, QtWidgets.QTextBrowser] = {}
         self._view_targets: Dict[QtWidgets.QTextBrowser, str] = {}
         self._target_labels: Dict[str, str] = {}
         self._view_all = QtWidgets.QTextBrowser()
         self._view_all.setOpenExternalLinks(False)
+        self._view_all.setOpenLinks(False)
         self._view_all.setReadOnly(True)
         self._view_all.anchorClicked.connect(lambda url: self.sigAnchor.emit(url.toString()))
         self._view_all.setPlaceholderText(t['chat_placeholder'])
+        self._view_all.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self._view_all.setMinimumHeight(60)
         self.local_msg_color_light = "#00561F"
         self.local_msg_color_dark = "#29c94f"
         self._current_local_color = self.local_msg_color_light
@@ -200,10 +212,13 @@ class ChatPage(QtWidgets.QWidget):
             pass
 
         actions_row = QtWidgets.QHBoxLayout()
+        actions_row.setContentsMargins(0, 0, 0, 0)
+        actions_row.setSpacing(6)
 
         def _make_action_btn(text: str) -> NavigationButton:
             btn = NavigationButton(text)
-            btn.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+            # Allow buttons to stretch with available width on different window sizes
+            btn.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Preferred)
             return btn
 
         self.emoji_btn = _make_action_btn(t['emoji'])
@@ -321,19 +336,27 @@ class ChatPage(QtWidgets.QWidget):
         self.emoji_btn.clicked.connect(_open_emotes_picker)
 
         self.file_bar = QtWidgets.QWidget()
+        self.file_bar.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.file_bar.setVisible(False)
         self._file_bar_layout = QtWidgets.QHBoxLayout(self.file_bar)
-        self._file_bar_layout.setContentsMargins(4, 4, 4, 4)
-        self._file_bar_layout.setSpacing(6)
+        self._file_bar_layout.setContentsMargins(4, 2, 4, 2)
+        self._file_bar_layout.setSpacing(4)
         self._file_bar_layout.addStretch()
 
         self.outbox = QtWidgets.QTextEdit()
         self.outbox.setPlaceholderText(t['outbox_placeholder'])
         self.outbox.setAcceptRichText(False)
+        self.outbox.setMinimumHeight(56)
+        self.outbox.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
 
         send_row = QtWidgets.QHBoxLayout()
+        send_row.setContentsMargins(0, 0, 0, 0)
+        send_row.setSpacing(6)
         self.send_btn = QtWidgets.QPushButton(t['send'])
-        self.send_btn.setFixedHeight(self.send_btn.fontMetrics().height() + 12)
+        try:
+            self.send_btn.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Preferred)
+        except Exception:
+            pass
         send_row.addStretch(1)
         send_row.addWidget(self.send_btn)
 
@@ -398,6 +421,30 @@ class ChatPage(QtWidgets.QWidget):
         layout.addWidget(btn)
         self._file_bar_layout.insertWidget(max(0, self._file_bar_layout.count() - 1), chip)
         self.file_bar.setVisible(True)
+
+    @staticmethod
+    def _is_image(path: str) -> bool:
+        if not path:
+            return False
+        ext = os.path.splitext(path)[1].lower()
+        return ext in {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"}
+
+    def _image_preview_html(self, path: str) -> str:
+        try:
+            if not self._is_image(path):
+                return ""
+            abs_path = os.path.abspath(path)
+            if not os.path.isfile(abs_path):
+                return ""
+            url = escape(QtCore.QUrl.fromLocalFile(abs_path).toString(), quote=True)
+            # 使用较小的缩略图尺寸（例如宽 160px，高度按比例自适应）
+            return (
+                "<div style='margin-top:4px; text-align:center;'>"
+                f"<img src='{url}' style='max-width:160px; border-radius:6px; border:1px solid #d0d0d0;'/>"
+                "</div>"
+            )
+        except Exception:
+            return ""
 
     def get_pending_files(self) -> List[str]:
         return list(self._pending_files)
@@ -500,22 +547,36 @@ class ChatPage(QtWidgets.QWidget):
             f" border-radius:8px; border:1px solid #eee;'>[{self._translations.get('file_progress_label','文件进度')}] {escape(name)} {escape(txt)}</span></div>"
         )
 
-    def append_offer_saved(self, name: str, path: str):
+    def append_offer_saved(self, name: str, path: str, sender: Optional[str] = None, ip: Optional[str] = None):
         done_label = self._translations.get('file_done_label', '文件完成')
         saved_to = self._translations.get('saved_to', '保存到')
-        self._view_all.append(
-            f"<div style='text-align:left;'><span style='display:inline-block; background:#e6ffed; color:#065f46; padding:4px 8px;"
-            f" border-radius:8px; border:1px solid #c7f5d9;'>[{done_label}] {escape(name)} {saved_to} {escape(path)}</span></div>"
+        img_html = self._image_preview_html(path)
+        display_name = sender or ip or self._translations.get('file_sender_unknown', '对方')
+        html = (
+            f"<div style='text-align:left;'>"
+            f"  <span style='display:inline-block; max-width:70%; background:#FFFFFF; color:#111; padding:6px 10px;"
+            f" border-radius:10px; border:1px solid #e0e0e0;'>"
+            f"    <b>{escape(display_name)}</b><br/>[{done_label}] {escape(name)} {saved_to} {escape(path)}"
+            f"    {img_html}"
+            f"  </span>"
+            f"</div>"
         )
+        self._view_all.append(html)
+        if ip:
+            label = f"{display_name}@{ip}" if display_name and ip else display_name or ip
+            view = self._ensure_view(f"ip:{ip}", label)
+            view.append(html)
 
     def append_file_sent(self, target_id: str, target_display: str, path: str, tab_label: Optional[str] = None):
         key = target_id or target_display
         name = os.path.basename(path)
+        img_html = self._image_preview_html(path)
         html_bubble = (
             f"<div style='text-align:right;'>"
             f"  <span style='display:inline-block; max-width:70%; background:#DCF8C6; color:#0a0a0a; padding:6px 10px;"
             f" border-radius:10px; border:1px solid #d8f0c0;'>"
             f"    <b>{escape(self._localization.get('me_label','我'))}</b> -> {escape(target_display)}<br/>{escape(self._localization.get('file_sent_prefix','已发送文件: '))}{escape(name)}"
+            f"    {img_html}"
             f"  </span>"
             f"</div>"
         )

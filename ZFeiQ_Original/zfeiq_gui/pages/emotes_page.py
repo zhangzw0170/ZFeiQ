@@ -27,8 +27,8 @@ class EmotesPage(QtWidgets.QWidget):
     def _build(self) -> None:
         t = self._translations
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(10)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
 
         dir_row = QtWidgets.QHBoxLayout()
         self.dir_edit = QtWidgets.QLineEdit(self._dir)
@@ -36,7 +36,10 @@ class EmotesPage(QtWidgets.QWidget):
         self.btn_add_emote = QtWidgets.QPushButton(t["emotes_add"])
         self.btn_back = QtWidgets.QPushButton(t["emotes_back"])
         for button in (self.btn_pick_dir, self.btn_add_emote, self.btn_back):
-            button.setFixedHeight(button.fontMetrics().height() + 12)
+            try:
+                button.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+            except Exception:
+                pass
         dir_row.addWidget(self.dir_edit, 1)
         dir_row.addWidget(self.btn_pick_dir)
         dir_row.addWidget(self.btn_add_emote)
@@ -53,7 +56,10 @@ class EmotesPage(QtWidgets.QWidget):
 
         send_row = QtWidgets.QHBoxLayout()
         self.btn_send = QtWidgets.QPushButton(t["emotes_send"])
-        self.btn_send.setFixedHeight(self.btn_send.fontMetrics().height() + 12)
+        try:
+            self.btn_send.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        except Exception:
+            pass
         send_row.addStretch()
         send_row.addWidget(self.btn_send)
         layout.addLayout(send_row)
@@ -69,7 +75,10 @@ class EmotesPage(QtWidgets.QWidget):
             self.btn_send.setText(translations['emotes_send'])
             self.btn_pick_dir.setText(translations['emotes_pick_dir'])
             self.btn_add_emote.setText(translations['emotes_add'])
-            self.btn_back.setFixedHeight(self.btn_back.fontMetrics().height() + 12)
+            try:
+                self.btn_back.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+            except Exception:
+                pass
         except Exception:
             pass
 
