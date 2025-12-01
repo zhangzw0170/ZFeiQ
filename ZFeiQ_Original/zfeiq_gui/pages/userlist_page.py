@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 from PyQt5 import QtCore, QtWidgets
 
@@ -8,7 +8,7 @@ from ..widgets import NavigationButton
 
 
 class UserListPage(QtWidgets.QWidget):
-    """Sidebar view that lists discovered peers and allows quick target selection."""
+    """Sidebar listing peers with quick filtering and discover-by-IP."""
 
     targetPicked = QtCore.pyqtSignal(str)
     sigDiscover = QtCore.pyqtSignal(str)
@@ -17,17 +17,15 @@ class UserListPage(QtWidgets.QWidget):
         super().__init__()
         from zfeiq_gui.lang import get_translations
         self._translations = get_translations(lang)
-        self._build()
-        self._all_items: List[str] = []
-        self._focus_chat = None
-        t = self._translations
-        self._info_templates = {
-            "local": t["local_label"],
-            "broadcast": t["broadcast_label"],
-            "mask": t["mask_label"],
-            "nodes": t["nodes_label"],
-        }
         self._info_cache: Dict = {}
+        self._info_templates: Dict[str, str] = {
+            "local": self._translations.get("local_label", "本机：{local} / {prefix}"),
+            "broadcast": self._translations.get("broadcast_label", "广播：{bcast}"),
+            "mask": self._translations.get("mask_label", "掩码：{mask}"),
+            "nodes": self._translations.get("nodes_label", "在线节点: {count}"),
+        }
+        self._focus_chat = None
+        self._build()
 
     def set_focus_handler(self, handler) -> None:
         self._focus_chat = handler
@@ -38,11 +36,11 @@ class UserListPage(QtWidgets.QWidget):
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(8)
 
-            search_row = QtWidgets.QHBoxLayout()  # 顶部仅保留搜索框并占满宽度，不放“发现”按钮
-            self.search_edit = QtWidgets.QLineEdit()
-            self.search_edit.setPlaceholderText(t["search_ph"])
-            self.search_edit.textChanged.connect(self._apply_filter)
-            search_row.addWidget(self.search_edit, 1)
+        search_row = QtWidgets.QHBoxLayout()
+        self.search_edit = QtWidgets.QLineEdit()
+        self.search_edit.setPlaceholderText(t.get("search_ph", "搜索 用户/组/IP"))
+        self.search_edit.textChanged.connect(self._apply_filter)
+        search_row.addWidget(self.search_edit, 1)
 
         self.list = QtWidgets.QListWidget()
         self.list.itemDoubleClicked.connect(self._on_user_double_clicked)
@@ -52,16 +50,16 @@ class UserListPage(QtWidgets.QWidget):
 
         info_box = QtWidgets.QVBoxLayout()
         info_box.setSpacing(6)
-        self.lbl_local = QtWidgets.QLabel(t["local_label"].format(local="-", prefix="-"))
-        self.lbl_bcast = QtWidgets.QLabel(t["broadcast_label"].format(bcast="-"))
+        self.lbl_local = QtWidgets.QLabel(self._info_templates["local"].format(local="-", prefix="-"))
+        self.lbl_bcast = QtWidgets.QLabel(self._info_templates["broadcast"].format(bcast="-"))
         row = QtWidgets.QHBoxLayout()
         self.disc_ip = QtWidgets.QLineEdit()
-        self.disc_ip.setPlaceholderText(t["discover_ph"])
-        self.btn_discover_ip = NavigationButton(t["discover"])
+        self.disc_ip.setPlaceholderText(t.get("discover_ph", "指定 IP 发现"))
+        self.btn_discover_ip = NavigationButton(t.get("discover", "发现"))
         row.addWidget(self.disc_ip, 1)
         row.addWidget(self.btn_discover_ip)
-        self.lbl_mask = QtWidgets.QLabel(t["mask_label"].format(mask="-"))
-        self.lbl_count = QtWidgets.QLabel(t["nodes_label"].format(count=0))
+        self.lbl_mask = QtWidgets.QLabel(self._info_templates["mask"].format(mask="-"))
+        self.lbl_count = QtWidgets.QLabel(self._info_templates["nodes"].format(count=0))
         info_box.addWidget(self.lbl_local)
         info_box.addWidget(self.lbl_bcast)
         info_box.addLayout(row)
@@ -69,16 +67,15 @@ class UserListPage(QtWidgets.QWidget):
         info_box.addWidget(self.lbl_count)
         layout.addLayout(info_box)
 
-            # 发现功能仅保留下方按 IP 指定的入口
         self.btn_discover_ip.clicked.connect(lambda: self.sigDiscover.emit(self.disc_ip.text().strip()))
 
-    def _on_user_double_clicked(self, item: QtWidgets.QListWidgetItem):
+    def _on_user_double_clicked(self, item: QtWidgets.QListWidgetItem) -> None:
         meta = item.data(QtCore.Qt.UserRole)
         if not meta:
             return
         kind, obj = meta
         if kind == "user":
-            target = f"ip:{obj.ip}"
+            target = f"ip:{getattr(obj, 'ip', '')}"
         elif kind == "group":
             target = f"group:{obj}"
         else:
@@ -91,35 +88,29 @@ class UserListPage(QtWidgets.QWidget):
     def update_nodes(self, nodes, groups=None, local_ip: str = "") -> None:
         self.list.clear()
         items: List[Tuple[str, Tuple[str, object]]] = []
-        # 状态指示灯：使用彩色圆形 Emoji，避免富文本与委托复杂度
-        status_emojis = {
-            "online": "🟢",  # 绿色
-            "busy": "🟠",    # 橙色
-            "away": "⚪",    # 灰色近似（白圆）
-        }
+        status_emojis = {"online": "🟢", "busy": "🟠", "away": "⚪"}
         for node in nodes:
             host = getattr(node, "hostname", "")
-            local_tag = "[LOCAL] " if local_ip and getattr(node, "ip", None) == local_ip else ""
+            ip = getattr(node, "ip", "")
             status_code = getattr(node, "status", "online")
-            light = status_emojis.get(status_code, status_emojis["online"])
-            # 第一行：状态灯 + [LOCAL] + 用户名
-            line1 = f"{light} {local_tag}{node.username}".rstrip()
-            # 第二行：@ IP 地址（LOCAL 仅显示第一行）
-            line2 = f"@ {node.ip}"
-            # 第三行：单独一行显示主机名（方括号），若无主机名则省略（LOCAL 省略）
-            line3 = f"[{host}]" if host else ""
-            if local_ip and getattr(node, "ip", None) == local_ip:
-                text_block = f"{line1}"
+            light = status_emojis.get(status_code, "🟢")
+            is_local = bool(local_ip and ip == local_ip)
+            if is_local:
+                text_block = f"{light} [LOCAL] {node.username} @ {ip}"
             else:
+                line1 = f"{light} {node.username}"
+                line2 = f"@ {ip}"
+                line3 = f"[{host}]" if host else ""
                 text_block = f"{line1}\n{line2}" + (f"\n{line3}" if line3 else "")
             items.append((text_block, ("user", node)))
         if groups:
             for group_name, members in sorted(groups.items()):
                 items.append((f"[组] {group_name} ({len(members)})", ("group", group_name)))
-        self._all_items = [text for text, _ in items]
+
         for text, meta in items:
             item = QtWidgets.QListWidgetItem(text)
             item.setData(QtCore.Qt.UserRole, meta)
+            item.setData(QtCore.Qt.UserRole + 1, text.lower())  # 用于过滤
             try:
                 font = item.font()
                 font.setPointSize(max(8, font.pointSize()))
@@ -148,55 +139,13 @@ class UserListPage(QtWidgets.QWidget):
                     if 0 <= bits <= 32:
                         mask_int = (0xFFFFFFFF << (32 - bits)) & 0xFFFFFFFF
                         mask = ".".join(str((mask_int >> (8 * i)) & 0xFF) for i in [3, 2, 1, 0])
-            # 状态文案映射（本地化）
-            try:
-                from zfeiq_gui.lang import t as _t
-                status_text = {
-                    'online': _t['online'],
-                    'busy': _t['busy'],
-                    'away': _t['away'],
-                }
-            except Exception:
-                status_text = {'online':'在线','busy':'忙碌','away':'离开'}
                 except Exception:
                     mask = None
         self.lbl_mask.setText(self._info_templates.get("mask", "掩码：{mask}").format(mask=mask or "-"))
 
     def _apply_filter(self) -> None:
-        query = self.search_edit.text().strip().lower()
-                is_local = bool(local_ip and getattr(node, "ip", None) == local_ip)
-                st_txt = status_text.get(status_code, status_code)
-                if is_local:
-                    # 单行：状态灯 + [LOCAL] + 用户名 + 状态；IP 同行右侧近似右对齐
-                    left = f"{light} [LOCAL] {node.username} {st_txt}"
-                    # 通过空格拉齐，简化实现（受字体影响可能不完全右对齐）
-                    spacer = " " * 4
-                    right = f"@ {node.ip}"
-                    text_block = f"{left}{spacer}{right}"
-                else:
-                    # 非本机：三行显示（用户名/状态灯、@IP、[主机名]）
-                    line1 = f"{light} {node.username}"
-                    line2 = f"@ {node.ip}"
-                    line3 = f"[{host}]" if host else ""
-                    text_block = f"{line1}\n{line2}" + (f"\n{line3}" if line3 else "")
-        self._translations = translations
-        try:
-            self.search_edit.setPlaceholderText(translations.get("search_ph", self.search_edit.placeholderText()))
-            self.disc_ip.setPlaceholderText(translations.get("discover_ph", self.disc_ip.placeholderText()))
-            text_discover = translations.get("discover", "发现")
-            self.discover_btn.setText(text_discover)
-            self.btn_discover_ip.setText(text_discover)
-            tip = translations.get("discover_tip", self.discover_btn.toolTip())
-            self.discover_btn.setToolTip(tip)
-            self.btn_discover_ip.setToolTip(tip)
-            self._info_templates.update(
-                {
-                    "local": translations.get("local_label", "本机：{local} / {prefix}"),
-                    "broadcast": translations.get("broadcast_label", "广播：{bcast}"),
-                    "mask": translations.get("mask_label", "掩码：{mask}"),
-                    "nodes": translations.get("nodes_label", "在线节点: {count}"),
-                }
-            )
-            self.set_net_info(self._info_cache)
-        except Exception:
-            pass
+        query = (self.search_edit.text() or "").strip().lower()
+        for i in range(self.list.count()):
+            item = self.list.item(i)
+            key = item.data(QtCore.Qt.UserRole + 1) or ""
+            item.setHidden(bool(query and query not in key))
