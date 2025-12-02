@@ -161,7 +161,12 @@ class SettingsPage(QtWidgets.QWidget):
         self.lbl_port = QtWidgets.QLabel(t.get('port', '端口号'))
         nform.addRow(self.lbl_iface, self.cmb_iface)
         nform.addRow(self.lbl_port, self.edit_port)
-        nform.addRow(self.lbl_mask, self.edit_mask)
+        # 子网掩码输入在当前UX中移除
+        try:
+            self.lbl_mask.setVisible(False)
+            self.edit_mask.setVisible(False)
+        except Exception:
+            pass
         nform.addRow(self.lbl_keepalive, self.edit_keepalive)
         nform.addRow(self.lbl_expire, self.edit_expire)
 
@@ -325,7 +330,7 @@ class SettingsPage(QtWidgets.QWidget):
             expire=self.edit_expire.text().strip(),
             bind_ip=(prefer_iface_ip or None),
             port=self.edit_port.text().strip(),
-            subnet_mask=self.edit_mask.text().strip(),
+            # 子网掩码参数已移除
             download_dir=self.edit_dir.text().strip().replace("\\", "/"),
             screenshot_dir=self.edit_ss_dir.text().strip().replace("\\", "/"),
             # ui_avatar=self.edit_avatar.text().strip().replace("\\", "/"),
@@ -415,12 +420,16 @@ class SettingsPage(QtWidgets.QWidget):
         self.lbl_iface.setText(translations.get('iface', self.lbl_iface.text()))
         self.lbl_keepalive.setText(translations.get('keepalive', self.lbl_keepalive.text()))
         self.lbl_expire.setText(translations.get('expire', self.lbl_expire.text()))
-        self.lbl_mask.setText(translations.get('subnet_mask', self.lbl_mask.text()))
+        # 隐藏子网掩码相关控件
+        try:
+            self.lbl_mask.setVisible(False)
+            self.edit_mask.setVisible(False)
+        except Exception:
+            pass
         if hasattr(self, 'lbl_port'):
             self.lbl_port.setText(translations.get('port', self.lbl_port.text()))
         if hasattr(self, 'edit_port'):
             self.edit_port.setPlaceholderText(translations.get('port', self.edit_port.placeholderText()))
-        self.edit_mask.setPlaceholderText(translations.get('subnet_mask', self.edit_mask.placeholderText()))
         if hasattr(self, 'edit_port'):
             self.edit_port.setPlaceholderText(translations.get('port', self.edit_port.placeholderText()))
 

@@ -234,51 +234,52 @@ class ChatPage(QtWidgets.QWidget):
         self.emoji_btn = _make_action_btn(t['emoji'])
         self.screenshot_btn = _make_action_btn(t['screenshot'])
         self.quicktext_btn = _make_action_btn(t['quick'])
+        # 历史按钮在当前UX中移除（保留对象以兼容外部引用，但隐藏且不加入布局）
         self.history_btn = _make_action_btn(t['history'])
+        try:
+            self.history_btn.setVisible(False)
+            self.history_btn.setEnabled(False)
+        except Exception:
+            pass
         self.send_file_btn = _make_action_btn(t['sendfile'])
         self.ocr_btn = _make_action_btn(t.get('ocr', '文字识别'))
+        # 交换公钥按钮：仅在加密模式 ON/STRICT 时由外部控制显示
+        self.kx_btn = _make_action_btn(t.get('key_exchange', '交换公钥'))
         actions_row.addWidget(self.emoji_btn)
         actions_row.addWidget(self.screenshot_btn)
         actions_row.addWidget(self.quicktext_btn)
-        actions_row.addWidget(self.history_btn)
+        # 不再添加历史按钮到操作行
         actions_row.addWidget(self.send_file_btn)
         actions_row.addWidget(self.ocr_btn)
+        actions_row.addWidget(self.kx_btn)
         actions_row.addStretch()
 
         def _open_ocr_page():
-            from .ocr_page import OcrPage
-            dlg = QtWidgets.QDialog(self)
-            dlg.setWindowTitle(t.get('ocr', '文字识别'))
-            layout = QtWidgets.QVBoxLayout(dlg)
-            layout.setContentsMargins(8, 8, 8, 8)
-            layout.setSpacing(8)
-            ocr_widget = OcrPage(parent=dlg, lang=self._current_language)
-            # connect send signal to insert into outbox and close dialog
-            def _on_send(text: str):
+            # 轻量入口：直接选择图片，然后调用后端OCR，无预览大窗口
+            try:
+                img_path, _ = QtWidgets.QFileDialog.getOpenFileName(self, t.get('ocr_pick', '选择图片识别'), filter=t.get('images_filter', 'Images (*.png *.jpg *.jpeg *.bmp *.gif)'))
+                if not img_path:
+                    return
                 try:
-                    # insert into outbox
+                    from zfeiq_cli.ocr import ZFeiQOcr
+                    engine = ZFeiQOcr.get_instance()
+                    text = engine.run(img_path)
+                except Exception as e:
+                    text = f"OCR Error: {e}"
+                if text:
                     self.outbox.insertPlainText(text)
-                    # move cursor to end
                     cursor = self.outbox.textCursor()
                     cursor.movePosition(QtGui.QTextCursor.End)
                     self.outbox.setTextCursor(cursor)
-                except Exception:
-                    pass
-                try:
-                    dlg.accept()
-                except Exception:
-                    pass
-
-            try:
-                ocr_widget.sigSend.connect(_on_send)
             except Exception:
                 pass
 
-            layout.addWidget(ocr_widget)
-            dlg.resize(800, 520)
-            dlg.exec_()
-
         self.ocr_btn.clicked.connect(_open_ocr_page)
+        # 默认隐藏，外部根据加密模式控制显示
+        try:
+            self.kx_btn.setVisible(False)
+        except Exception:
+            pass
 
         def _open_emotes_picker():
             t_local = self._translations
@@ -358,6 +359,11 @@ class ChatPage(QtWidgets.QWidget):
         self.outbox.setAcceptRichText(False)
         self.outbox.setMinimumHeight(56)
         self.outbox.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        try:
+            # 提示输入法为多行文本，避免某些桥接环境误判
+            self.outbox.setInputMethodHints(QtCore.Qt.ImhMultiLine)
+        except Exception:
+            pass
 
         send_row = QtWidgets.QHBoxLayout()
         send_row.setContentsMargins(0, 0, 0, 0)
@@ -496,14 +502,31 @@ class ChatPage(QtWidgets.QWidget):
     def append_message(self, sender: str, ip: str, text: str) -> None:
         key = f"ip:{ip}" if ip else sender
         label = f"{sender}@{ip}" if ip else sender
+        # handshake / system events: 以居中灰色系统行渲染
+        if text.startswith("[ENC] "):
+            safe = escape(text)
+            html = (
+                "<div style='margin:6px 0; text-align:center;'>"
+                "<span style='display:inline-block; max-width:80%; padding:4px 10px;"
+                " color:#666; font-size:12px; background:#f3f4f6; border-radius:10px; border:1px solid #e5e7eb;'>"
+                f"{safe}"
+                "</span></div>"
+            )
+            self._view_all.append(html)
+            self._ensure_view(key, label).append(html)
+            self._append_log(key, f"sys {text}")
+            return
+
         bubble_bg = "#FFFFFF"
+        # 使用 table 100% 宽度 + 单元格对齐，避免不同平台对 div/p align 解释不一致
         html_bubble = (
-            f"<div style='text-align:left;'>"
-            f"  <span style='display:inline-block; max-width:70%; background:{bubble_bg}; color:#111; padding:6px 10px;"
-            f" border-radius:10px; border:1px solid #e6e6e6;'>"
-            f"    <b>{escape(sender)}</b> @ {escape(ip)}<br/>{escape(text)}"
-            f"  </span>"
-            f"</div>"
+            "<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse; margin:2px 0;'>"
+            "<tr><td align='left' style='border:none;'>"
+            f"<span style='display:inline-block; max-width:70%; background:{bubble_bg}; color:#111; padding:6px 10px;"
+            " border-radius:10px; border:1px solid #e6e6e6;'>"
+            f"<b>{escape(sender)}</b> @ {escape(ip)}<br/>{escape(text)}"
+            "</span>"
+            "</td></tr></table>"
         )
         self._view_all.append(html_bubble)
         self._ensure_view(key, label).append(html_bubble)
@@ -519,12 +542,12 @@ class ChatPage(QtWidgets.QWidget):
         key = target_id or target_display
         me_label = escape(self._localization.get("me_label", "我"))
         html_bubble = (
-            f"<div style='text-align:right;'>"
-            f"  <span style='display:inline-block; max-width:70%; background:#DCF8C6; color:#0a0a0a; padding:6px 10px;"
-            f" border-radius:10px; border:1px solid #d8f0c0;'>"
-            f"    <b>{me_label}</b> -> {escape(target_display)}<br/>{escape(text)}"
-            f"  </span>"
-            f"</div>"
+            "<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse; margin:2px 0;'>"
+            "<tr><td align='right' style='border:none;'>"
+            "<span style='display:inline-block; max-width:70%; background:#DCF8C6; color:#0a0a0a; padding:6px 10px; border-radius:10px; border:1px solid #d8f0c0;'>"
+            f"<b>{me_label}</b> -> {escape(target_display)}<br/>{escape(text)}"
+            "</span>"
+            "</td></tr></table>"
         )
         view = self._ensure_view(key, tab_label or target_display)
         if view is not self._view_all:
@@ -535,14 +558,14 @@ class ChatPage(QtWidgets.QWidget):
     def append_incoming_offer(self, oid: str, uname: str, ip: str, name: str, size: int):
         size_txt = f"{size} bytes" if size else "? bytes"
         html_bubble = (
-            f"<div style='text-align:left;'>"
-            f"  <span style='display:inline-block; max-width:70%; background:#FFFFFF; color:#111; padding:6px 10px;"
-            f" border-radius:10px; border:1px solid #e6e6e6;'>"
-            f"    <b>{escape(uname)}</b> @ {escape(ip)}<br/>{self._translations.get('file_offer_label','文件要约')}: {escape(name)} ({size_txt}) "
-            f"    <a href='accept:{oid}'>[{self._translations.get('accept','接收')}]</a> "
-            f"    <a href='cancel:{oid}'>[{self._translations.get('cancel','放弃')}]</a>"
-            f"  </span>"
-            f"</div>"
+            "<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse; margin:2px 0;'>"
+            "<tr><td align='left' style='border:none;'>"
+            "<span style='display:inline-block; max-width:70%; background:#FFFFFF; color:#111; padding:6px 10px; border-radius:10px; border:1px solid #e6e6e6;'>"
+            f"<b>{escape(uname)}</b> @ {escape(ip)}<br/>{self._translations.get('file_offer_label','文件要约')}: {escape(name)} ({size_txt}) "
+            f"<a href='accept:{oid}'>[{self._translations.get('accept','接收')}]</a> "
+            f"<a href='cancel:{oid}'>[{self._translations.get('cancel','放弃')}]</a>"
+            "</span>"
+            "</td></tr></table>"
         )
         self._view_all.append(html_bubble)
 
@@ -553,8 +576,10 @@ class ChatPage(QtWidgets.QWidget):
         else:
             txt = f"{self._translations.get('file_progress_label', '进度')} {done} bytes"
         self._view_all.append(
-            f"<div style='text-align:left;'><span style='display:inline-block; background:#fff; color:#666; padding:4px 8px;"
-            f" border-radius:8px; border:1px solid #eee;'>[{self._translations.get('file_progress_label','文件进度')}] {escape(name)} {escape(txt)}</span></div>"
+            "<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse; margin:2px 0;'>"
+            "<tr><td align='left' style='border:none;'>"
+            f"<span style='display:inline-block; background:#fff; color:#666; padding:4px 8px; border-radius:8px; border:1px solid #eee;'>[{self._translations.get('file_progress_label','文件进度')}] {escape(name)} {escape(txt)}</span>"
+            "</td></tr></table>"
         )
 
     def append_offer_saved(self, name: str, path: str, sender: Optional[str] = None, ip: Optional[str] = None):
@@ -563,13 +588,12 @@ class ChatPage(QtWidgets.QWidget):
         img_html = self._image_preview_html(path)
         display_name = sender or ip or self._translations.get('file_sender_unknown', '对方')
         html = (
-            f"<div style='text-align:left;'>"
-            f"  <span style='display:inline-block; max-width:70%; background:#FFFFFF; color:#111; padding:6px 10px;"
-            f" border-radius:10px; border:1px solid #e0e0e0;'>"
-            f"    <b>{escape(display_name)}</b><br/>[{done_label}] {escape(name)} {saved_to} {escape(path)}"
-            f"    {img_html}"
-            f"  </span>"
-            f"</div>"
+            "<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse; margin:2px 0;'>"
+            "<tr><td align='left' style='border:none;'>"
+            "<span style='display:inline-block; max-width:70%; background:#FFFFFF; color:#111; padding:6px 10px; border-radius:10px; border:1px solid #e0e0e0;'>"
+            f"<b>{escape(display_name)}</b><br/>[{done_label}] {escape(name)} {saved_to} {escape(path)}{img_html}"
+            "</span>"
+            "</td></tr></table>"
         )
         self._view_all.append(html)
         if ip:
@@ -582,13 +606,12 @@ class ChatPage(QtWidgets.QWidget):
         name = os.path.basename(path)
         img_html = self._image_preview_html(path)
         html_bubble = (
-            f"<div style='text-align:right;'>"
-            f"  <span style='display:inline-block; max-width:70%; background:#DCF8C6; color:#0a0a0a; padding:6px 10px;"
-            f" border-radius:10px; border:1px solid #d8f0c0;'>"
-            f"    <b>{escape(self._localization.get('me_label','我'))}</b> -> {escape(target_display)}<br/>{escape(self._localization.get('file_sent_prefix','已发送文件: '))}{escape(name)}"
-            f"    {img_html}"
-            f"  </span>"
-            f"</div>"
+            "<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse; margin:2px 0;'>"
+            "<tr><td align='right' style='border:none;'>"
+            "<span style='display:inline-block; max-width:70%; background:#DCF8C6; color:#0a0a0a; padding:6px 10px; border-radius:10px; border:1px solid #d8f0c0;'>"
+            f"<b>{escape(self._localization.get('me_label','我'))}</b> -> {escape(target_display)}<br/>{escape(self._localization.get('file_sent_prefix','已发送文件: '))}{escape(name)}{img_html}"
+            "</span>"
+            "</td></tr></table>"
         )
         view = self._ensure_view(key, tab_label or target_display)
         if view is not self._view_all:
@@ -681,6 +704,11 @@ class ChatPage(QtWidgets.QWidget):
         self.quicktext_btn.setText(translations.get("quick", self.quicktext_btn.text()))
         self.history_btn.setText(translations.get("history", self.history_btn.text()))
         self.send_file_btn.setText(translations.get("sendfile", self.send_file_btn.text()))
+        try:
+            self.ocr_btn.setText(translations.get('ocr', self.ocr_btn.text()))
+            self.kx_btn.setText(translations.get('key_exchange', self.kx_btn.text()))
+        except Exception:
+            pass
         self.outbox.setPlaceholderText(translations.get("outbox_placeholder", self.outbox.placeholderText()))
         self.send_btn.setText(translations.get("send", self.send_btn.text()))
         chat_placeholder = translations.get("chat_placeholder", self._view_all.placeholderText())

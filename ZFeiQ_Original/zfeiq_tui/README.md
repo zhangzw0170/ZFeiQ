@@ -1,5 +1,7 @@
 # ZFeiQ Textual TUI
 
+**版本：** **Alpha 5.1**
+
 Keyboard-first TUI for ZFeiQ powered by Textual.
 
 ## Run

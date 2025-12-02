@@ -1,5 +1,5 @@
 
-# ZFeiQ（IPMSG/飞秋互通 · CLI + GUI） — Alpha 5.0
+# ZFeiQ（IPMSG/飞秋互通 · CLI + GUI） — **Alpha 5.1**
 
 ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG 协议，支持 Windows 与 Linux（含 Ubuntu Kylin aarch64 / RK3566）。
 
@@ -13,7 +13,7 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 4. 支持表情包发送(可自定义表情包)、截图功能。
 5. 调用RK3569/3566的NPU，实现典型边缘AI智能的加速功能
 
-## 最新特性（Alpha 5.0）
+## 最新特性（**Alpha 5.1**）
 
 - **加密通讯（Level B）**：新增 KX1/KX2 握手与 ENC2 会话消息，使用 RSA‑3072（OAEP‑SHA256）+ HKDF‑SHA256 + AES‑256‑GCM，支持会话 `sid/ctr` 与重放窗口；严格模式（strict）下无安全会话拒绝发送。
 - **聊天页加密指示**：在聊天头部 IP 左侧显示“通讯已加密/未加密”（本地化）。
@@ -22,7 +22,7 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 - **路径与平台兼容**：保持嵌入式适配与异常保护（RK3566/aarch64 软件 OpenGL、字体与权限降级）。
 - **UI 体验**：气泡聊天、文件块统一发送、双语主题等维持与增强。
 
-新增要点（Alpha 5.0）：
+新增要点（**Alpha 5.1**）：
 
 - **Level B 会话加密已落地**：KX1/KX2/ENC2 全流程实现，旧版仍可回退到传统 ENC 路径以保持互通。
 - **strict 模式**：当启用 strict 且未建立安全会话时，客户端将拒绝发送敏感消息。
@@ -38,6 +38,18 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
    pip install -r requirements.txt
    pip install "PyQt5==5.15.0"
    ```
+
+   > **注意（RK3566 / aarch64）**：
+   > 
+   > - 加密通讯（KX1/KX2/ENC2）依赖 `cryptography` 新版本的 AES‑GCM / HKDF 实现。
+   > - 若板子自带的系统 Python 环境中存在旧版 `cryptography`（例如 2.8），将导致握手/加密静默失败或异常。
+   > - 请务必在实际运行环境中执行：
+   > 
+   >   ```bash
+   >   pip install --upgrade "cryptography>=46.0.0"
+   >   ```
+   > 
+   >   以确保加密相关功能（包括“通讯已加密”指示）能正常工作。
 
 2. 启动 GUI：
 
@@ -63,7 +75,7 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
    python main.py
    ```
 
-- RSA 密钥：程序会在第一次需要时自动生成密钥对并写入 `./keys/priv.pem` 与 `./keys/pub.pem`。在 Alpha 5.0 中程序生成的 `keys/` 会被映射到 `commons/keys/`（即 `<program-root>/commons/keys/`）。要强制重新生成，删除相应 `commons/keys/` 下的文件后重启程序。
+- RSA 密钥：程序会在第一次需要时自动生成密钥对并写入 `./keys/priv.pem` 与 `./keys/pub.pem`。在 **Alpha 5.1** 中程序生成的 `keys/` 会被映射到 `commons/keys/`（即 `<program-root>/commons/keys/`）。要强制重新生成，删除相应 `commons/keys/` 下的文件后重启程序。
 - 文件传输：IPMSG 附件互操作通过内置的小型 TCP 服务（默认端口 2425）实现；发送方会创建一个 TCP offer，接收方通过 offer 下载文件，相关映射存于 CLI 的 `_attach_map`。默认保存目录若未在设置中显式指定，将被创建为程序主目录下的 `commons/downloads/`，便于嵌入式部署与权限管理。
 
 ## 开发与调试要点

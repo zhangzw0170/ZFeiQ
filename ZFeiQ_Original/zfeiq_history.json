@@ -78,5 +78,477 @@
 "ip": "172.19.81.77",
 "target": "me",
 "text": "编码自检：中文✓ English✓ Emoji😀 αßé"
+},
+{
+"ts": 1764603651.9483285,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "Here's win"
+},
+{
+"ts": 1764603665.7673824,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "Here's rk"
+},
+{
+"ts": 1764603677.8773646,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "收到。"
+},
+{
+"ts": 1764603690.671944,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "🤧"
+},
+{
+"ts": 1764604120.9491403,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "libGL error: failed to create dri screen\nlibGL error: failed to load driver: rockchip\nlibGL error: failed to create dri screen\nlibGL error: failed to load driver: rockchip"
+},
+{
+"ts": 1764604907.14853,
+"direction": "out",
+"user": "w",
+"ip": "172.26.88.222",
+"target": "all",
+"text": "PaddlerOCRbyZFeiQ:\nHello Neural Processing Unit NPU !!!\n！@#$%&*\n你好！神经处理单元！\n你好！麒麟类飞秋软件！"
+},
+{
+"ts": 1764604912.3109965,
+"direction": "out",
+"user": "w",
+"ip": "172.26.88.222",
+"target": "all",
+"text": "在吗？"
+},
+{
+"ts": 1764636986.2143798,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "why it can't enable the input method"
+},
+{
+"ts": 1764637002.0838053,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "I don't know too my frieng"
+},
+{
+"ts": 1764637685.6980839,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "?"
+},
+{
+"ts": 1764637691.696963,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ok"
+},
+{
+"ts": 1764637693.55872,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "all",
+"text": "ok"
+},
+{
+"ts": 1764637693.559593,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "ok"
+},
+{
+"ts": 1764637698.384684,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "ok"
+},
+{
+"ts": 1764638963.783247,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "hello world"
+},
+{
+"ts": 1764639030.65827,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "123\\"
+},
+{
+"ts": 1764639036.0442128,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "🧡"
+},
+{
+"ts": 1764657798.388838,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=c00f3e92823324e69055fbe2bd57cfb74296c331b8865c0c0f9835f819de6cb0;ekeyA=jePUUbWVjzMzLVN6yKTKQG6TNPinCHT/X4vgtQmxzdELtUXSP5QDHyHv+khTjKvVwyvf3m58RT3KZpxqAzDIVoproWCExXMkZH7S7GxrNEBu6qszaZExm89L32Ou6yeoE9eMg0TSi03UHug7tZqN6/9XQHxgba43UVe7XGfE8UuUNLg8o8pMmBwzPna89czBP8CKFjxpwpPWXPngx7BdpPg2zUFYeJ97LG46No+zDHFfsAvV2/SsHNkOI4I90rjbPC2ttmjSOAYEA5Fp1zkAiIbv9fWavmmMfmUgkjBBNdtUrgf2w2c8jXRd/4iuBx7PRUtxDIZ28oX1NUTdXbOJnbJpiwp/IBJUlas6Z0+fftI/UfvtJ+NhtMTdl78esox8++Q7IMutcv7XkyEBN3sn/ZzrKoVKeY7YAyb/TRrN7vCxcRcckfk0+sGFMmaPlIvpbEVP0ZE6ptEPgS6JDsRdMkrTamD+nBrt/Rt2Wut3hoUdACM3SWryB6fjiSA3gKzJ"
+},
+{
+"ts": 1764657798.5109208,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=c00f3e92823324e69055fbe2bd57cfb74296c331b8865c0c0f9835f819de6cb0;ekeyA=lc0s7T5VuAuay5EfkvAhir1JsoxeC4okLSryu6ROo7Q04B0K1cQGaKfJ0Uc7AtXjhvC9vfYr8FUX4kXGIyF6ou34u4XSHZNRWQddipd7qGiydxVBJb/7D/o5A089Y0PMNZzBQQV8VGgv47LRPT5bltUPaQ6ZBjpuy5NE3FUY1+fLVWNH8+SoaDFDshehOhrtBQozRDrn/mkR9xDTUXB9vWvy0UItMcdZrA40xuvp5Mfm7E04gWroAhp7MVE8KIkQW93w20W+xuUoigGiLRbrvgfIKkPodBb0lD3vJTL2ZQOzLBkRLnuchpt8WrCFvHATRMEKd4KwRrF5E5yMKsSEA+VY8zvzgdRPkkWc2qAZQ8qROQ9NWxHwRkf5YwAFlTNmxoIrkHAT67qn0nI2lMtCJiiocJqe2/td6FV8lRkxgrSte2MsYrndWD43GQ7qp0N8opLQ4PLtS2HfuVKsPHIrkNSj223oXe1l7dQ/EMg4Yp0ps0dZvI5jxJrFyjrtxJTu"
+},
+{
+"ts": 1764657798.6396294,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyA=ITmp7eB/ZeFnQ/UOohuFhQHTHb07Wv23ZCGjPB9HWbsCJMy6K8KdU0mVLezJDsbb98PvnIgnTdAxeKo4ytGyf0xEFUMqv4Cdt54vAsBBC9eZ+eGZ4nMm5Z9OTkl6dRzSNr7MGoFXuCPAkfZTkG5+LT7s0VqE7IVkYPiqOxZ86YdqC4cbV0IpWCiohzLWuXwznxiOLSmGYIOXtFLM+YR1yMjKaRH+c41Nxpswj3svvMQ6NWkiX/MukG7Wuv/C6rnahIv3aZMTxIj6e3if6qeYykzO/uX1rWiKjg2XnFiXV2Lw2BND7o39xF+XsUp8m65kg+Na++CHfgrWxgsN93VlyNr16nHuRsz+PVpy/keig5QVBeY8ksz8zGpzMZsOZngXb1LnqfThsbFyRyFEqwAw+vfnrqj2MexkNLwgBJPvfjy82+AQVjaV9m4hV0SnWMhJnKb5eun6lh/PifR8quwGulERI39f3Q7i8e/v4Ssc9F7z8kShaMHkFw0QFeMrVODN"
+},
+{
+"ts": 1764657798.76179,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=c00f3e92823324e69055fbe2bd57cfb74296c331b8865c0c0f9835f819de6cb0;ekeyA=ilVDTY4EKOlD1+dEKBhbmEacIccANyM6PC9oF6HeDbK+OgzBuiBhwa5QWOrwnIQMPkGsNzlNET2UU4Fj3Gvy7ppMBMYZWfChqpmgir1+0avIEz64/q01QGXDd2F5IvzFZDOMaE1snzyXUdYbHr9GAffGL6kpx/ZdmZDYBkrMzsV/t7fRwF7zs+lBLjmAyQfDBAWY4y6iIbGSQSMLoJgVDCw2dTkoVNUGoEIEmfHsh+0meMOnS1BQPrKhzAElJQlLs6PrN+4wnPybThO4GVG6lfOOA+QaPc/vEsnqSwE16HigVje8rs5oTDUoIJgCqduRJMXRl1HrZCK+hoQE77g3BmH4DjAbsg/8749Hp+2FoRUgmubvGeAi3DUP14OOUutQ2/UNibU8TwkFOD++Y+ao+9GbbC9T1Hl6agzgDN7Z2bFh8reolHBRZsJz0oBuQbXJZX88IiR3YS4+GfkawXZwdDtZoba4g8gsbv6XT9qOg0XuP5bq6LbnWNE/XluQrBv8"
+},
+{
+"ts": 1764657798.8846667,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX1;ver=1;fp=c00f3e92823324e69055fbe2bd57cfb74296c331b8865c0c0f9835f819de6cb0;ekeyA=HsQ4o6Ioxsu4//pvqyJqd8ScRxkSU6kGXvFjqWLm97s3ul4b8ToKHHc1UqmxRgpgudywbnrOQx8SCNz2Ea/J+72ZodfzaloZBcGkPFP4bhoCLuu5OGqJnAoQBVuYRRbYrEzBVpNx1ISoKbDus4xuOnfHF14sLF8Yn+vZIe+Z2j96Hj1R4PaEse5997cgW3xwF8RruLxniHGrydndhZ/78u3c7+Qe8gZqDOp08zx2+Koa24BioSwIaLUYtosQZ84VDIxaQYMGIBbqeTJ6UTFe8Eb9n5ehUGJltLIZMs5StSBmUXq4twuAI1eT7XyaR7eZ+dPcVAWhNKk9kHufu7vU/FZYFgm0mhO1DoqAQS5gsw6jlHPasHo/4ZaL83X8XDICLRxbj61kvzA2+lJoCzw7V0AaMH89dvuT85+NV8F/4+n+9i+pOpqHH8TFQENOpA/1Ws18vPOzEOlmtXByfC2qei+IctkMyDPI4ToRVZgY+TVgbICqJ+LVzEbxDms24eMh"
+},
+{
+"ts": 1764657799.0233698,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX1;ver=1;fp=c00f3e92823324e69055fbe2bd57cfb74296c331b8865c0c0f9835f819de6cb0;ekeyA=dQScoN38O0KuDmmLPAxFtmk0/D5ojaSLSuJg0KjTz48vgy2OQp8Y4wfm96HD0Y0F7RaFCkAII08SrdJeiwDo42cpNi3b3UMKKAw9BfomBSJvWOp29Amsn8gDmN44hOmQOJadRbDrBT6OeLj/NQGbm1x6qjg1Tb0Zszi17tdhkSej1tn1iNGTJWMWSvPpRtrJKyyCT5lBx9U4eqm4uYLpwPOgCv55aQliutRhU/see+18413ruUmL39MF6/DD3MnIFNv0f54uPczwoIc9kaxxob/Ted1vpbjn+vmrulCBcW8NpyO45qWyT796LY8HRa+JVIj9ds0PIvg2dSsipNyR59HdKQ/yQr/+NcccO5dKn2toemyF4GflOAziyPnfvn5cn3RC6oRVwi+pEDWtKrfSZ9/R+5wVC3+wB7LkBlnLIcpz9VMdYwKYLK7RFLuWqbSHGvo8lt/b4hswZAWJvkJsOR1vi+9mjfB+QXjUAXM8TaL84NBiLfe0MPOyu8toN99d"
+},
+{
+"ts": 1764657799.200309,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=c00f3e92823324e69055fbe2bd57cfb74296c331b8865c0c0f9835f819de6cb0;ekeyA=qIE21+2J1UM8rPRR2Bpsv382EaUbZmq6P0xLNN94r0daKnPjEgM9/7Q8SxSXi2XSsXGbIjecNMN5oakJGSyyoO6QjMAKEqEzS5te8b7KtTaGeta2poQ6AzbvJ8saRikXOr8lNL8Q8zMjJkYayGskOXaALXWZD0ZVqlob2YQWGL19kQlxvnLNxjrWWaTHQC4qyHTlXsB5RGak/+5DFeRoBLZcP8ZytMHque8Q3vFJfryjjWdNkFwwPXxTKS2sba0PIhQqWM6he8thRKISDyc+5QatLfpldULIEbXMwTWQFEJ6h5O3/z5hGdPsHWY+wIwGrZIj5EWjn+8Wd0X6Uff2kftTh5/CwmCOg7r6l7W83E0RE/mVAFL8MbGBwWjb7431+4uSoUosyswDbGl0eaVYUdZuzvfRasC4i/4gC/q0W6ez5oiAshTrmAi1J5S5MXZ9547fHaMsAZg3+q6PgSowANRmR04IQS47OUKCkOfxei1YpCp1bnJVzRpoFGmKAmZS"
+},
+{
+"ts": 1764657799.3372412,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyA=oXkWb66Tq8gR+vR4Q0ubXSN/CfX8f3VpDyBxZIISiPaCyErLmh3doDJ7wc4VI1/oMc68V98qzOe9dD5hVxrOPsbD8oP1mH9hYR1/LVAxOU8/TVfIwciQt7j6byFQiEB565BNcxx1+BlP9glE9HrJ0bfvigYAOPjVTkC/DTs54kGNp1zby5H8dbQM80bObUgnU4/t/JFv8XWoe5L9NDnVqHXju2w+fWLzLem/68mhZ8CmTVvO43yS58bPmvSEQqg5WuCN4dtG8Kyp55+ZNA5YdwpmbChXpT2nDixYcoOEXsK5qPTjD/uGXYNNCNooA551pTpPJwAXNs8swD/6WWRhvHRofs6d88iEQbzppJiH5hrKo97uQQByO+FYMUUEb+4ZcUvkR9Fr20nHi/w/nk8CCjEmaS3ir3L3H7Zz6OQMsZt3oCIztCm/q3+8N62m2BBYsCuF1kjx9/z7/O+rcbEOYuyx6YJe7sukX4sQCd0H0eAfd5uIHVi0WU4yufOwde13"
+},
+{
+"ts": 1764657799.476247,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyA=b8aHyR/jcVYdoVKqPYTPHbpRwkChwu05d6FRpaxIMjovWU2D8wI0pptfDlDTvoF8g0jUzdojG9RFOJNmK2/gJK+Hnn7Zl7o9mhescIdHGLFwFDTBl0hItziNEew46ubA5XeD4kIaDFTyMNOjkALq4ucIf8xwMz0f5iEG5mO3+NBAJHUCrN2TGIjNBhMYIsvbXYEDhdOU8PwhGvyQBhvf06Rsh4WbQ94LeF1X2RY9D4gkS0n03OXr9kA3yqY4e3Ed9cEr2FGbi53JLsYIo+jEM/5IlwHOLX9UmRBW+1Up8WERF34Jzq4raj6UZfz68aKhezHvweow8v8AXUpY1TJS50NTsNdEbkw40A9t2IqsOqxuy7nWwuticJzCfgBG7WreCTy13AkYx6gHVMXxNYqbDa6dySK7UvifGpqUteZ5nRp/H9zFkrHsj/lGTplt/AAkpETKjHLKIasCKj33fR+DqhKPoulavy1rxofLWOal50tFhCyDUBYatTjWV6nnmQkQ"
+},
+{
+"ts": 1764657799.6415799,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=Kloiw6p5IK9NN4RO1SgNaSHtprnNp6D3HlqDFLqs95gP2Nnqsdsru6VHBdr6BH8yt9eqWm+4Q/1z2BM8TBYCSBSqp0vVtPvFR8oUscindk/rLxwp3lhh8Zkj/0FnVcaBxWL90QsGTdQKWKC0lIZS7xM5iM5aDtQUkL6/8CFj8biqe5E6xGkOkUcmqz1z29PDr4W9o7almHcNDPP5cZuMNtXBVuh0MKbUc7X45kkYsVGkXp+Gud+a8dkQO7YkWIw04ekbetpk79Xw/QAr/G3uinsX50oHtVArlWOKiyK/Pxo5V/RlBzfWIXyznWGBeAayGpvWl49ZZm9r1ozC6rT5o8ZKz0RXMFvZZPkRCEN+7XG4/Xyy7IvV/P/4mvCyRxseIF/WkXuRj6kB7vbJCSDmo3muXBOb0Fdm13IWn5rWsxu3YNqFi7uIOTkB9+r7Oq8JT8bXqIcIUw+w1r9s+9hQdCER4mYYWZLo9cPT/+3jtC1AQg0Se+HlZZALfsyiPID6"
+},
+{
+"ts": 1764657799.7949693,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=ZurpMMzodN9h/aQVWJSF9vNIRSX4c7zCMY96XTJ4sokP9c+2ZajeRsWVL9TdmIOIEGobzXvlT5tySfDf9z6kJ3aD2UmxgEdDu3phuS4MEz7PeRsLlK/uV3j00bEfxGVaxSi8ZZsqJRY1YQcGvjt1epiWAm/jOBVZ/A72kOhteCdJdyVRHWCTL5OHj+SOat93p0SxpUW6zUTaML9kdC6YDLe8qlV34mwIgOaa64IOHplgJxAjd+2lBekDhG7gxCLDiMtWdsAbPgKo7LO5QyP23+v9BKnlTgJ4MdpXWtpV6a676miPUN+nbdBlVtmzFJAzxteOJ9jxsO4jSU1G42IS4RKuRPsvrK/W8um1Hd/8uZCAxIUYpj1EGRC9J12FOVgUSa7VhKPSuMyO6qOKp/EDhXpyxSwzhGlmv4wWPqzpKBC/zEUIZJ41Ljwtp61k3CVYwdpiQDP/E0zp+jxOervtzwYbnoHgpUNB349+I8/M7pdpuW92RR2t3o4TWIvTdBap"
+},
+{
+"ts": 1764657799.940841,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX1;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyA=M/RuIXV2oUews+O0Ypyh9gmTaUTwFXb/1OyZTT9ug61Aq/WdaRb3gdVBrk4O5yGoshVB4faoN7AdJ09XxiXE/yrBhoVrHVjJPJ4xSsPBaeI6MKzGQmfxkC2rC4/ZyLdarmR4mMV/QDYdUv9Jl1Jdv21QvJWroglS6A+CuSUaRLh4oUPWKEvnzw2n8Pnvo7HoYNmsUeK3B1yqSfOeJ5klgJrmgWOb+mCWcoi5GxmFgXc19aKQkymtxJZ4q+CoZAHdNtpqz9scEZl1+BGF0Zcrhmyiwu1/DuDyBufYEy+IeShkDwllKgMRt7agD37yKIr8QeGXjETjTJvmCbdqC9zr3o/qOFoE72R1kU6d41nGmrql5N5R4Ma01R+ghqGjHBlL3DwIYo47YHM9opdrfu/o1wAapX1Kg5NeGbfcWQQHhebJtWRDJiKbM9DZxPTIRc8n50Bk2aUZ41oDVViEhtatYwLm0CHLOfhigCfIiCZUfCLEc9brkN2MRvoSIz9qUxFI"
+},
+{
+"ts": 1764657800.0674214,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX1;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyA=ZxWAId6vnvZJ/Pv5ICNL8F7sV5Z+A4awFIZxtlwHijQ9EPupIaqIn+tIr+r7Ye0iUtH02/x2n01+4GS1TxMfwQEiFzZapPcPw+PPDFkXJ0a0vGl+iXY+7QyNU+RfqihjY5Mmv+X2Ip/4rVfoF0fXMjOQJCVD4UuPIKvnbsxG/kB27IPV7v7SUqmwpVYEtVINL638mHYlASkdrJ6RqAlELCHdj0wy28wRGebDGNjnSQtisR/unAHmFvsKZH1HU0gN/d6qeu8pJ4u+Xd+tBtO4NE1K6fTKbAd6CC/DjPpiv9YFZzkMBXvivamKChGbINzasP2goa0iG3ZKLZb1K535wiIXjdZYcLsz3isY4HSqKOiyEaz5jaJlx+aXWuOVo8BBO2RMVFMxz87XgNJ5G+Z1GzLl2Mnwysj1pqQMcv6781V5xAveSzkEuP2be+/1Rriu3RuXrPyiaAoY5Uy+d/MaAZzdQSe2DBWvLfJvnaE2+lnHhDe9P8CP3Ox4psSIJJel"
+},
+{
+"ts": 1764657800.200219,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=GXnXK6/OzJ73qDMikPFMiDePNx67AyWKi6eOY3AVEYJSeziwcrrnJNk7PQck2uLZYc/3aZOPvKhI+IFX1vtRwRCPybUfsL1f5V5ncOygFCUdC39vRTU+KUvnTsD9IC5FURu4/uMcmCaLZLqy8htuwhfjPKiO76pvlbCe0LXM4+js2yDwPYm0yHiVqemUgN1eyuuT9CUfe2PtoxMxH3QJbtx/OUgdpob9LtxDSn2Xfcxai1Om3D1j4aiOw//bmQl8eQ/HHOtgDoPBy0yj8eTbQAsLoebln00uBylnP24KebbyPz7lErcvoPH6s2jJwUB6y7NxDlmHgAyW5uONTEpd1SQD0FlWRXaCdj8d5fmvZVOaCTLhYKMSEmviVobTA6LF00IwrkfKD7mL8UZftTStekT87cG3q3dUo1+JBrhM4kDG/rvOQiZp6QaRTh0XijcZbBdb4X7TDPgoq/KS8Kc+SX4hMYUsIfGk9nYsed9I3xKZUVvEuRU0epO7CP9fDuu8"
+},
+{
+"ts": 1764657800.3400605,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=VFA9smNBuxgObrvs9y+gcdswC8IbPHmwQhbljBw0jzM/sc224wA4b7OCRhO7SqMV0VZDjicey6PYL4FUXYRKIWgVGmIXgDv3UjbMu/+fB6ProwiO3xCUKinA28Sh2ZC0mV80+cjdEaIXdfxTPK7bvENHuswviKyF/+30Cjq9MdDV53na6Ol9R4XzBzKqit3CE1HPqVg/IH1Kxwsg9INuBnv2cUtKnTS3zK9Ta2+WjMRnkc5Qia8+GFnUm3RLc1ulz6Hz39kzrkXnS70z56E6TKZVQZTRbkw1Ff29ZicKyVKyKF9rbI3EZBPRH6T319fV/DMgN9Jy43Wa+hNiJoLwzDDDE9Qn2VOjRj+eimh1er1ClHTHptlWGfu4XNCttLRKjltshiPoS73M5cp3dAZGXZT4+BOFlB2lUzYKEvtWZC+fR7PiepHceWtnKRAaUUDooVC+bMoNV1eVZL+U62ZkcQufst8NxASxZD2Ov/lY3tvkOUeEDbD6a1KK7EP74s7/"
+},
+{
+"ts": 1764657800.4770136,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=gbzyPi9L245UZiml0+v8WEwB5aVM+HLCsEaEERabnBEtjGtXChtjutfTQz16B3lsPbOS552ZVAASTprKhv65ZcpNlsLLWNvBtDT+c/Wk1kmKTrN7GeAgR8OoJ+t05F/L5UBwt3hl7epPEgIxvkMpBf3CrbCem/KoetPRcH3aW0VU7ZPauLOE431VsbIINJ4AIG22hjmhTtvfWDkSNJp11CKkvFOwFEW4fPqHwS3CBMuV/iv6eiodXc4KS37eC2nQ0KH9YqfRts8S+f+nS6YVPUb1Ny9xmzHIO1/D9BN315JgUKsdsa1hfr8Vt0JuVTr+JBLBM0wrFx19tcGRFJzXDkGY6mAM+9XZotu36uGsp8WDY5YmuxWoWJk+W+wzg5f1lzr1SsfdukiwDVa2FGG/e3vIJj0vhiJVYrFLbVZRrJ/j8BnBLHR9ZnWDVWX1T25y740zbaJq93E9HQqcZlENC6WeAR0mJi5OYtcBqP6uTX5ElcT5F3o5TJjaxzuz+dMR"
+},
+{
+"ts": 1764657800.6499114,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=Q2Bi10eCugc3dKCBqUw63my0+Skubl8piqFfIc1xzmbB7Ndnou3YNpOXhjgzyJ38oa55yBAX+BywYWfOy+oUjbjarvxYIJ5lq/d++DDbyK+ecYNJTuPR+sSa4Q28L1a/xIFgtny5TyZxyYv9ELai10KzOYUwjsjdk8ZfeumkRW073Wbsq+rr1TNURJYp/RGllm5SxKLeZ/3GCkXiX2mOJVxcvydB7GSOHlUhGZLpXBg8E+Mf06kKf5gLqq97zS0aWd6FayQs7008fBntGcDYaZXTvK7uEWjJwBSDLe/N9QIhKd0/QtNTZaf4sZibxOuDsvqS78kIpzhaWTMWnRp1C+2oV92j1YUxGYc4epOZf7HbPrRd916eTiNDLUWtkvfX4Fbt9AORlQ1sq1tM0Thf5D80XjYux6iPReUh+AkUbO+6geRjF1LW0rf3bcG6EP1ObVu5ESfzLit/3dnTVe9hS4VVbnndpZa4l/WgkXpsKiSiF4NyxB/CS77e/6jZoNIA"
+},
+{
+"ts": 1764657800.7822268,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=C0aujigccv3IHLg0makjkjFMClCaU7jIOGFL2JXS7y7jwsKOvskpVkjRdMpwb0FiGP3JY5LPBd6WFq1zv9p54YDZl/sXkeV2hyOqxavNfSORNvGl2QEgqF05bIb/EYvCCtgMX0XFhMQ40gDit2fBiqbpG0auy2SBReVN+3xDbJXCjbn9gKavecCPWmuhN8hLnuFZrJeYn2k/eF0JDy1qnhTJdIT8lCG+MZ36dFGJv1KStnm+UtihnSa0DZUQQQG4iYsW34THXI2FvdJcoqUYk1pcnHpaiJcBpCd9fmTHSg0yd5dn+cEO2QsHZ9vDUO4jOXJc5kwFir6iGAnkzamNd6yAewtMY3PlMzTkhzvpH0Gnl35KMd7r/o60FC5drA3m0wEGEY8x2fImSxRM6ZNWPkLYouxkYmmce0BD0yx9V7+D0+qQAnmv/bPGmFq3R+4gJFxmEsmExlrFdS56mCjK8fGS8yUS6iV6+uIBCUg/ACJ0hoIYQIw4q8WDip5a3oCr"
+},
+{
+"ts": 1764657800.9130192,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=I3EEgMCK+ohQY3I2w1vWWbhiW4XaezbL9JPP8bnTXHz7VwnsotQawxMHA8et4derix/yaFiJE4+JIgHp4N/4BIb/71c+WrEl3UBzhbgxFIOut3Q+24r5UJAD8COWvPaXIz28KlsqO2t9HnogrybFnL/FtcLP4pD7s8Sm34TJc11dhJS7T/+V1blLwKWFEHMxSZOPYbAVSmW5jzRJHRqgspH2NUC69IFB2BtExfVMFeloL8KHWbceZbZZPHEta9LVLq0UNgDY52+gLybebap5ok/SO9BmpfoO4Jd5ofMNtEBKjqSNs88ZqdqJ+yXuQA9bIhGYpJWFD1skeJvFQZzi/1LWldGbpmVGb5+zFZjQgB7z2Dkg1XRv50LR1AzHM7tJKIyYABZAKbrINmrc3Z7luUp8oi+/r1CaUADuJD+O//eVtLjhtjp6jNgWRJnyA9JT1BhP9qQ+lW96H/rffZVImLffo7V2lOmg++fUSg081ZL7aXPr0BwHVuqVf2nJANKp"
+},
+{
+"ts": 1764657801.0488656,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=iRTGV6MqxMKckLUo/1T11UTQ5bWZrpj0QpXL6EOhC9q1FR0EKDOAXOcwbM3vMjf3xwZ93mJlDivkZHMLHRHA83S/ivApK7aYMvEnt5CkgP7cbWCPWXwggClywHRBfPYV0WRUFIHOcpPGeQkACg89GMic6BjPbnRcdu206Ekzjd+6ZzG0j7Mo5ZTCgD+EYdbj8Eduwj0LC1obO2Gg84U9brexAur0qxYnJZFLbZWwPSPwWsw/Rtj3QRdAqZEMHmhmmbKXFvhI0nGh7sKbB/Wv01oZ57ijMOXLZO1pqDy3yMNDou3VVE5UdmELOt8ydV7TeVRlR8aY7oUVz0YB0Lwr+cIH43w5uBjigCgJT+/fzKuZlAQnZ1P9JRItEOC9TEDsKgknohcs+0l8+WXAG+MiMNtVAFHifxrn1tiRQpR+DOOYcOyVrlUCKU/YkrUT67tNfTm5V5PbQl+DSd8bwR/8dR5gauuLxRWJcLftnJwOYXPHy22x6vyjHJ1a67S4cYnx"
+},
+{
+"ts": 1764657801.1708498,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=jdofGCsNjUr8s/UAJHLwg9Y/5Oubz0QHyvw/JHhrNDjB0N2KpEGITcfd6CysQPA6Z88iNEXaLohVxbMkYJP4/sSuYZWGxqJAADjHmeJH65WSpKgfqwI6D2iarnbO1u8Vuw0Gp1Vbyy21clsJuVRULHKckGS+YtstDNdUqNeNJFKy+94ITfs3LYd/a2zfEoIg8YcMM0i6rjCqp22cnwiB3nIbQpat6CQVUAtuzPuDtuPN/Ge64g3xzYJBBBrvIq8oRVWNHXXosNXLOxhrD8y6vGrwkjuCPTr5VFHv7GEhkJ5Q7bm1EKIGAoxfW4wFtLW7wj7sRPC/Ypdpo+fDJ84OYfuHL4yTa+Nxc6yZ+7bpOQQczvMXGQ4t5M7JfgSaugUtjcOT/pO4BdZYziMczsRHZyc6BHEBHv2EE+xvZPmoQwhw/G2JLGeTMtDVZf634QqYeusba3lGCKCgLbcfa8SKDl/nLQeMPHuTnXCFjerGOfZxmHyG+d8x0CbsVrS+nzAp"
+},
+{
+"ts": 1764657801.3060398,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=Gc/w/ucBdCdUKWeoaKj15h1QDOJaSfSUGyZn3NeS5mVkaxA1idGbSxgOb/0D+DQI3H4caFjY3M0dgFqrojdqDOw9Y4TfKpHkwfHtfkXpDHFcGTatEGqi7ioszw1daNirvk5hsd7UFrTuHNtFQvsCWBCxk7uFCRqW7dC/w3wZj1SQg3ToYxyxHx3Cs4MKFPLvNgHNtGbhmkjwjGJVGP9S5pwcZdOUZd8MrwfPk1QUfg8YV2rp1fzFth647Mmni6ZcSX+VcKs6mskuOJGu6XMo9nncg1wrriuOFEJ3/31oCgxt26OanVsy3fx7CLZFtVquEnRC8VT+dSNqEclt8ejucmy9gGtH5ZmqkFVCwxY/I2skrnwLvTBz3CVYHgyy5hyez42dG/+KDLRiX9q5qy0vPqvr1sEGyqpPPvWA6Wo0nAlPcM6FBCx0Yv9hBtJDclXAfQcJG8g0weFWaAag9YMbDCxzx8tcFVUiARjuR1SoH457exIML+19js+eHLbVACzM"
+},
+{
+"ts": 1764657933.2360587,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=c00f3e92823324e69055fbe2bd57cfb74296c331b8865c0c0f9835f819de6cb0;ekeyA=cvNG8o15myWLCfZ/j2H6zsn8Zv1pThtLmtiSsFXAPnxEdyY/K9KyEFID3HEQ3NXHHMn8wpCl3C5nZm/zPtgdzVWkGShz+b59mvgpPEqTz3TlWKaf+HSvaLR1mEG8QBPDSSdUWPIlQViDT6xQpegdomNUV9cQAXIkimilCAAuOjl4YthUUxBhxmNB+Q5xuhg42nxNEzPMhVwZqHz5XLJQq6KFFTXg/w/IjnXeQIFZl+n0D7UcGld0gws9tgW+eR4y815lq0fGIltb3Un6YBVMEQ0IvGldYySPgUshewzzOqatJENtnkpVXu7XnT4EPOyCRnNJYKrpFaOf6RubVDudf+sCal69JTzpD9szVNYKSrgulx+EIyvkCfrZLYtgLu4QGz9IedywAYbuc0k7KW6E/WSCPAyQp20ShBKnao7s9xp0J0BAUNUbAKI5WhJRxLpc7Z7mDk2SQFgj82PnW+fIuoginS+e2eXQm4SrwehGhR84cnSrLvwmSW5A68l7qUxX"
+},
+{
+"ts": 1764657933.3810282,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyA=D17Yw+tIRTy0f+VzkAlVdTjj0yf+JVtH4SyVcMxLQDdGb5LKKEJ0qE3uQv5PwJNbjZzTVGCEC0T4W4D7XjTe0BXVqTGu4ijHjFfVUga3/LnHOQ/Pgz9IwzJ7oCI7Vv2CCIeb0okmottsFVl5fw63yi2/qNLsglHRr1+5ZW8Qum3PajYdxn6wZ+0hOgVt3r7gcYYYm+fkwVNmt4bvnFLnfzAuvreshxrtb2B1pWRMNGwPg8WAF76pSctbwqK3hFfwDrP3MwvyjzlII1109zRtHaxVwMCf1211glNrP8Fi7kX5lcU7Ta2MjvABSZAbEDMpGaIBRIDp8+zzgn2NXWd3gJmBoR7ZuuSG/nB8e3/QZ1gawsLajo9aftNWvz0xN4Stl0VVQLLU4neSyC8XpptRTnrvbskqx5T4atMrQAUVDTDDYg3AdSEfRL1saXAmlLjWrZUhRwOFwSRyYKclvr94wPX0usg8HKSQ+Dd8HkXJPLjkwBzBjghvgQ8PTvhz7FhY"
+},
+{
+"ts": 1764657933.504097,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyA=HujG3Tr5bEmmfkucsRWMddOPrnDcW491W9FYbLhOIKVSQk947iR0qbgHI5GoXwPb+rI3ReVGGnyu1abtX4jOLpJBRIZaujSX9LfMm1fQrAh2RGunkdXEI+1Y03lZF5RQ4YKvHe8iGwVtpZ5zD+0BjkH3baFXU2asYqL3SL8wOj26u7WmGb3xqQzOTSz37bjULle54uIrdBdDozOIvQnhNsrIV/Q2R+xshqRp3bJYMpo/q8ARqzXAISP+setx9r8low31okai2DVo8pQdz9JYDwUYfctBcoIeIoLHatUKjodcvohDOy9gjjGMqsEqvZHxdXCYU266xjjSR19x10uDS7vV8qWIBiqx09fkschL0A+t8vvbqek5Fwgl5M/KWHQ736JUjJQMm41wGuJCFL7mHfmOKc9c9XgoNEnIH0oOYxFlyalhHrbvMYR+xmYKjdlcf0e+eqSJj7B/iyK389GBYRIPwE4sl01fLhylNBmv6d9DTMRszjDG20qsnIv+CpRh"
+},
+{
+"ts": 1764657933.6290224,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=c00f3e92823324e69055fbe2bd57cfb74296c331b8865c0c0f9835f819de6cb0;ekeyA=U2QJ00wsG7LiEd/Gn4fiGVJQyheg+PKt+jM9ChikSMl6ixTpAbY04WOnBX3343G7HO1LcMi4FyNrp1LiDi09+jQ8Z6BiUlsF7t/0bQnJYrGyICRmeU3st/ZU9PS/1UV4bSoW80FzojJ8eH3ayx/tN4jA01u69qQxEbm0WRfAKAtrRiHmRy7aSgz4VtFqGQTS8cJ0/8NwLE/Fjy6dCCDGRtEVJ+wuALUj30Pb8VeTRpfZghcTEETGHhnfmGIcWumhJE9PSEccFSYaoU0l7EIFpoMW6OjO1Z+ez5AQjfNjcNOdZfJKSnbZ86qYANcPwnsB8dv/h1vio3/4CEF54EF9rtwOi/gfKuGPuv6EHiKNQ5rk4BwrigCyydWQHTsH01sWvOwl0fydoUEy9tq77G3hsjxaTADjk2HE5OlcCWDdKscNWIXYMeiPpvSg1Wqno4UIilcQ4f2+TUDP539pWwxWORlTQ+x+o0mEJFVpEMjynNeW4TNh5myGfE/v3d8TMpfZ"
+},
+{
+"ts": 1764657933.74872,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyA=QYMQUtl+ww3qb7hkP9zn2pv9cb+OXzCPKQYfDkRvE9kDrTLcq6iarSsMkmnTy96oDq6v3gPduCebFQPr+bOTkc6HVRRuCkNBMCcKesd6zRSPLL8q6Q8FCeknfuJiNludcGUOs/jgRKpzVQ+fxzot+tNxyMaWIjbBUrY0Pq+xRdAZejSYufDhtvGL5o7TvXtzx4o6sDFHUojvcV7u5+aM2+xlcKmingiKyd1m+V3hh2g7+yMmf5lpeuFjgt3Eu/BnnRCejE05cwl0m6JNxp+U37g8s66E1wWnbcc/Rlr3BnJghU9K08+Ph7f6plpXy2Tw+fbCG5iDFAypArPhdU3JJLZzsaRpsbyJ3FUHEnwukjEWzhTvNxxWPKxvb/mgelrvxI+L4J1EzSBXARkpPh6OVJOSKqvG2gaoAE2ZZ2YvrVKgzycHZ02ElBC0oX0Y+pQG9LxoWO7ZT+rA+ECjXXQ5qErDOldIryTAZgb+1sRIUHMtG0LCg5EDg6m5pcdShXXs"
+},
+{
+"ts": 1764657933.8774722,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX1;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyA=f1/LLTrPoEuJvaEgyFoRhVJaupV0Cdrno/aNfz2MiGthN1OA6MbwDGdrVzyM9sSLdsCnYp1wD2Z6tK/Mt6Xzq7VtDbKezV8nbFzka4mKWvPT/OPmEJ9Oh+6zuSJWiT7RiS/JoAYsxq9OY7jY3OToUAJArG0gJUQ7oObbmMqYQgZW9yLKpveOl1mVepB81n9vhfhVduKYBTRP+BZT8uO7H+MzzrzR877QI9afvXGW6murTDJtgb4JcfqLmY9Nd+Ug5/sePqH6wixyB/Q1Q/qlKFkRNcc2EKBfIS6wy4Wdf7mzDfbub6O9gk7kZKAE2Z6kfSvzsNYHjEUmMnCltPxSv5vdq6zncyMgJfZbOBNst4SDmP+TdzX96rW1BUMM9o+K1XJC1HjcMwKnG/epjhVHjyV0r+HDSAz9Rh4C+7sIf3zixx7sPxUX61+0NZcW+zNRuuodM9yP071V2pzbirxiCzS4yfoOdea/LHvdW77anchK2bUSgLZ/VwV0Kf6pN6Lu"
+},
+{
+"ts": 1764657934.0004058,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX1;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyA=P67VM1VEPcJADM5VBxq9QGBTpSbOP+CPgz/hr9EKCcZla9z2LQCSyMnRxaAttjiBA9Gcejxdv76yw6GLyWfTOknRqFuXoXk4bAGYynq+lfwycDuXKohOEe6nNv213kGDMr2SdCXHHB/tk8EwuRHamuPgcqTK9zhGvkLHYnjZKf4KjJdeqNab49Ntm4+dn56TIBgUITNy3T3hsmxp9uutBXgESzlxvcaEPH/l27ETV3LPyj3ISzyrn/jocJu68W7Ost88gK6aft4SvvfcG4h4aA3tNmBZbTs76/osi8Eu3+YBuBTcoVZV6D/eNngpKp80PnDYVNAXM+JKlKvjxTMCSblHvtfcgnG9N3xlHQCG1WYsC9HuXseyL4SED7jBlrzAX96ALfGZ67GnOwYhvZArI5WpeohygFq+mtxBjSdWIqsWv+jayr6HF1ENUyUZGMYVgc64K3lWSGvtlipCeJF8WcuvK/frHDuHJbb5nO/+BN3+rnc/79iPTjiw7oWNS2oC"
+},
+{
+"ts": 1764657934.1279805,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyA=pmX7VV8RxVq2E0dcDxuZT1hPUNFx+6VfpJblURU+x6yz3p0aaOaYxcoJc6K8r4chSOs+coH8GOkOlfRkIUNYmV9lga+KkEGoJ1hhoe9FSwiG/ZDQ77N3RrdzlVpPA3KQwj5FcaWar6KyqNySvxUfgG8WgWuvR9ME8ZYjoa9ZkLC90VMaTd5dcEoYqtr1v5i5rHYhBHzBzyAAj/Bh1nog4WIuWm2UYO261Q2UWHxR1/yyDuID4yJ5nHPGHm1k5NuBKQuAZPBKJ7T9iKVV9Qhku5MYk4sGBXVbtkWxXhA8ozRW+e6P4UTmbwIvqaZvowxzufgXCk+qLpYLBuAxBAo+K6pKI+AyC+70Ny4vt/iOxj9r9teowa3xy/Oe7f3VqB9s8OdRtnxaLAGddv0lFC1Z/Us7DFV5GUxNR2aVbJaE8BvSvWLzPnSNtHG0ZdiTjADTMORqV+LB5yfmVyYEBomTKP0DiQc/gPqp6r6mm7HlYvQOGidb6juijztXi2WhwURt"
+},
+{
+"ts": 1764657934.2533786,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=QBxM/KAKRTPQHzW1Wfdqi+JHgypCNpUdRjLlVuFRNP+g3n918g5y+7CTFCyx3KLjxE2LZ4l8RTh/aGyGm0Uu2bdoQD1drKPgUrQq8npUA/nRS5QrWo3y3tyns9qlvPgHcP3/RC1dHNrsGGAkYj7QoXceZ/XZpFvGwFiFeTeLJsirZo8HqpCQSx2NJ3NATaln+15/TRPHJN9KwXE0kQaSabNZjF9eXwSUXZo4V0tLlwY9CMIHY7XGTVyOWxhJfidUB8m5gnuhKcTj/SAntVRw127VhNAkttV2x61EhOQugisOi9OrfPP+Svb+NR0RKMcaj3+h82bVY/4GmFND9tim9rpjrcqGd6NUH7V9Qhpn8+zlSyRT6zVOTpTZvT5s2Ue+XIipE3BztMCNlrpXfFUab4gNZdekdfpBk6eHdB+0V6kB9kmUT8yjIEkjqQMSNPRbOOS/GhPgTKSNBbrLUzNVqSjYKykN0yRGdSUuwA4cfqnTsbl9zKvoufwy1wIeIqwF"
+},
+{
+"ts": 1764657934.3981693,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=c00f3e92823324e69055fbe2bd57cfb74296c331b8865c0c0f9835f819de6cb0;ekeyB=D2Tzj3jdZa+Wd6sAmdg5B/Yz/WSfkka8bd5mVCNF7xZm59BXSeU4ySpKIYqNkj8Vjj4JR6pNuVq8zUHY7yi1/icIzrVuMq4eB1+G5p5mvgHVV9yQDolS2pv0+MBd2vx9Bf/BPLvMCNn8fX/yyNXc/Z/RWhJSfo+8CMfFh8O0DjRigRRjuFj5EuWUg+PV8OjoVm1r/kLXN7i1w1QC0tmtDdT4huT8kR/SPWINhU4xiz2jmP5APJnIioZ1K0VecA00Yal2tU7KITUhah970tObHazTYeGwFDV9yphMBcUX8uZJPeCSmlgRHs4VOrC57NrWUxS+FslF4kjbwhouFLQnAwcXmPQStYeX6trxuxbfXidt3r/3F5J8KGOOeaNq59zkN1Kr8VrGF/uKluyAoSI/konaS7RLG9Uay+y2130UfbNh1W1o24q1kPYKyzNuVh/pJcRUEPYF8nXuzUGDbdJFXmqfEsyBM4mza1DHx0822dCk8r0Y3lspQGky+9MOIkVK"
+},
+{
+"ts": 1764657934.5732863,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=TiEI/4FQ4hhZGne8TXN84ePpAJ2ePO15VuN9uYBBppr9CiI6YJxd5/L0HeBjNjXB9xpd6vWQEcer2ibyAVn5NqtXr6E9YboSThgqKP7mGm5VXgTASDl0pQxiD2wbQj1JGD7r4Lmwc0WnWXb+m5zcNl7BCzFNJ7MNYgwUPSVfrZUxpuHvMPIEVd3W+lUklnlN5UMFczUUWyhlCw465wt85YMgD50AqCPjaLVDRuSsZM9tWVU+yaMUiWF5d/NwsnJ3e2HrvPwrgZZoTpjzeIyQauJ7jOIiVG0wwStTl9Lx72xxijOAZIJbIKQm1/iVVouw+ysisYSMyjaqGqd91NWYTDKpCjLSRN6VX59DSLR+5ow1ptrOUkacbAQzBHFQCDYngWcp5+rc1UuCBrcNharaTSZZBLLAvxhvdlUSqofGY6HCO0UPqhRsrmQuE6eHD+dVjKfQzvAM5xTCeK+KMU8Ua59PpXEZEayWwu7AdytZQmnlzQKi0te7JrP1LqbOst1/"
+},
+{
+"ts": 1764657934.729025,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=RzCFbQrh1FRZS89WvM8y1aQZUT3jeMVMcEZlqpwk/wSHLQvL0Cka1HDeiLtpXcp0qVFzICTG20u9J0+O5L6HFHjp+nU7TtZTeEYyOW+RZDHk0DoQTf21Lx/ZuvyeKOPN1W0mn6UEvmRx31F1VPoePWJSjiCUXueGkw6Nq2jKQhfjfsn9PYg2iYax3xRpBhxQGMkXDRM691px/cGUjE/0zSo+2R3wCNUwyPvJRpEQ9MKUFD798d/gJ+l2MImQsT/DAJXuN0DdsdAFT4ndUPf+jMo/3uY5qsK3SVG3idCGrFUi4z/BfZD19R4yjcKeQZFr0fxbKfKTcvLSjp2YSPRaogt8kRaiYccd4RFnhUs0jlOtS/QeaniLd/Upe036DPd/INl2jaacJIPfvDOGRGYFhQ7ZOXuqD16K5l4F+TpeFb36y9GR0q5Q6U7c3ynX97EkngA7fQGw+6ONgS6jS3YaE9bXhYbnfb4gCGJh5H9AUqlkhO9ebhGJQpiS82GYRoMr"
+},
+{
+"ts": 1764657934.8728616,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=XMH+rRd3YNhXP92hvID2STAaP100lHiii4M0YMgHff2H3FengwFOkv+t6NM0JVl6j30C9bKbXEiCyAEVe80ufZjj6WJV+NThAM4e+emdVp8BCeyaaatGiNfR4twI6XYwi2KRTe5C2V2SuSN8SUbsQ+lzaVHg4LplzCO9hatIhpQKfNTgT8hPUrGheu0oLIGzPjlx2dNO8VuTLkpi+be6Qx0iXU3skirG7l+zl/Ub3HGI/IA8Ao1S8e9K8BwdmJnI/ykEjF9rBphLsP5iUSAkccfkmDDezWRxTuTgryfj5Gq0KNgFTt8FtKAc1y61dlvoi57l/CwcrMd4cDykAZJb4GpffOSUglXOofK2uIfviEozQT3Wr8BaY04yQ3ZgBb2o+TkJXjoHwY9ddCN8cMzII1jso4ag66D6rYTuYc5sip8nMAY5YfwZTnAJdnqCvvNNg3pneFNNzFs6wOJ7pZ1xQDS+tFfIPPKmICp0wvTDga1po7+XWpu2BwIlt0N6UPdX"
+},
+{
+"ts": 1764657935.0056713,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX1;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyA=DG/+FIenHY82rye8veUMlVLZ3Zm4tb5La2lpJvQ9s1LpQdLDZf8cNqEr1SRQzHES8Lt6muI2nTSPLjTcaJZ4ADhrgZUpz5EwfBshSXIVJ2iUb3g/JuDYEfmEVdVFYqVv1/tXuif1hnKwlCYQxe6iDYNIgHjtJg99IS3LTdAm2+4EBHdh77m+csTlcUv8sNJlEKsURZw224pKttb2AKA+3RllZjIU2KJpFlSPGMx2jm7l7wB8Q19/EIhEad3jjSeDrpgPq2YsIV+myz0fw/ajrMGKLPx0FMJomdeyokuafaDrmoXYHLt3RVT3ANWxbgMsRqRKyAaNZCiax2vMBiuhrSlvFdweXGcfTmdaXmsg8MsIez4f1sQqSCuQP8m4wRhHPpj0U1wGMqGYvDoBl5pUJOhyjlzXmsc7d2gRgW8Pe16t7GVua+aICgxlTaJI5o8xh4ZU778XBeM1nzszjO8rjKTTunClUrP+GkDp8A94MGyqfxIBP28itT1ZxuzH4KWR"
+},
+{
+"ts": 1764657935.1729014,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX1;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyA=J1zyOu2blSKQ3G43hI7beYHl68KTM62Y3MBXKTxB46YFUBYCHOfJHS12RcoYUZ1G8yxpwLx1GO5fB8TxNF92CBZLlT/F9V294Gnku7x3FZrCL0dvBgwZ4rKp9xaSYlhRT73vTgCy0j7jdnbW2GldygAf8bivxz5sVVpQLJ7V/xDbRrD01Wtc3+IcZtJHuzEv3IgT4oO/Ap794Nxf00RsUAPH1qfYYKKMoX6mtEE+yphJ5h740bd+8ezLdAvol9fWoYbB6LjDmfgVGGvDJglUD2HhJx0y8jr1Ytr3p+AONHeTXTywhhSy78M1Hewcozp1NfYpdc/7KTplqNu2Gn8APSY3J+c6Wcs2DqO60btDpfebcY/OM6iEY52xVfCoX9oT12/tIztnzKyGqq3q4Au2gRCRCThvPY42Eqm49yPqaqN+3jEaP0MJIf9rsR8nypzdmB49QFztLf+bXSM2smtdFMeLaCBOdHVudv/IvPMOEQxxm+cZrYc5/Sl3T6y3Eb9O"
+},
+{
+"ts": 1764657935.3028,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=AgYXRf1YJLflDkZEd7jpTtCrHVKxqq2WmjneMFNwFHXCcWK1EbK11SBQgjPf06wlljRQtDlgp+OgI8j2PuDymtm6ftHa8mHHDr9Htgw8x1lBMyXacYYSPHe+OCvYEdkulqX6gZLRXYMi8rWa8UMazs1eVCptZh9t3mW6nPRTWBCRJhc+Dq7ghW1dnhtLFOpahcobBh+Mk5RXpzIGUruMplYwyDne9Ff6rl12VyEGSvzoQ4/LWz4GWP3pK7ZjEK5jLJ5eXDTNLj4Whr/xrKZlxNDm+uK2hggnFhtK8uS9/35otb7+xHJjLrl6LMBb+AWlxafx0P/xPh4UdsYC9gQfoO/MpQGeINfuG3p0kLTp9XnfoWmXUUM3xJ67SqAsiua4rJtaAjIbS24MhFWn0uilAFDAyvnBPHq3pEw4cOlmHceAb+7K4H6XRZ/XrV5dmpBgMs6nBt87v+3DiTQOcT47S6JNrMqm6ntrBMp++K7BVzuDCdYW2fe0hmuF6a3RDurI"
+},
+{
+"ts": 1764657935.4262567,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=XTi+D0avlSMeRnVJjiBRMeLBFaFW6A2cpvsGo7iWPy0YjgZdAiq8+R5/emdfiPNWZIAYxNo/YMh7VpM9qeVUXzfeRKj6+JyA0jdnJaRCgl91aa7LSiCmNxWkMTGRgFxJgLnuoRcpqMkcHdOYvuVCuztkJsmVNXlb5TgJpMNEeMniQJYMEiinnGmlfSpYSEeyyrxLJZQJhi/jii92m4bMNL5FRh5JlQgC3R2HhuYojGyNZ5RupOkMIVjC7kAVUYUBT94rEI8UxCs+oRMGQsUgVkjdwy3YqOGbJ/H1oxQNcug/EaSqh6fq8oUClKpwOEmcMx7WT9+xtQo8iFFAuwTEDAEFWVEOESK5HdXmw0WYiG1JYe2DeSTqFCu6fnhcrZZEE/uxFLvQoIKO8Ta+0PG11Ufeeso+UWqwGjyTzgKU/vpq40nWWbbVIj9/vHY4vqDuqt434JXy5YfYxvvjF5KzMxhMcHhgfFX9dj5M7KflUsKQDt25o70l2C1Ik964UKcu"
+},
+{
+"ts": 1764657935.5638776,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=AaQNboX6vY7V2TfFAQRe8yBTPNlHd0TieNwhfh1w3QdB0l/Mzji8hy9VQfUP9YYDA65z7GjrgppmcQ9979xR1S9y7McEaW75XL7xu5BbMBGRGuMxsLw9nSSyGXglqpfSownsOgldOMZ+MN+ZsZ/2Xj81P7d5MuG1YRP+4GuJ60q0757xSoZenCV2LpFCVn/6eni7u5+XuTErt5ITYMwJjuJCJlD78Mm/zvc1d1JAVtWuClkHWs952ei4aetkg13UpgtN3RxqPo1ahXo8R1Ep618jHOzH3PqN6gBKS3i6dbsZ5WazRJIddko4QOKBaW3Sh8a8nnvMRT85W3bRBIGtt6TMVjfLGMEEu1naPnrVTibRMf64mdphqr7pgtKHgvwiIaOjIBJqZWPodkU7nBOfV5/bMdSI0kWQI4lg2bB3slbxJNaf9v3VtsHMsxZt4+7hcDDOmVXPhAg7rYu0e+a2AHFfF6DCy8HrwCaFcJvhcLrkzj6qOXtytrhZHN/pvpT/"
+},
+{
+"ts": 1764657935.7109096,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=ko7iQSiS14Y2+ACciVXYsMPBgOpvsUQlAyXBd0Up71nzoGspuvaBqtpyh8l626PM07f1gHYodRR1SpHXKJ0nSTUoWnkXwwztxAIhbZ6FYMGI/bib73+Gcf68U51IaHMacGc/hllXL40gOysVq8DUAd/i6VSAGdXVoUC63qQhRUKwJaydxLhoLMcnRdMBgR6OA1l0BNKYSOiooeddobRIeQdmFlBnnv7HvliJp9yRxw5doBtjM1NLFmW3lXv8l19wnuOeAeXRv3/E1uiC+WjAjSOWys9x4nHVMOL/4/xarF+Mmc8jcHN/dC6sRRmpv1bQRhMM9jB6iE3UQtKdBIemPBVmgXwIUevJksK5GNEXqm1DDW17rGwmDd64knwmscvNMYuOlVKi9q7ZbBZDQ5e7wHgazL5NESKFI0ETgQlNwRyyKdlJ6jMZMjKQmkimNEMhZ67OVW+xphO3/Cv5m5mMgr5hyui3k8yyiIsd/egmp1A6cuSTfb9OedNm+zYxUIlG"
+},
+{
+"ts": 1764657935.8712597,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=YZ7Yx+yKy1MU1i0yQdz//BANpkk3hExXXjD4la17Vfqeai6vgLvHys95RypcZ+U2FUXAx8mRyygvwn8i1RaBiTfpy4AW5LmOq9ttYHVDB2Dg48/C7Nf98TsNzPixGVVebuq3b9I1RlWQXA+ZkRJ9XqUwWURUcGk70cA28Xt+YunVFPCPBjxrANBbpHn6yKpXnB6h9jRf0HcGZuzwiJP9ui2gegb940z8a0FRvnhkqgwcEif8i3lugy/cU0cDPGzfCZkH8XRpsIObRIW//9SBn7EyXjA2ddvEh3BhC810oDctZvUpImlwaSOEmLt35xptQBDmQW++JI2WzkRby5IxroyMDTVQs2x5+6g3QzP5agurrjEhi+YYdHMtHi/FvrWPdBzvWOH/6TGwLe6eZ+PVgL1P99lJmdTiDeH/N2xEExI4g6f3awgZw9i6qvsEDaBGjDYvuWUnoQLZQ4gcuUGfp8Ab5gNSF4eeH/vGwGTfW+LkjyMmYmsPmv81mK8HewI4"
 }
 ]

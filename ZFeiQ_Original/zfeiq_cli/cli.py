@@ -256,6 +256,26 @@ class ZFeiQCli:
         except Exception:
             pass
 
+    # ---- handshake / encryption system events ----
+    def _handshake_event(self, ip: str, text: str) -> None:
+        """Record a human-readable handshake/encryption step.
+
+        - Stored in ChatHistory with direction 'sys' for GUI to render
+          as居中系统行；
+        - Printed in CLI unless ui_silent.
+        """
+        try:
+            msg = f"[ENC] {text}"
+            self.history.add(ip or "*", "sys", msg)
+        except Exception:
+            pass
+        try:
+            if not getattr(self, "ui_silent", False):
+                ts = ts_str_full(time.time()) if self.time_format == "full" else ts_str(time.time())
+                print(f"[{ts}] {msg}")
+        except Exception:
+            pass
+
     # ======== session helpers (ENC2) ========
     def _sess_nonce(self, sid: bytes, ctr: int, direction: str) -> bytes:
         # derive 12-byte nonce: SHA256(sid||dir||ctr)[0:12]
@@ -270,21 +290,65 @@ class ZFeiQCli:
         s = self._sessions.get(ip)
         return bool(s and isinstance(s.get('key'), (bytes, bytearray)))
 
+    def _has_active_session(self, ip: str) -> bool:
+        """Return True if we have a fully usable ENC2 session for this peer."""
+        s = self._sessions.get(ip) or {}
+        return bool(isinstance(s.get('key'), (bytes, bytearray)) and isinstance(s.get('sid'), (bytes, bytearray)))
+
     def _start_kx(self, ip: str) -> None:
-        # Send KX1 if we have peer pubkey and no session
+        """Send KX1 if we have peer pubkey and no session.
+
+        若前置条件不满足（无本地密钥/无对端公钥/已存在会话），输出清晰的 [ENC] 提示，
+        便于 CLI 与 GUI 排查为何没有发出 KX1。
+        """
         try:
-            if self._ensure_keys() and (ip in self._peer_pubkeys) and (not self._ensure_session(ip)):
-                import os
-                seed = os.urandom(32)
-                ekey = rsa_encrypt(self._peer_pubkeys[ip], seed)
-                fp = self._peer_fps.get(self.local_ip) or (hashlib.sha256(self._pub_pem or b"").hexdigest() if self._pub_pem else "")
-                text = f"KX1;ver=1;fp={fp};ekeyA={b64e(ekey)}"
-                pkt = build_packet(self.username or "?", self.hostname, IPMSG_SENDMSG, text, encoding=self.encoding)
-                self.transport.send_unicast(ip, pkt)
-                # cache local seed until peer responds
-                self._sessions[ip] = {"local_seed": seed, "last_ts": time.time()}
-        except Exception:
-            pass
+            if not ip:
+                return
+            if not self._ensure_keys():
+                self._user_print(f"[ENC] 本地密钥未就绪，无法对 {ip} 发起 KX1")
+                return
+            if ip not in self._peer_pubkeys:
+                self._user_print(f"[ENC] 尚未获得对端 {ip} 的公钥，无法发起 KX1")
+                return
+            if self._ensure_session(ip):
+                # 已有会话，无需重复发起
+                if self.debug:
+                    self._user_print(f"[ENC] 与 {ip} 的会话已存在，跳过 KX1")
+                return
+            import os
+            seed = os.urandom(32)
+            ekey = rsa_encrypt(self._peer_pubkeys[ip], seed)
+            fp = self._peer_fps.get(self.local_ip) or (hashlib.sha256(self._pub_pem or b"").hexdigest() if self._pub_pem else "")
+            text = f"KX1;ver=1;fp={fp};ekeyA={b64e(ekey)}"
+            pkt = build_packet(self.username or "?", self.hostname, IPMSG_SENDMSG, text, encoding=self.encoding)
+            self.transport.send_unicast(ip, pkt)
+            # cache local seed until peer responds
+            self._sessions[ip] = {"local_seed": seed, "last_ts": time.time()}
+            self._handshake_event(ip, "已向对端发送 KX1（发起密钥交换）")
+        except Exception as e:
+            try:
+                self._user_print(f"[ENC] 发起 KX1 到 {ip} 失败: {e}")
+            except Exception:
+                pass
+
+    def force_start_kx(self, ip: str) -> None:
+        """Force start a KX1 handshake with peer `ip`.
+
+        - 与 `_start_kx` 不同：不检查 `encrypt_mode`，仅依赖本地/对端公钥与会话状态；
+        - 供 GUI 或 CLI 在需要时显式触发单个节点的密钥交换；
+        - 若本就已存在会话，则为 no-op。
+        """
+        try:
+            if not ip:
+                return
+            # 仅在尚未建立会话时尝试发起；具体前置条件由 _start_kx 给出详细提示
+            if not self._ensure_session(ip):
+                self._start_kx(ip)
+        except Exception as e:
+            try:
+                self._user_print(f"[ENC] force_start_kx({ip}) 异常: {e}")
+            except Exception:
+                pass
 
     # ============ lifecycle ============
     def start(self) -> None:
@@ -386,6 +450,27 @@ class ZFeiQCli:
             if new_ip not in local_ips:
                 print(self._t("set.bind_bad"))
                 return
+            # 在切换前，若已登录，则使用旧 IP 广播一次 BR_EXIT，通知对端下线
+            try:
+                old_ip = self.local_ip
+                if self.username and old_ip:
+                    try:
+                        pkt = build_packet(self.username or "?", self.hostname, IPMSG_BR_EXIT, encoding=self.encoding)
+                        # 尽量使用旧传输对象发出：广播 + 向所有已知节点单播
+                        try:
+                            self.transport.send_broadcast(pkt)
+                        except Exception:
+                            pass
+                        try:
+                            for n in self.registry.list_nodes():
+                                if n.ip and n.ip != old_ip:
+                                    self.transport.send_unicast(n.ip, pkt)
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             # 停止旧传输
             try:
                 self.transport.stop()
@@ -490,17 +575,45 @@ class ZFeiQCli:
         return best
 
     def _auto_rebind_consider(self, peer_ip: str) -> None:
-        if self._user_bound:
-            return
-        now = time.time()
-        # 节流：避免频繁切换
-        if now - getattr(self, "_last_auto_rebind_ts", 0.0) < 10.0:
-            return
-        cand = self._find_ip_same_subnet(peer_ip)
-        if cand and cand != self.local_ip:
-            # 在后台自动切换到同网段 IP（不锁定）
-            self._rebind(cand, user_initiated=False)
-            self._last_auto_rebind_ts = time.time()
+        """Auto-rebind was originally used to follow peer subnets.
+
+        当前版本取消自动切换行为：登录后本端 IP 仅在显式 /set bind 或 GUI 绑定时变更，
+        以避免多网卡环境下频繁在 192.168.x.x / 172.x.x.x 间跳动，导致会话与加密状态混乱。
+        """
+        return
+
+    def _ingest_peer_pubkey(self, src_ip: str, payload: Optional[str]) -> bool:
+        """Parse and store peer public key from GET/ANSPUBKEY payload."""
+        try:
+            txt = (payload or "").split("\0", 1)[0].strip()
+            if not txt:
+                return False
+            pem_bytes: Optional[bytes]
+            if "-----BEGIN PUBLIC KEY-----" in txt:
+                pem_bytes = txt.encode("utf-8", errors="ignore")
+            else:
+                if txt.upper().startswith("PEM:"):
+                    b64 = txt.split(":", 1)[1].strip()
+                else:
+                    b64 = txt
+                try:
+                    pem_bytes = b64d(b64)
+                except Exception:
+                    pem_bytes = None
+            if not pem_bytes:
+                return False
+            fp = hashlib.sha256(pem_bytes).hexdigest()
+            prev_fp = self._peer_fps.get(src_ip)
+            if prev_fp and prev_fp != fp:
+                print(f"[WARN] fingerprint mismatch for {src_ip}: announced={prev_fp} actual={fp}")
+            self._peer_pubkeys[src_ip] = pem_bytes
+            self._peer_fps[src_ip] = fp
+            if self.debug:
+                print(f"[DBG] learned pubkey from {src_ip} ({len(pem_bytes)} bytes) fp={fp}")
+                self._print_prompt(suppress_next=False)
+            return True
+        except Exception:
+            return False
 
     def _maint_loop(self) -> None:
         last_keepalive = 0.0
@@ -613,35 +726,24 @@ class ZFeiQCli:
                     self.transport.send_unicast(src_ip, pkt)
             except Exception:
                 pass
+            try:
+                stored = self._ingest_peer_pubkey(src_ip, ext)
+                if stored and self.encrypt_mode in ("on","strict") and (not self._ensure_session(src_ip)):
+                    self._start_kx(src_ip)
+            except Exception:
+                pass
             return
         elif base == IPMSG_ANSPUBKEY:
             try:
-                pem_bytes: Optional[bytes] = None
-                txt = ext or ""
-                if "-----BEGIN PUBLIC KEY-----" in txt:
-                    pem_bytes = txt.encode("utf-8", errors="ignore")
+                stored = self._ingest_peer_pubkey(src_ip, ext)
+                if not stored:
+                    self._user_print(f"[ENC] 收到 {src_ip} 的公钥响应但内容为空或无法解析，已忽略")
                 else:
-                    # 兼容自定义封装：PEM:<b64> 或纯 base64
-                    s = txt.strip()
-                    if s.upper().startswith("PEM:"):
-                        b64 = s.split(":", 1)[1].strip()
-                    else:
-                        b64 = s
                     try:
-                        pem_bytes = b64d(b64)
+                        if self.encrypt_mode in ("on", "strict") and (not self._ensure_session(src_ip)):
+                            self._start_kx(src_ip)
                     except Exception:
-                        pem_bytes = None
-                if pem_bytes:
-                    # compute fingerprint and warn on mismatch with previously announced fp
-                    fp = hashlib.sha256(pem_bytes).hexdigest()
-                    prev_fp = self._peer_fps.get(src_ip)
-                    if prev_fp and prev_fp != fp:
-                        print(f"[WARN] fingerprint mismatch for {src_ip}: announced={prev_fp} actual={fp}")
-                    self._peer_pubkeys[src_ip] = pem_bytes
-                    self._peer_fps[src_ip] = fp
-                    if self.debug:
-                        print(f"[DBG] learned pubkey from {src_ip} ({len(pem_bytes)} bytes) fp={fp}")
-                        self._print_prompt(suppress_next=False)
+                        pass
             except Exception:
                 pass
             # 不进一步处理为在线/消息
@@ -662,6 +764,7 @@ class ZFeiQCli:
                 text2 = f"KX2;ver=1;fp={fpB};ekeyB={b64e(eB)}"
                 pkt2 = build_packet(self.username or "?", self.hostname, IPMSG_SENDMSG, text2, encoding=self.encoding)
                 self.transport.send_unicast(src_ip, pkt2)
+                self._handshake_event(src_ip, "收到 KX1，已回复 KX2（返回本端密钥份额）")
                 # derive session
                 # order by fingerprints to fix ikm ordering
                 fpA = fields.get("fp","")
@@ -677,6 +780,7 @@ class ZFeiQCli:
                 if self.debug:
                     print(f"[DBG] session established with {src_ip} sid={b64e(sid)}")
                     self._print_prompt(suppress_next=False)
+                self._handshake_event(src_ip, "本端会话密钥已建立，可使用 ENC2 加密通讯")
             except Exception:
                 pass
             return
@@ -702,12 +806,20 @@ class ZFeiQCli:
                     if self.debug:
                         print(f"[DBG] session established with {src_ip} sid={b64e(sid)}")
                         self._print_prompt(suppress_next=False)
+                    self._handshake_event(src_ip, "本端会话密钥已建立（收到 KX2），可使用 ENC2 加密通讯")
             except Exception:
                 pass
             return
 
         # BR_ENTRY / BR_ABSENCE: 更新在线并回复 ANSENTRY
         if base == IPMSG_BR_ENTRY or base == IPMSG_BR_ABSENCE:
+            # 忽略任何来源 IP 属于本机网卡的上线报文，避免多网卡环境下“看到自己”
+            try:
+                local_ips = {ip for ip, _ in (_win_list_ipv4_addrs() if os.name == "nt" else _linux_list_ipv4_addrs())}
+                if src_ip in local_ips:
+                    return
+            except Exception:
+                pass
             # update and reply ANSENTRY；首次发现时提示上线
             was = self.registry.get_by_ip(src_ip)
             st = self._parse_status_from_ext(ext) or ("away" if base == IPMSG_BR_ABSENCE else None)
@@ -752,7 +864,20 @@ class ZFeiQCli:
                 except Exception:
                     # transport may not be started in tests or headless modes
                     pass
+            # 若启用加密，自动尝试会话握手（拥有对端公钥且尚未建链）
+            try:
+                if self.encrypt_mode in ("on", "strict") and (src_ip in self._peer_pubkeys) and (not self._ensure_session(src_ip)):
+                    self._start_kx(src_ip)
+            except Exception:
+                pass
         elif base == IPMSG_ANSENTRY:
+            # 同样忽略来自本机任一 IP 的 ANSENTRY
+            try:
+                local_ips = {ip for ip, _ in (_win_list_ipv4_addrs() if os.name == "nt" else _linux_list_ipv4_addrs())}
+                if src_ip in local_ips:
+                    return
+            except Exception:
+                pass
             was = self.registry.get_by_ip(src_ip)
             st = self._parse_status_from_ext(ext)
             cap_ack = self._parse_cap_ack_from_ext(ext)
@@ -780,6 +905,12 @@ class ZFeiQCli:
                     self.transport.send_unicast(src_ip, req)
             except Exception:
                 pass
+            # 若启用加密，且已有对端公钥但未建链，主动发起KX
+            try:
+                if self.encrypt_mode in ("on","strict") and (src_ip in self._peer_pubkeys) and (not self._ensure_session(src_ip)):
+                    self._start_kx(src_ip)
+            except Exception:
+                pass
         elif base == IPMSG_BR_EXIT:
             # 忽略自己发出的下线广播以及重复下线事件
             if src_ip == self.local_ip:
@@ -800,11 +931,18 @@ class ZFeiQCli:
             pkt = build_packet(self.username or "?", self.hostname, IPMSG_ANSLIST, ext_text, encoding=self.encoding)
             self.transport.send_unicast(src_ip, pkt)
         elif base == IPMSG_ANSLIST:
-            # 合并对方提供的列表
+            # 合并对方提供的列表，同时过滤掉本机所有 IP
             try:
                 items = decode_list_entries(ext)
+                try:
+                    local_ips = {ip for ip, _ in (_win_list_ipv4_addrs() if os.name == "nt" else _linux_list_ipv4_addrs())}
+                except Exception:
+                    local_ips = set()
                 for it in items:
-                    self.registry.upsert(it["ip"], it["username"], it["hostname"])
+                    ip = it["ip"]
+                    if ip in local_ips:
+                        continue
+                    self.registry.upsert(ip, it["username"], it["hostname"])
             except Exception:
                 pass
         elif base == IPMSG_SENDMSG:
@@ -822,10 +960,13 @@ class ZFeiQCli:
                     rw = s.get("recv_window") or set()
                     if ctr in rw:
                         raise ValueError("replayed")
-                    nonce = self._sess_nonce(sid, ctr, direction="in")
+                    # 使用与加密端一致的方向标记，确保 nonce 生成匹配
+                    # 原实现使用 direction="out" 加密，direction="in" 解密会导致 nonce 不一致从而解密失败
+                    nonce = self._sess_nonce(sid, ctr, direction="out")
                     cipher_b64 = fields.get("b64","")
                     tag_b64 = fields.get("tag","")
-                    pt = aes_gcm_decrypt(s.get("key"), nonce, b64d(cipher_b64), b64d(tag_b64) if tag_b64 else b"\x00"*16)
+                    # 需传入与加密端相同的 AAD (sid)，否则 GCM 验证失败
+                    pt = aes_gcm_decrypt(s.get("key"), nonce, b64d(cipher_b64), b64d(tag_b64) if tag_b64 else b"\x00"*16, aad=s.get("sid"))
                     text = pt.decode(self.encoding, errors="ignore")
                     # update window
                     rw.add(ctr)
@@ -1215,6 +1356,13 @@ class ZFeiQCli:
                     nonce = self._sess_nonce(s.get("sid"), ctr, direction="out")
                     _, ct, tag = aes_gcm_encrypt(s.get("key"), text.encode(self.encoding, errors="ignore"), aad=(s.get("sid") or b""), nonce=nonce)
                     ext = f"ENC2;sid={b64e(s.get('sid'))};ctr={ctr};tag={b64e(tag)};b64=" + b64e(ct)
+                    # 若这是本会话首次使用 ENC2 发送消息，可记录一条握手事件
+                    try:
+                        if not s.get("_first_enc2_sent"):
+                            s["_first_enc2_sent"] = True
+                            self._handshake_event(ip, "会话已建立并开始使用 ENC2 加密通讯")
+                    except Exception:
+                        pass
                 else:
                     pub = self._peer_pubkeys.get(ip)
                     if not pub:
@@ -2025,6 +2173,17 @@ class ZFeiQCli:
                         self.cmd_screenshot_send(tgt)
                     else:
                         print("usage: /screenshot send user|ip|group|all")
+
+                elif cmdline.startswith("/kx "):
+                    # 调试命令：/kx <ip>，强制对指定 IP 发起一次 KX1 握手
+                    ip = cmdline[len("/kx "):].strip()
+                    if ip:
+                        try:
+                            self.force_start_kx(ip)
+                        except Exception as e:
+                            print(f"[ENC] /kx failed for {ip}: {e}")
+                    else:
+                        print("usage: /kx <ip>")
               
                 elif cmdline.startswith("/ocr "):
                     # 用法: /ocr <image_path> [--send [target]]

@@ -98,6 +98,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # 全局样式将在 _apply_theme 中统一应用（避免在多个位置反复 setStyleSheet）
         self._current_language = "zhCN"
         self._current_translations = {}
+        # 全屏状态标志
+        self._is_fullscreen = False
 
     def _build_ui(self) -> None:
         # 使用 QSplitter 允许用户调整侧边栏与聊天区域宽度
@@ -937,9 +939,60 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._chat_page.quicktext_btn.clicked.connect(self.on_quicktext_menu)
             except Exception:
                 pass
+            # 交换公钥按钮：仅在 encrypt=on/strict 时显示
+            try:
+                def _update_kx_visibility():
+                    try:
+                        mode = getattr(backend, 'get_encrypt_mode', lambda: 'off')()
+                        self._chat_page.kx_btn.setVisible(mode in ('on','strict'))
+                    except Exception:
+                        self._chat_page.kx_btn.setVisible(False)
+                _update_kx_visibility()
+                # 点击触发：优先处理已有入站握手由 CLI 完成；我们做一次刷新/请求+KX 尝试
+                def _do_kx():
+                    try:
+                        tgt = self._chat_page.current_target_id()
+                        # 优先针对当前 IP 会话做“交换+确认”
+                        if tgt and tgt.startswith('ip:'):
+                            ip = tgt[3:]
+                            # 第一步：若无会话则发起握手
+                            getattr(backend, 'start_kx_with', lambda ip: None)(ip)
+                            # 第二步：发送加密确认帧并再次确认会话状态
+                            ok = getattr(backend, 'confirm_encryption_with', lambda ip, timeout=1.5: False)(ip, timeout=1.5)
+                            # 通知头部刷新加密指示
+                            try:
+                                backend.encryption_changed.emit()
+                            except Exception:
+                                pass
+                            try:
+                                msg = '通讯已加密（ENC2 会话就绪）' if ok else '已尝试交换公钥并建立会话，但仍未加密'
+                                self.statusBar().showMessage(msg, 4000)
+                            except Exception:
+                                pass
+                        else:
+                            # 无特定 IP 时回退为全局刷新
+                            getattr(backend, 'refresh_encryption', lambda: None)()
+                            try:
+                                self.statusBar().showMessage('已广播公钥并尝试建立会话', 3000)
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+                self._chat_page.kx_btn.clicked.connect(_do_kx)
+                try:
+                    backend.encryption_changed.connect(_update_kx_visibility)
+                except Exception:
+                    pass
+            except Exception:
+                pass
             # 允许用户页/组页复用聊天标签逻辑
             try:
                 self._userlist_page.set_focus_handler(_focus_target)
+            except Exception:
+                pass
+            # 监听加密状态变化，刷新当前聊天目标头部（更新加密指示）
+            try:
+                backend.encryption_changed.connect(lambda: _refresh_target_header(self._chat_page.current_target_id()))
             except Exception:
                 pass
             # 密钥管理页绑定
@@ -1000,6 +1053,21 @@ class MainWindow(QtWidgets.QMainWindow):
                 pass
         except Exception:
             pass
+
+    def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
+        try:
+            if event.key() == QtCore.Qt.Key_F11:
+                if not self._is_fullscreen:
+                    self.showFullScreen()
+                    self._is_fullscreen = True
+                else:
+                    self.showNormal()
+                    self._is_fullscreen = False
+                event.accept()
+                return
+        except Exception:
+            pass
+        super().keyPressEvent(event)
 
     def _on_logout_to_login(self, backend):
         try:
@@ -1211,6 +1279,22 @@ class MainWindow(QtWidgets.QMainWindow):
     # ---- class-level handlers ----
     def on_region_capture_send(self, backend):
         try:
+            # 在UKUI等环境优先尝试系统截图工具（用户可通过环境变量强制启用）
+            try:
+                import shutil, platform
+                if (platform.system() == 'Linux') and (shutil.which('ukui-screenshot') or os.environ.get('ZFEIQ_USE_SYSTEM_SCREENSHOT')):
+                    try:
+                        self.statusBar().showMessage("已启动系统截图工具（UKUI），完成后可粘贴到输入框", 5000)
+                    except Exception:
+                        pass
+                    try:
+                        import subprocess
+                        subprocess.Popen(['ukui-screenshot'])
+                    except Exception:
+                        pass
+                    return
+            except Exception:
+                pass
             try:
                 # 状态栏提示进入截图模式
                 self.statusBar().showMessage("截图模式：拖拽选择区域，Esc 取消", 4000)

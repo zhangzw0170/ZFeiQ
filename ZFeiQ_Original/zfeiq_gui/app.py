@@ -56,6 +56,10 @@ def launch_gui() -> None:
         if (platform.system() == "Linux" and platform.machine().lower() in ("aarch64", "arm64", "armv7l")) or os.environ.get("ZFEIQ_FORCE_SOFTGL"):
             QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_UseSoftwareOpenGL)
             os.environ.setdefault("QT_OPENGL", "software")
+            # 抑制 Mesa/libGL 的噪声日志
+            os.environ.setdefault("LIBGL_DEBUG", "quiet")
+            # 降低Qt杂项日志
+            os.environ.setdefault("QT_LOGGING_RULES", "*.debug=false;qt.qpa.*=false")
     except Exception:
         pass
 

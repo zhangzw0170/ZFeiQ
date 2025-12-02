@@ -15,6 +15,7 @@ class GuiBackend(QObject):
     offers_updated = pyqtSignal()
     file_progress = pyqtSignal(str, int)  # offer_id, bytes
     file_saved = pyqtSignal(str, str)     # offer_id, path
+    encryption_changed = pyqtSignal()     # emitted after encrypt mode / session state changes
 
     def __init__(self, port: int = 2425, bind_ip: Optional[str] = None):
         super().__init__()
@@ -54,8 +55,15 @@ class GuiBackend(QObject):
                 src_ip = addr[0]
                 if base == IPMSG_SENDMSG:
                     text = ext.split("\0", 1)[0] if ext else ""
-                    # emit message for UI
+                    # 握手/会话相关：收到 KX1/KX2/ENC2 消息时通知界面刷新加密状态
+                    try:
+                        if text.startswith("KX1;") or text.startswith("KX2;") or text.startswith("ENC2;"):
+                            self.encryption_changed.emit()
+                    except Exception:
+                        pass
+                    # emit message for UI：普通文本 + ENC 手动确认帧
                     if text and not text.startswith("FILE_OFFER;"):
+                        # ENC-TEST 仍作为普通文本显示，方便调试
                         self.message_signal.emit(user, src_ip, text)
                         # record incoming message
                         self._record("in", user=user, ip=src_ip, target="me", text=text)
@@ -114,6 +122,15 @@ class GuiBackend(QObject):
         self.zcli.start()
 
     def stop(self):
+        # GUI 退出时，若已登录，先广播一次 BR_EXIT 再停止传输
+        try:
+            if getattr(self.zcli, 'username', None):
+                try:
+                    self.zcli.cmd_logout()
+                except Exception:
+                    pass
+        except Exception:
+            pass
         try:
             self.zcli.stop()
         except Exception:
@@ -514,29 +531,34 @@ class GuiBackend(QObject):
             return 'off'
 
     def set_encrypt_mode(self, mode: str):
-        if mode in ("off","on","strict"):
-            try:
-                self.zcli.encrypt_mode = mode
-                self._flush_state_async()
-            except Exception:
-                pass
+        if mode not in ("off","on","strict"):
+            return
+        try:
+            self.zcli.encrypt_mode = mode
+            # 1) 确保本地密钥存在
+            self._ensure_local_keys()
+            # 2) 广播能力与指纹
+            self._broadcast_encryption_state()
+            # 3) 若开启加密，主动进行公钥获取与会话建立
+            if mode in ("on","strict"):
+                self._attempt_pubkey_and_sessions()
+            # 4) 持久化 + 发出信号
+            self._flush_state_async()
+            self.encryption_changed.emit()
+        except Exception:
+            pass
 
     def get_pubkey_fingerprint(self) -> str:
         try:
-            # ensure keys
-            if not getattr(self.zcli, '_pub_pem', None):
-                try:
-                    self.zcli._ensure_keys()
-                except Exception:
-                    return "(no key)"
-            pub = getattr(self.zcli, '_pub_pem', b"") or b""
+            self._ensure_local_keys()
+            pub = getattr(self.zcli, '_pub_pem', b'') or b''
             if not pub:
-                return "(no key)"
+                return '(no key)'
             fp = hashlib.sha256(pub).hexdigest()
-            # group into pairs for readability
-            return ":".join(fp[i:i+2] for i in range(0, len(fp), 2))
+            # 分组可读：每4个字符一组
+            return ':'.join(fp[i:i+4] for i in range(0, len(fp), 4))
         except Exception:
-            return "(error)"
+            return '(error)'
 
     def regenerate_keys(self) -> bool:
         try:
@@ -555,8 +577,7 @@ class GuiBackend(QObject):
     def export_pubkey(self, path: str) -> Optional[str]:
         try:
             # ensure
-            if not getattr(self.zcli, '_pub_pem', None):
-                self.zcli._ensure_keys()
+            self._ensure_local_keys()
             pub = getattr(self.zcli, '_pub_pem', b"") or b""
             if not pub:
                 return None
@@ -574,8 +595,168 @@ class GuiBackend(QObject):
             if target_id.startswith("ip:"):
                 ip = target_id[3:]
                 sess = getattr(self.zcli, "_sessions", {}).get(ip)
-                return bool(sess and sess.get("key") and sess.get("sid"))
+                if sess and sess.get("key") and sess.get("sid"):
+                    return True
+                return False
             # group/all not encrypted per-session at present
             return False
         except Exception:
             return False
+
+    # ---- targeted key exchange helpers ----
+    def start_kx_with(self, ip: str) -> None:
+        try:
+            if not ip:
+                return
+            self._ensure_local_keys()
+            # 若已有对端公钥，直接发起 KX；否则先请求公钥
+            peer_pub = getattr(self.zcli, '_peer_pubkeys', {}).get(ip)
+            if peer_pub:
+                try:
+                    # 优先使用 CLI 暴露的显式接口：不依赖 encrypt_mode，仅按会话状态触发
+                    force_kx = getattr(self.zcli, 'force_start_kx', None)
+                    if callable(force_kx):
+                        force_kx(ip)
+                    else:
+                        if not self.zcli._ensure_session(ip):
+                            self.zcli._start_kx(ip)
+                except Exception:
+                    pass
+            else:
+                try:
+                    from zfeiq_cli.protocol import build_packet, IPMSG_GETPUBKEY
+                    pkt = build_packet(self.zcli.username or '?', self.zcli.hostname, IPMSG_GETPUBKEY, 'GETPUBKEY', encoding=self.zcli.encoding)
+                    self.zcli.transport.send_unicast(ip, pkt)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def confirm_encryption_with(self, ip: str, timeout: float = 2.0) -> bool:
+        """Try to ensure ENC2 session with peer and confirm it.
+
+        Strategy:
+        1) 若已存在会话，直接返回 True；
+        2) 否则，若有对端公钥，则发起 KX1 并在超时时间内轮询等待会话建立；
+        3) 会话建立后，发送一条短消息（例如 [ENC-TEST]），此时会自动走 ENC2；
+        4) 若超时仍未建立会话，则返回 False。
+        """
+        try:
+            if not ip:
+                return False
+            has_sess = getattr(self.zcli, '_has_active_session', None)
+            if not has_sess:
+                return False
+            # 已有会话：直接认为加密可用
+            if has_sess(ip):
+                try:
+                    self.send_text(f"ip:{ip}", "[ENC-TEST]")
+                except Exception:
+                    pass
+                return True
+            # 若尚未会话但有公钥，尝试发起 KX1
+            peer_pub = getattr(self.zcli, '_peer_pubkeys', {}).get(ip)
+            if peer_pub:
+                try:
+                    if not has_sess(ip):
+                        # 同样优先使用显式的强制 KX 接口
+                        force_kx = getattr(self.zcli, 'force_start_kx', None)
+                        if callable(force_kx):
+                            force_kx(ip)
+                        else:
+                            self.zcli._start_kx(ip)
+                except Exception:
+                    pass
+            # 在给定超时内轮询等待会话建立
+            deadline = time.time() + max(0.2, min(timeout, 3.0))
+            while time.time() < deadline:
+                try:
+                    if has_sess(ip):
+                        try:
+                            self.send_text(f"ip:{ip}", "[ENC-TEST]")
+                        except Exception:
+                            pass
+                        return True
+                except Exception:
+                    break
+                try:
+                    time.sleep(0.15)
+                except Exception:
+                    break
+            return False
+        except Exception:
+            return False
+
+    # ---- internal encryption helpers (refactored) ----
+    def _ensure_local_keys(self) -> bool:
+        try:
+            if not getattr(self.zcli, '_pub_pem', None):
+                return bool(self.zcli._ensure_keys())
+            return True
+        except Exception:
+            return False
+
+    def _broadcast_encryption_state(self) -> None:
+        try:
+            if not self.zcli.username:
+                return
+            from zfeiq_cli.protocol import build_packet, IPMSG_BR_ENTRY, IPMSG_BR_ABSENCE
+            cmd = IPMSG_BR_ENTRY if self.zcli.status != 'away' else IPMSG_BR_ABSENCE
+            pkt = build_packet(self.zcli.username or '?', self.zcli.hostname, cmd, self.zcli._build_status_ext(), encoding=self.zcli.encoding)
+            try:
+                self.zcli.transport.send_broadcast(pkt)
+            except Exception:
+                pass
+            try:
+                for n in self.zcli.registry.list_nodes():
+                    if n.ip and n.ip != self.zcli.local_ip:
+                        self.zcli.transport.send_unicast(n.ip, pkt)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def _attempt_pubkey_and_sessions(self) -> None:
+        try:
+            from zfeiq_cli.protocol import build_packet, IPMSG_GETPUBKEY
+            for n in self.zcli.registry.list_nodes():
+                ip = getattr(n, 'ip', '')
+                if not ip or ip == self.zcli.local_ip:
+                    continue
+                peer_pub = getattr(self.zcli, '_peer_pubkeys', {}).get(ip)
+                if not peer_pub:
+                    # 请求公钥
+                    try:
+                        req = build_packet(self.zcli.username or '?', self.zcli.hostname, IPMSG_GETPUBKEY, 'GETPUBKEY', encoding=self.zcli.encoding)
+                        self.zcli.transport.send_unicast(ip, req)
+                    except Exception:
+                        pass
+                else:
+                    # 若已有公钥但未建立会话，发起 KX1
+                    try:
+                        if not self.zcli._ensure_session(ip):
+                            self.zcli._start_kx(ip)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    def refresh_encryption(self) -> None:
+        """主动刷新当前所有节点的公钥/会话状态（调试用）。"""
+        try:
+            self._ensure_local_keys()
+            self._broadcast_encryption_state()
+            if getattr(self.zcli, 'encrypt_mode', 'off') in ('on','strict'):
+                self._attempt_pubkey_and_sessions()
+            self.encryption_changed.emit()
+        except Exception:
+            pass
+
+    def get_peer_fingerprint(self, ip: str) -> str:
+        try:
+            fp = getattr(self.zcli, '_peer_fps', {}).get(ip)
+            if not fp:
+                return '(unknown)'
+            return ':'.join(fp[i:i+4] for i in range(0, len(fp), 4))
+        except Exception:
+            return '(error)'

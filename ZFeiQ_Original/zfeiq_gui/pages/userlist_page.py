@@ -87,7 +87,7 @@ class UserListPage(QtWidgets.QWidget):
 
     def update_nodes(self, nodes, groups=None, local_ip: str = "") -> None:
         self.list.clear()
-        items: List[Tuple[str, Tuple[str, object]]] = []
+        items: List[Tuple[str, Tuple[str, object], bool, str]] = []
         status_emojis = {"online": "🟢", "busy": "🟠", "away": "⚪"}
         for node in nodes:
             host = getattr(node, "hostname", "")
@@ -102,12 +102,21 @@ class UserListPage(QtWidgets.QWidget):
                 line2 = f"@ {ip}"
                 line3 = f"[{host}]" if host else ""
                 text_block = f"{line1}\n{line2}" + (f"\n{line3}" if line3 else "")
-            items.append((text_block, ("user", node)))
+            # 记录 LOCAL 标记与用户名用于排序
+            items.append((text_block, ("user", node), is_local, getattr(node, "username", "")))
         if groups:
             for group_name, members in sorted(groups.items()):
-                items.append((f"[组] {group_name} ({len(members)})", ("group", group_name)))
+                items.append((f"[组] {group_name} ({len(members)})", ("group", group_name), False, f"group:{group_name}"))
 
-        for text, meta in items:
+        # 排序：LOCAL优先，其次按类型（用户在前，组在后），再按可见名称
+        def _sort_key(it):
+            text, meta, is_local, uname = it
+            kind = meta[0]
+            kind_rank = 0 if kind == "user" else 1
+            return (0 if is_local else 1, kind_rank, uname.lower(), text.lower())
+        items.sort(key=_sort_key)
+
+        for text, meta, _is_local, _uname in items:
             item = QtWidgets.QListWidgetItem(text)
             item.setData(QtCore.Qt.UserRole, meta)
             item.setData(QtCore.Qt.UserRole + 1, text.lower())  # 用于过滤
@@ -141,7 +150,11 @@ class UserListPage(QtWidgets.QWidget):
                         mask = ".".join(str((mask_int >> (8 * i)) & 0xFF) for i in [3, 2, 1, 0])
                 except Exception:
                     mask = None
-        self.lbl_mask.setText(self._info_templates.get("mask", "掩码：{mask}").format(mask=mask or "-"))
+        try:
+            # 子网掩码信息在RK等设备上不再展示
+            self.lbl_mask.setVisible(False)
+        except Exception:
+            pass
 
     def _apply_filter(self) -> None:
         query = (self.search_edit.text() or "").strip().lower()
