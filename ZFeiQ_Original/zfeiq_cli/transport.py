@@ -4,7 +4,6 @@ import threading
 from typing import Callable, Optional
 
 DEFAULT_PORT = 2425
-BROADCAST_ADDR = "255.255.255.255"
 
 
 class UdpTransport:
@@ -25,7 +24,8 @@ class UdpTransport:
         self.sock: Optional[socket.socket] = None
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
-        self._broadcast_addr = BROADCAST_ADDR
+        # 单一子网广播地址（如 192.168.1.255）；若无法推断，则回退到 255.255.255.255
+        self._broadcast_addr = "255.255.255.255"
         self._iface_prefix = iface_prefix
         self._on_debug = on_debug_log
 
@@ -50,7 +50,9 @@ class UdpTransport:
             pass
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         s.bind((self.bind_ip, self.port))
-        # 动态根据 iface_ip 推断广播地址（若 iface_ip 为 0.0.0.0/127.0.0.1 则使用 255.255.255.255）
+        # 动态根据 iface_ip 推断广播地址：
+        # - 若 iface_ip 为 0.0.0.0/127.0.0.1：使用 255.255.255.255；
+        # - 否则基于 iface_ip/iface_prefix 推断子网定向广播地址（如 192.168.1.255）。
         if self.iface_ip not in ("0.0.0.0", "127.0.0.1"):
             try:
                 if self._iface_prefix and 0 < self._iface_prefix <= 32:
@@ -61,7 +63,7 @@ class UdpTransport:
                     if len(ip_parts) == 4:
                         self._broadcast_addr = f"{ip_parts[0]}.{ip_parts[1]}.{ip_parts[2]}.255"
             except Exception:
-                self._broadcast_addr = BROADCAST_ADDR
+                self._broadcast_addr = "255.255.255.255"
         self.sock = s
         self._stop.clear()
         self._thread = threading.Thread(target=self._recv_loop, name="zfeiq-recv", daemon=True)
@@ -104,19 +106,27 @@ class UdpTransport:
     def send_broadcast(self, data: bytes) -> None:
         if not self.sock:
             raise RuntimeError("transport not started")
-        # 调试输出：显示广播目标
+        # 调试输出：仅显示当前计算出的单一广播地址
         self._log(f"[DEBUG] send_broadcast: local_ip={self.iface_ip}, bcast={self._broadcast_addr}, port={self.port}")
         try:
             self.sock.sendto(data, (self._broadcast_addr, self.port))
         except Exception as e:
             self._log(f"[DEBUG] send_broadcast to {self._broadcast_addr} failed: {e}")
-        if self._broadcast_addr != BROADCAST_ADDR:
-            try:
-                self.sock.sendto(data, (BROADCAST_ADDR, self.port))
-            except Exception as e:
-                self._log(f"[DEBUG] send_broadcast to {BROADCAST_ADDR} failed: {e}")
 
     def send_unicast(self, ip: str, data: bytes) -> None:
         if not self.sock:
             raise RuntimeError("transport not started")
         self.sock.sendto(data, (ip, self.port))
+    
+    def send_unicast_port(self, ip: str, port: int, data: bytes) -> None:
+        """Send a UDP datagram to a specific ip:port, bypassing default port.
+
+        Useful for testing or multi-instance setups on the same host.
+        """
+        if not self.sock:
+            raise RuntimeError("transport not started")
+        try:
+            self._sock.sendto(data, (ip, int(port)))
+        except Exception:
+            # fallback to default port
+            self._sock.sendto(data, (ip, self.port))

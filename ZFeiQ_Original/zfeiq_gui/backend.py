@@ -82,11 +82,12 @@ class GuiBackend(QObject):
                             if last_plain:
                                 self.message_signal.emit(user, src_ip, last_plain)
                                 self._record("in", user=user, ip=src_ip, target="me", text=last_plain)
-                            # 无论是否成功取到明文，都不再把 ENC* 原文透传给 UI
-                            text = ""
+                            # 若 CLI 历史中没有找到可用明文，则保留 text，交由后续逻辑：
+                            # - 如果 CLI 解密失败，text 通常为 "[加密消息解密失败]"，也会进入聊天框，便于排查；
+                            # - 若 text 仍为 ENC*/原始帧，则由下方过滤逻辑阻止其作为普通消息展示。
                     except Exception:
                         pass
-                    # emit message for UI：仅普通文本
+                    # emit message for UI：仅普通文本（包括 "[加密消息解密失败]" 这类占位提示）
                     if text and not text.startswith("FILE_OFFER;"):
                         self.message_signal.emit(user, src_ip, text)
                         self._record("in", user=user, ip=src_ip, target="me", text=text)

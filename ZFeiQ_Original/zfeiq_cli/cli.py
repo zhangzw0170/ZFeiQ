@@ -207,7 +207,8 @@ class ZFeiQCli:
         # sessions: ip -> {key: bytes, sid: bytes(8), send_ctr: int, recv_ctr: int, recv_window: set[int], last_ts: float}
         self._sessions = {}
         # encryption settings
-        self.encrypt_mode: str = "off"  # off|on|strict
+        # 默认改为 on，便于用户无需手动开启即可进行公钥交换与加密通讯
+        self.encrypt_mode: str = "on"  # off|on|strict
         self._priv_pem: Optional[bytes] = None
         self._pub_pem: Optional[bytes] = None
         self._peer_pubkeys: dict = {}  # ip -> pub_pem bytes
@@ -296,6 +297,19 @@ class ZFeiQCli:
         h.update(str(ctr).encode('ascii'))
         return h.digest()[:12]
 
+    def _derive_ikm_ip_order(self, local_ip: str, peer_ip: str, local_seed: bytes, peer_seed: bytes) -> bytes:
+        """按 IP 字典序决定 seed 拼接；IP 相同则按 seed 字节序 small+large。
+
+        - 保证 KX1/KX2 两端对同一对 (local_ip, peer_ip) 得到完全一致的 IKM。
+        """
+        if not isinstance(local_seed, (bytes, bytearray)) or not isinstance(peer_seed, (bytes, bytearray)):
+            raise ValueError("seeds must be bytes")
+        li = local_ip or ""; pi = peer_ip or ""
+        ls = bytes(local_seed); ps = bytes(peer_seed)
+        if li == pi:
+            return (ls + ps) if ls <= ps else (ps + ls)
+        return (ls + ps) if li < pi else (ps + ls)
+
     def _ensure_session(self, ip: str) -> bool:
         s = self._sessions.get(ip)
         return bool(s and isinstance(s.get('key'), (bytes, bytearray)))
@@ -305,7 +319,7 @@ class ZFeiQCli:
         s = self._sessions.get(ip) or {}
         return bool(isinstance(s.get('key'), (bytes, bytearray)) and isinstance(s.get('sid'), (bytes, bytearray)))
 
-    def _start_kx(self, ip: str) -> None:
+    def _start_kx(self, ip: str, port_override: Optional[int] = None) -> None:
         """Send KX1 if we have peer pubkey and no session.
 
         若前置条件不满足（无本地密钥/无对端公钥/已存在会话），输出清晰的 [ENC] 提示，
@@ -316,11 +330,13 @@ class ZFeiQCli:
                 return
             # 避免对自身 IP/本机其它网卡地址发起握手
             try:
-                if ip == self.local_ip:
-                    return
-                local_ips = {a for a, _ in (_win_list_ipv4_addrs() if os.name == "nt" else _linux_list_ipv4_addrs())}
-                if ip in local_ips:
-                    return
+                allow_local = port_override is not None
+                if not allow_local:
+                    if ip == self.local_ip:
+                        return
+                    local_ips = {a for a, _ in (_win_list_ipv4_addrs() if os.name == "nt" else _linux_list_ipv4_addrs())}
+                    if ip in local_ips:
+                        return
             except Exception:
                 pass
             if not self._ensure_keys():
@@ -341,7 +357,13 @@ class ZFeiQCli:
             fp = self._peer_fps.get(self.local_ip) or (hashlib.sha256(self._pub_pem or b"").hexdigest() if self._pub_pem else "")
             text = f"KX1;ver=1;fp={fp};ekeyA={b64e(ekey)}"
             pkt = build_packet(self.username or "?", self.hostname, IPMSG_SENDMSG, text, encoding=self.encoding)
-            self.transport.send_unicast(ip, pkt)
+            try:
+                if port_override is not None:
+                    self.transport.send_unicast_port(ip, int(port_override), pkt)
+                else:
+                    self.transport.send_unicast(ip, pkt)
+            except Exception:
+                self.transport.send_unicast(ip, pkt)
             # cache local seed until peer responds
             self._sessions[ip] = {"local_seed": seed, "last_ts": time.time()}
             self._handshake_event(ip, f"发送 KX1 到 {ip}")
@@ -362,8 +384,20 @@ class ZFeiQCli:
             if not ip:
                 return
             # 仅在尚未建立会话时尝试发起；具体前置条件由 _start_kx 给出详细提示
-            if not self._ensure_session(ip):
-                self._start_kx(ip)
+            port_override: Optional[int] = None
+            ip_only = ip
+            try:
+                if ":" in ip:
+                    host, port_s = ip.split(":", 1)
+                    if host.strip():
+                        ip_only = host.strip()
+                    ps = port_s.strip()
+                    if ps.isdigit():
+                        port_override = int(ps)
+            except Exception:
+                ip_only = ip; port_override = None
+            if not self._ensure_session(ip_only):
+                self._start_kx(ip_only, port_override=port_override)
         except Exception as e:
             try:
                 self._handshake_event(ip, f"发起 KX1 到 {ip} 的请求异常: {e}")
@@ -840,14 +874,8 @@ class ZFeiQCli:
                 pkt2 = build_packet(self.username or "?", self.hostname, IPMSG_SENDMSG, text2, encoding=self.encoding)
                 self.transport.send_unicast(src_ip, pkt2)
                 self._handshake_event(src_ip, f"收到 KX1 来自 {src_ip}，已发送 KX2")
-                # derive session
-                # order by fingerprints to fix ikm ordering
-                fpA = fields.get("fp","")
-                order = sorted([fpA, fpB])
-                if order and order[0] == fpA:
-                    ikm = seedA + seedB
-                else:
-                    ikm = seedB + seedA
+                # derive session via deterministic IP-order rule
+                ikm = self._derive_ikm_ip_order(self.local_ip, src_ip, local_seed=seedB, peer_seed=seedA)
                 key = hkdf_sha256(ikm, info=b"zfeiq-aes256gcm", length=32)
                 import hashlib
                 sid = hashlib.sha256(ikm).digest()[:8]
@@ -893,26 +921,34 @@ class ZFeiQCli:
                 fields = dict(x.split("=",1) for x in (seg.strip() for seg in ext.split(";") ) if "=" in x)
                 eB = b64d(fields.get("ekeyB",""))
                 seedB = rsa_decrypt(self._priv_pem or b"", eB)
-                # fetch cached seedA
-                seedA = (self._sessions.get(src_ip) or {}).get("local_seed")
-                if isinstance(seedA, (bytes, bytearray)):
-                    fpA = self._peer_fps.get(self.local_ip) or (hashlib.sha256(self._pub_pem or b"").hexdigest() if self._pub_pem else "")
-                    fpB = fields.get("fp","")
-                    order = sorted([fpA, fpB])
-                    if order and order[0] == fpA:
-                        ikm = seedA + seedB
-                    else:
-                        ikm = seedB + seedA
-                    key = hkdf_sha256(ikm, info=b"zfeiq-aes256gcm", length=32)
-                    import hashlib
-                    sid = hashlib.sha256(ikm).digest()[:8]
-                    self._sessions[src_ip] = {"key": key, "sid": sid, "send_ctr": 0, "recv_ctr": 0, "recv_window": set(), "last_ts": time.time()}
+                # fetch cached seedA；若因历史状态缺失未找到，则无法建立对称会话
+                sess_entry = self._sessions.get(src_ip) or {}
+                seedA = sess_entry.get("local_seed")
+                if not isinstance(seedA, (bytes, bytearray)):
+                    # 为了避免留下一个“空壳”会话，这里确保不存在残缺条目
+                    try:
+                        if src_ip in self._sessions:
+                            del self._sessions[src_ip]
+                    except Exception:
+                        pass
                     if self.debug:
-                        print(f"[DBG] session established with {src_ip} sid={b64e(sid)}")
+                        print(f"[DBG] KX2 from {src_ip} but no cached seedA; cannot derive session")
                         self._print_prompt(suppress_next=False)
-                    self._handshake_event(src_ip, f"收到 KX2 来自 {src_ip}，会话已建立，可使用 ENC2 加密通讯")
-            except Exception:
-                pass
+                    return
+                # derive session via deterministic IP-order rule
+                ikm = self._derive_ikm_ip_order(self.local_ip, src_ip, local_seed=seedA, peer_seed=seedB)
+                key = hkdf_sha256(ikm, info=b"zfeiq-aes256gcm", length=32)
+                import hashlib
+                sid = hashlib.sha256(ikm).digest()[:8]
+                self._sessions[src_ip] = {"key": key, "sid": sid, "send_ctr": 0, "recv_ctr": 0, "recv_window": set(), "last_ts": time.time()}
+                if self.debug:
+                    print(f"[DBG] session established with {src_ip} sid={b64e(sid)}")
+                    self._print_prompt(suppress_next=False)
+                self._handshake_event(src_ip, f"收到 KX2 来自 {src_ip}，会话已建立，可使用 ENC2 加密通讯")
+            except Exception as e:
+                if self.debug:
+                    print(f"[DBG] failed to process KX2 from {src_ip}: {e}")
+                    self._print_prompt(suppress_next=False)
             return
 
         # BR_ENTRY / BR_ABSENCE: 更新在线并回复 ANSENTRY
@@ -1063,7 +1099,10 @@ class ZFeiQCli:
                     ctr = int(fields.get("ctr","0"))
                     s = self._sessions.get(src_ip)
                     if not s or s.get("sid") != sid:
-                        raise ValueError("unknown session")
+                        # 兼容：若按 IP 未命中，尝试在所有会话中按 sid 匹配（解决同一 IP 多实例/端口的冲突）
+                        s = next((v for v in self._sessions.values() if isinstance(v, dict) and v.get("sid") == sid), None)
+                        if not s or s.get("sid") != sid:
+                            raise ValueError("unknown session")
                     # simple replay protection
                     rw = s.get("recv_window") or set()
                     if ctr in rw:
@@ -1092,6 +1131,12 @@ class ZFeiQCli:
                         pass
                     else:
                         text = "[加密消息解密失败]"
+                        # 若开启 debug，输出更详细的错误原因，便于排查会话/nonce/AAD 问题
+                        try:
+                            if self.debug:
+                                print(f"[ENC] ENC2 decrypt error from {src_ip}: {_e}")
+                        except Exception:
+                            pass
             # 解密加密消息（以 ENC; 开头）
             if text.startswith("ENC;"):
                 try:
@@ -1447,31 +1492,31 @@ class ZFeiQCli:
                 msgs = self.history.get(ip)
                 for ts, d, t in msgs:
                     entries.append((ts, d, t, uname, ip))
-        if not entries:
-            print("(no messages)")
-            return
-        entries.sort(key=lambda x: x[0])
-        for ts, d, t, uname, ip in entries:
-            arrow = ">>" if d == "out" else "<<"
-            fmt_ts = ts_str_full(ts) if self.time_format == "full" else ts_str(ts)
-            print(f"[{fmt_ts}] {uname}@{ip} {arrow} {t}")
-
-    def _send_text(self, ip: str, text: str) -> None:
-        if not text:
-            print(self._t("send.empty"))
-            return
-        # 若目标 IP 实际上是本机其它网卡地址，强制使用当前绑定 IP 发送，避免“自己给自己发一份”
-        try:
-            addrs = _win_list_ipv4_addrs() if os.name == "nt" else _linux_list_ipv4_addrs()
-            local_ips = {a for a, _ in addrs}
-            if ip in local_ips and ip != self.local_ip:
-                ip = self.local_ip
-        except Exception:
-            pass
-        pkt_no = gen_packet_no()
-        node = self.registry.get_by_ip(ip)
-        need_ack = bool(node and node.supports_ack)
-        cmd = IPMSG_SENDMSG | (IPMSG_SENDCHECKOPT if need_ack else 0)
+        if target_ip:
+            # 向指定 IP 单播探测，支持 ip:port
+            try:
+                host = target_ip
+                port_override: Optional[int] = None
+                if target_ip and ":" in target_ip:
+                    h, p = target_ip.split(":", 1)
+                    if h.strip():
+                        host = h.strip()
+                    ps = p.strip()
+                    if ps.isdigit():
+                        port_override = int(ps)
+                if port_override is not None:
+                    self.transport.send_unicast_port(host, port_override, pkt)
+                else:
+                    self.transport.send_unicast(host, pkt)
+                pkt2 = build_packet(self.username or "?", self.hostname, IPMSG_GETLIST, encoding=self.encoding)
+                if port_override is not None:
+                    self.transport.send_unicast_port(host, port_override, pkt2)
+                else:
+                    self.transport.send_unicast(host, pkt2)
+                if self.debug:
+                    print(f"[DBG] unicast GETLIST to {host}{(':'+str(port_override)) if port_override is not None else ''}")
+            except Exception:
+                pass
         # 扩展字段：默认仅为文本；不再附加非标准的 cap=ack，避免对端显示为文本
         ext = text
         # 加密：优先使用会话 ENC2；否则根据模式与是否有对端公钥决定（旧 ENC）
@@ -1488,7 +1533,8 @@ class ZFeiQCli:
                     try:
                         if not s.get("_first_enc2_sent"):
                             s["_first_enc2_sent"] = True
-                            self._handshake_event(ip, f"与 {ip} 的会话已建立，开始使用 ENC2 加密通讯")
+                            # 更明确的提示：仅表示“本端首次通过现有会话发送 ENC2 消息”，不会重新建会话
+                            self._handshake_event(ip, f"与 {ip} 的会话已建立，首次通过 ENC2 发送加密消息")
                     except Exception:
                         pass
                 else:
@@ -2121,7 +2167,7 @@ class ZFeiQCli:
                     if arg.startswith("ip:"):
                         self.cmd_discover(arg[3:])
                     else:
-                        print("usage: /discover ip:<addr>")
+                        print("usage: /discover ip:<addr[:port]>")
                 elif cmdline == "/info" or cmdline == "/info sys":
                     self._print_online()
                 elif cmdline == "/info net":
