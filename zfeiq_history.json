@@ -1,181 +1,5 @@
 [
 {
-"ts": 1763827205.5095897,
-"direction": "out",
-"user": "win",
-"ip": "172.26.88.222",
-"target": "ip:172.26.30.252",
-"text": "你好"
-},
-{
-"ts": 1763827208.1360338,
-"direction": "in",
-"user": "User",
-"ip": "172.26.30.252",
-"target": "me",
-"text": "hi"
-},
-{
-"ts": 1763827209.3127308,
-"direction": "in",
-"user": "User",
-"ip": "172.26.30.252",
-"target": "me",
-"text": "😎"
-},
-{
-"ts": 1763827209.3304334,
-"direction": "in",
-"user": "User",
-"ip": "172.26.30.252",
-"target": "me",
-"text": "hi"
-},
-{
-"ts": 1763827219.3211043,
-"direction": "in",
-"user": "User",
-"ip": "172.26.30.252",
-"target": "me",
-"text": "😡"
-},
-{
-"ts": 1763827220.3205385,
-"direction": "in",
-"user": "User",
-"ip": "172.26.30.252",
-"target": "me",
-"text": "😡"
-},
-{
-"ts": 1763827221.3267944,
-"direction": "in",
-"user": "User",
-"ip": "172.26.30.252",
-"target": "me",
-"text": "😡"
-},
-{
-"ts": 1763827223.5774064,
-"direction": "out",
-"user": "win",
-"ip": "172.26.88.222",
-"target": "ip:172.26.30.252",
-"text": "😀"
-},
-{
-"ts": 1763827228.4794023,
-"direction": "out",
-"user": "win",
-"ip": "172.26.88.222",
-"target": "ip:172.26.30.252",
-"text": "666"
-},
-{
-"ts": 1763827270.5036602,
-"direction": "in",
-"user": "User",
-"ip": "172.26.30.252",
-"target": "me",
-"text": "lose"
-},
-{
-"ts": 1763827272.495256,
-"direction": "in",
-"user": "User",
-"ip": "172.26.30.252",
-"target": "me",
-"text": "lose"
-},
-{
-"ts": 1763827274.4900875,
-"direction": "in",
-"user": "User",
-"ip": "172.26.30.252",
-"target": "me",
-"text": "lose"
-},
-{
-"ts": 1763827366.4488943,
-"direction": "out",
-"user": "zhangzw0170",
-"ip": "172.26.88.222",
-"target": "group:测试组",
-"text": "分组测试"
-},
-{
-"ts": 1763827389.0834682,
-"direction": "out",
-"user": "zhangzw0170",
-"ip": "172.26.88.222",
-"target": "group:测试组",
-"text": "？"
-},
-{
-"ts": 1763827413.7217145,
-"direction": "out",
-"user": "zhangzw0170",
-"ip": "172.26.88.222",
-"target": "group:测试组",
-"text": "[FILE]瑞芯微板子使用说明.docx"
-},
-{
-"ts": 1763869691.7843258,
-"direction": "out",
-"user": "zhangzw0170_win",
-"ip": "192.168.1.102",
-"target": "ip:192.168.1.10",
-"text": "你好，RK3566！"
-},
-{
-"ts": 1763869709.8294146,
-"direction": "out",
-"user": "zhangzw0170_win",
-"ip": "192.168.1.102",
-"target": "ip:192.168.1.10",
-"text": "你好！RK3566！"
-},
-{
-"ts": 1763869730.6359525,
-"direction": "in",
-"user": "zhangzw0170",
-"ip": "192.168.1.10",
-"target": "me",
-"text": "Hello my developer!"
-},
-{
-"ts": 1763869745.7020173,
-"direction": "in",
-"user": "zhangzw0170",
-"ip": "192.168.1.10",
-"target": "me",
-"text": "hello my developer!"
-},
-{
-"ts": 1763869781.2397087,
-"direction": "in",
-"user": "zhangzw0170",
-"ip": "192.168.1.10",
-"target": "me",
-"text": "Well I have no space to install Fcitx to support inputting Chinese Lol"
-},
-{
-"ts": 1763869810.8414109,
-"direction": "out",
-"user": "zhangzw0170_win",
-"ip": "192.168.1.102",
-"target": "ip:192.168.1.10",
-"text": "Bug： 消息测试没问题，但是上位机这边是右对齐，而RK3566那边是左对齐"
-},
-{
-"ts": 1763869830.4351676,
-"direction": "out",
-"user": "zhangzw0170_win",
-"ip": "192.168.1.102",
-"target": "ip:192.168.1.10",
-"text": "[FILE]shot_20251123_115028.png"
-},
-{
 "ts": 1763869968.9628718,
 "direction": "in",
 "user": "zhangzw0170",
@@ -1598,5 +1422,181 @@
 "ip": "10.255.255.254",
 "target": "me",
 "text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=YTynJUgGem75s2i5HG98J5jzD4zmx+5Pccw7xBqPg6VO4qtZsa20FqlIBsUIfh4NcltMRqOcRuPrcfQd1DQWvmpXPla+Qui4ZaIHxwZt0f5OPwvJkN1LjRGezKNI67e9Du+V+WI8C8iVCcKFEbCjZdVjCY+KH+zhI4Qp0D7+WIspOmyuGCdlvZpzH0LuWwGtwFTS5FaJRSfqML2HxoGpsgvgxI+uhMImsf2j+/ZsRYByDEUM5fqOYQZqMhBGLg8E8APy/jG78IMfCz9RtbQGnTLkc/Byfm/BaPYxbXRyHCYh014nbJEhovlXfk8M1Q9ipErwLlNQO9nM82oay5Li4NnaBVTZ8q1mqrw5f/QmoFT6kvmWMSwOOqIGeZy+WoIMY6VjKiiFoCXOLAwi0dW98O4PVbxNaiwe0KMWQ0o/XD3KBu5neo/kYRYB949ok4SBCDzfempwQzljnuZBJIaRtFBvEdax554ourddN1q4kgILfVI1eK8hUce78L4L31zl"
+},
+{
+"ts": 1764665173.3631227,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=c00f3e92823324e69055fbe2bd57cfb74296c331b8865c0c0f9835f819de6cb0;ekeyA=J0nt7tWC6z+g5XqRs49XL9V3bZg8ZmXHLxUeWupeCuMFta8hGaI8RtHoqk0qJiDQnSIQmnZSG8BQCkEqzlH01P2He6Ro+XXLImL7ouSc3c0mpg8Bxf05pi/87s45ER8Ob1sbn2ejwff93RFRuReYyyVCS8/jj3uVxVRQudT4et0alqAOLDQ7F2OjhEA2fYC2To8WfB7LWqOGeDt5wYLkz3XOa5ww6PRj06eWL7icVoY1GYyOWYeiR0JsQIsoIliGuUf4rj7yhzKCw39zOW/p4+asQzQ7RAvNmwW5zXYkD0rBzZdLJ2YcSDPPngDsMYFyZ6NlFUFhofGK3w278OqBEdli2KGFqUUZSc3Z/LywtjDMRoJddIEN+DgP1S48VjIHOoAQ177/uXBxtyl+BrjhkRUjO7FK+0HE7sZQYnnvAa91euqHOuex/yKnWVEZ+fX2EEbM+bG4tFy5+Od2cgC5QYgyRo5zskV86DfqZUMTG0vnScXWALKa8pktOkvVm+Jb"
+},
+{
+"ts": 1764665173.497756,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyA=ovbpkrVCoTdMrorbvGu8jMROnvVW1rKsj2c0qBiWBIM4fWZd1U0M88TriJcmkKCs1N5ALLvyQriPNGRrmpuk5CyFvDSuqll8llwADscOVLwdQTkL2ZZF7au6wwJirDU3ehOrbKCi1UcZlULJO5lFFpLfXvAXdURJoybFSkk3YIjJyovfFQcNhFY8yn76q/TLWGsAnsNvrUFJK0DQrZmzDfizc3z8OmY/RoLNT14skPRLyxPHrgWVYhAuFJGHWYWpovnK2LdCU4G37tUtTx4WLj/PKxDD4ATmMxDofXsxgKKC/n2yHrhdp/jOLTzhkNx0HqnnzCzjklM8MLfpd8EphyyUpVc3RagwC/oxVIzVkVqnppy/OZoT/nlbu9TkCQ8fvcJiEecwZh04ZyqzrdRPAqZy71LUN/K+pyz/mL6UH3kaIPR7ZEa1pbZsvXhr/nIcJqHQQUXtuOw82GKnZN8x437ggYDshfeYoLEYHkJUeYm2Hd3Ld/fuvyDN7cXCWTZp"
+},
+{
+"ts": 1764665173.6214848,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyA=ZNZWzioe29LXGmbN/6jlAVzpACMMB+V+hF43NEt95evKo9zrU9NEmwA0sb3HKID9ihX0xzO9IzONwNNFMlkuhXKYiFyHSg/5Imst37gnG0dlc6ELPPo5rW1u5Ojx62sSOtxQ1t/+OQjGaAP+mqy0t2KtzdOVNnOBNEkUN5LzKBWk5btGFZtcqwFFQhhv+1FazmQM52AMW9QnxY3LqvcHsNmFYJJzO5RFSzawTE8pckHPwy6gjjqaRnwp8qTPrxYiTfTNWaxSAI1ZXmUnCGGefFwq3DCN0t+wxYFi5BM5DNpEzH9HYcr1Md3JEGSs0Lg077CrZuScnk0riAAgXu3aGrojnyBLA25Hy5jeDbKPP4RL/0Vc4AbQV6hobUoIUhf60OvKyIF7P6J7VRk/mxXXmKhe069QX/pwsNxe8LijOuJL8nUZN5Wk9H8f02ilusAJf2bBnXRo6MT6pmWnmiDpdGMsCcpmiubeNk7eMUY7PDbD/psEqnL9nwK6QeLeVUjG"
+},
+{
+"ts": 1764665173.7474673,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX1;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyA=Rou4RQ17Ni5AaTXq/1yOUTjLo4+WAB22ccAOL9AklIT3tfsdVGRktmsAkoqnKmd1Ynff8mAzC0B3696Qi4el7uGpxrb9VUkAiewuhKCEWLcw21RIgeq9Oh9yUlt7Q3YmEKxl5Otl/fA71v2Grga91HWNS5SOeRFD2WF93QVZcWZXOf+x4GaMj7d9YiDQRAFIHJjJ7sHQyLtJ5BXN2Y+NAWTKEEAqw1NGHItjSC8ACpPBX3h/C8P/JjrvhBV1LTU48TtSyfkq8NUkmDbtlmOdnWFP32E2I7yQqEwZratOvNHM35/VPyGTiTTQYu5XMt7K42juNOoibAw68yooyAcvkinyJxz10V1MhYLW86ZVb14RiVNF6MJLfVk7BRvPJcKzOKSsf7XYkhln5GYeze2PFtGL+cietYBAlIlqBQajFC7JWbDgG1ewhRwYdY4yTaPSueOMBZ2DKmZErsuOUjAjn7upYd7Hf8hHBeULE69JGzXZO+J4O+KW7gJHoCfBqN4n"
+},
+{
+"ts": 1764665173.872996,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=c00f3e92823324e69055fbe2bd57cfb74296c331b8865c0c0f9835f819de6cb0;ekeyA=coZw4C73/j1JPk+FNPjfVtrON+jv+orJPNavImOPHBrpg7qsvRGiR74hkmqhZE1FLsWinsBYs12QYfu25Ecw1AKTBHFf1wwf6Vkq5lWU74n0yvCPpKO/hKXhSa8qPylzj+YxWXJvH6B7CFtrtQ4owV42Wwsd3t8hSAVThCtdSVSiV3Dc+wsZWQc3OqrfScvDO/5UK9xUxFrAmq+mcK9FJpAiBDor/pInBKaWiAUPYq+gH+EtPmtQTBf0jeZZQWDMPdxeK00CqfIdcSoiH1QW8fgWVYZDYWWWXLUBFku21kFKOczBzdLbZPYuyzuKcl9o21GT8Ulk0UhQJfr9Z02b/yDVfXgQJDdQXVtwH13M3C3je8+3Yoj7OGpll7f3ELMdkO3gTMHKc8EID2BhR+YrjATpjq7BBz/EUuHAguXy9fk648bOi6hXRLcpG+eHYVaOdQSQh1JfzxrNJwcw3a8fppEA6t0r4y6SEZppDgALaNaYPC/9YDZtki0uFqe+87VD"
+},
+{
+"ts": 1764665173.9997241,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX1;ver=1;fp=c00f3e92823324e69055fbe2bd57cfb74296c331b8865c0c0f9835f819de6cb0;ekeyA=bq3gp+a9lzCCh3snSSjKeFPQKoYZUlTt2xBpvGKYt3V0wBqDS+/h+BG8hb9hMIxNAKpHk/Ss3sEWMepOxP77K9nTy9aY4iGHqIL9WTkXb+rrLblWuKD/rd4k3clisMpbvMeyc0+a94WCCPyhbBQ/bnNaDXJAvRnqumIGJLO2eYLgqwjPN/Vm0To3TlCntaNqmIQ9C1sanIfhLo6bplh8aj9jlwpiEcvuv5socBeNiG5PsxEANGuwfE+i6a3W5GfPtX4Sb5hrkRg+BlHem+pi7OeAC7S/9P5XsYC1nRiJd1VcLH9y8hydta0VK0KiGvKAt5HQR+slbSO5A45SzWf/f5RAe9DctuQm3Fkh7epOyVAHRi+MUFkJUeYOlQZ44WsP9hM9f+Ucvn+8bE5zed+xs3x78i8CddzbkbZjmki9DlQWvBRgMSTKuqu70ZfyWCvqlMPprUbBf1Z/6BvYlFH3qaKh4F/GgIl8aPd0PzJO7aNdkYX+2KAgcqxgzz5jNdbs"
+},
+{
+"ts": 1764665174.133852,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX1;ver=1;fp=c00f3e92823324e69055fbe2bd57cfb74296c331b8865c0c0f9835f819de6cb0;ekeyA=W5bXVA/qRo3eJxWr8UB3871RkkoUdPML6I6KNMkYVJ+djFSpfbI1XLWnLAmFFz9MevMxgtcwDxmu/3v4d8W6j3nBQ+ew5qF7BSHhLaEzUufwCQLOkY+RzpuB5sOdsQpkqZ/B3HLcLk55eb4TG3/PG8dMr+ae+XBDjUA4VVgunkD3ebTpMaEKXRU8VHShrFxwdA+1Yeu9/FS+PEQKJY9K4Rg3VI4sVaIA0rv0O+Cwho0QzfZQjpIciJHW2azXUXDP0dejoGH5X2oWWVEt4zz/9XIWP6DUY4F3M5/GKJF6GcEWLgrhpFRmR5SjE/Hy0Ht1aYgtlWpmLcmZ7vziBbAeC+u3MojFN8wYGS+52b7HoGubZqG/6XflUS7W+zq64+RNZKQsS6le1dz/+yOV8irdk7DOM45SUCrhlLTgoxxAY3o9Z5QthARAYsDCa5+sWlXIQFV1FH3oC3Ef62QZbL1CsSxFRBQvjHjrX2KlkdlW2gljY7RZ2cf/eehqoi+oPjW1"
+},
+{
+"ts": 1764665174.267841,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX1;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyA=hnTnL8oj0oK002y9bpbvEbqRFEiSznQ2DfN3xRqKH/Do0M95OC58mFSmpA8/6tCpT1E/CCAjzKv4r9SH7PiKbKGsPzkAPfd86EA77/gp79FPDRdtSkg0AOvAEtbqwP/rWmRnDPpqSH1LoSDJb2zwK6Ukq3kQ9EAnVbG/3RhJOc/c8loA53YeESDCkSjL9pIJcYqsFenHkfuuQy5XKPwqCTQgaG3uwstQTaOn2ZZKv7ro0FN+53bCIXtsQeK64cmpmyXcZ90QN/XgCGsFaIdoLdaefVAdC8/mVVdyzBXqt2w0Lh4uvj9BUX2tF7XXjWu32UBAT4SMrujwUCXUyqXHF68VtpWZ7RIrq20DDOyHDkDMThJ+kpgoqNu/C5IrHVFsRJVQdoZPsON148j9WHPdmwDleRYn8bBRZsvTztIQtVgGYTVKPAIK53GxedQm7GMkKvTIhnlP8Ay2EUnK1JAxqvc0YMIs4zjYw+N45sSTukVa05Am8XO32Sc7dgL9d32R"
+},
+{
+"ts": 1764665174.4211426,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=Wwrm5X7Mk6CKX66eusfvQJBNGFl2l8I9eLcVXGtiUevoiZYd8K63771wwThGygwIoTC0fbPo1+Oi26IuXyqhjSGWu8Tihk3Szx9y9Zfoe4oX7V7uPVQrmYqJq0pWuCcIzPD2E7xfDxmYctXUWaUJ7ZHvS4EJPUJkelsH+uxiqj+40uMjUKWHfHUA5mdrkcDdFTVZde8NgwLhlqqvNgYyKYg3/q/RyCit6OJZ1vUF48HkIyIDtYGZfe1MbBMdPbcTopjigKr81uc7YNH3731xJWzTLKJjywAHtssdMbu63Gou+lX74yjQX8J2lR3CIaEhCGzR4d0ke5E2K8NHIDoJHiMSfE9bvK2LMbrgYxGeLPofxedZiK3JTYbHNA8eEwksBCywbBcxWuY9Mjl/fPZizdqaShMZLeoAlB05AaqYCPsHem7GZ+XyED7oUMiwRplDk+cdyTW5XX2jGP4csiv0Jb8TZfZuoZlyfiqkVkDSAvT7t0MyPqGlgqvwFFnBi9j7"
+},
+{
+"ts": 1764665174.6054459,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=NziyCGQwFSLxBErLCeKYO40xDNXIJB9Si3U5gJJEpUxX7fsGrBjzkhDV/sRp14CwYAc64DrwAkQ82FZAqg7vQMpbcwI9hCiIIp6DNp+3zs9hmx6E+vY7gLSlzS/w5LhXpsqr+ne+BxzFjpaKfnGHJvceXvlVwFOFTAoqD6ny1eMRFzB/h8jKyrQ10hCnEBbrEw8DhgaAVg4NPLSSukz38+VuDtrksrU/ryEhoJHgytytJICcqk5LeWh6oPESkoZe0OEX3orSU6O3GYIPJcI7zTn60F03iBcej62J/X2BfrvdQHrVFR0W1bz5BcStNKkWkWxy7A+Vraae2Lc6hiGHlsZaHv3VUqXCF6QlHbte6jO1g4JAq+U1giztSpl1TcakFvxjRMtXwOqx2F9o/sPttWm9gxelTZsdgfruhJv6OtAtmYGYNYDB1kvEg4ZaRa43zRZ+xvgeY7xEArvv0mFQ6TkzaF5tRr3iujOZda7pJx0GkT0apzmllG23VKaO2Fk9"
+},
+{
+"ts": 1764665174.7633774,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=RkrJtviDoqvjw7QkVJkXqGRohbhSzUrSLxN+upyfgTzV/nkK9riUEE6yZfcHNBewQ7T6Mlex5dsTcVpW9SXRporfTWaVv6y9chGBH+l78BX59otuh9+Z9j7a44NNscrTlunFzVKgMgkF3mCqBDpZRLxKv1Z+aXJG41qkTpCNPZmabIFm7+kaqUlhnsvV/YkrhESGTKcicrg2NpqA/hNdRn2UTtQ+eDOE2AK5eK2xPo0xphtRCSOWrlcXYxEtuKf9jvcJxjrSfVpsLNpH/7mtlXXDPZmshj5G76nylM09XqTWOHyNI/nYxINg4HBID9ZyNIY+N5Q7cr+WH+hPX2AZ9R1YNlhlEVLYjkonHTLJTXHkFZHRKZq+h9G1RBJHQkl0jSn+HRRu3ddauXcwHOZ2kxNxtfdzR+hH4ZZ4nav9K+GKtYrEjyghX1ylDjxBT3QgpQWFhEsX0o4FyZsk/eHFkvIMuvX9DzGCaQtWMHY+o9S4zs2g0q99jY7h+r80U4R+"
+},
+{
+"ts": 1764665174.8881185,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=XJAvhJokOZq+FNGvLzUYrAxrByazZMCZB5YcwMP5Ju2NOVk/e4cDJdPySzlLtoy62g/A7WgzVuTTvl1UHVHWV6PzWLVwZDzEPDWs7nJ+Hf0Q5ez9ujmLDzUtm+bCPjwyoVH/zYr6AYwIv7vNHjPvqiKl48JvoHPWiDyFFfn1IfbGPv1BnBs53jIXUyJjV89AlqjeCz/uaa3IDthqkD7pORScu9bBVJ+l0yCB3/oEo3LxRI3Rb6bbz6oJ1TWMa4/bc0ZcyR/ftlmpQScgiEYEDIGbXsihTajuNN9+TCS5U/Ue61Ov9eqkmZk6SmBbc07h6CKmJY1goSsqBWeA93AK+lHatLXTb9dHa+aVZVs42hkrWFkXslzHTd7PezjqOpX77b71a+2z+m5HYpu/X8+Hi3XxFqBDFCedS4Pjy1xuTGVLoIKUn1Tp8gi0E1I3KVR8dJrLVKwOxCAZzyP3Y90k441/N/ddyxA+0ZT+EF+ht7hNcnej4I6aQGci9Pcz9cg5"
+},
+{
+"ts": 1764665175.0422828,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=GlOIFfviF0fQJq24k2n4H0vyipSws1buwq1G0zzFc9TzOfjAnxzxu0fcX2phvfzQJYHE9N1TCKIo5kl0kjj1D2nJDDCDSJFjxOhCR8mMqFkqFwTspQuiNj7VYz2MXW5n20rIn1GRnlene6cK31N28fFKI5wNfDIhQuLNlZSZ30CBCuNGVXWZYcdC6aZjcEFVr2T0h8F6j0Ngkdugk48p4H6bw73/gIqGQysn5GfOIwLt6/r2aXHJqE5sGWfthNzx1T1Qe1dTv00LC9HZLHwSQ6uc9z0vQ4v59IGEAZsxGWb5C1xBEXESHdr2DpWkIoiQZ9CRsLISsxnhsAPZhVNIwjFafLVkbG30NZfgzcE3QeBjM1hLlnlKjpZZVk6LcuOsaniFsV+P0nXg1LYAX4ktT5x95lJXWId5HsKVuq3Z8EOyaZbmh8OjRagPpjntRPrJS2Qp4ssLImFyc/Kyau/sds5v4Ii+pmUECVQYwM0vT+Xq7sBpkQfBKNBS20sNM4aC"
+},
+{
+"ts": 1764665175.2119846,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=Kqllw5h0+ouLkaCXkOEYebPZaBW9449L/xktu8mo2DRpsNJXUu4FKUNDtMmVO2BUKripXsCuriH7UILKG4fR8Cx/0MQfZ/axe72LI3QHG79D/P3HUnTATb1CQV4RLkYqZQCZFfc70HTxRQBm6MXDysjPJTfzzWpr7Q1uEW5SvPJF7byTwtzjcLRwORx2C/zisaoG1ndv/dGklTykgmQZr9Eaj6vt1emcdxVKhRDK3kIVCpEb8phJ2WGP0zw091k7s3EvBVniEo85+Xc6GhC3UCH/s1nIqvHyj2Pc8jrJPNrnO7bGjtgwTOY/Gb2WHNdSJY3Vc+QHS1DeY6JagLe/jq1mDLrzkCWGgdFwACCAgml5Pb76Qyj7l4xlLn28mgB/NrB1eJYbqZg/GvXuw2tCFfm5kBGzx2pvWCfPFkAeNKqpeHVA7Yxg2oZktPLiS7bBBXx1jEdhOO6dkn0cQP8c4e5ZJT6WbmO6PElkQ+KxdVZVzoopP+gL6AC82c4Q/AVZ"
+},
+{
+"ts": 1764665175.368744,
+"direction": "in",
+"user": "win",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=ieOmccp03X63NWcBNSJFs3zqNrnS9QoyEeKkaXU6rrUDvepvzGFu4o4FEnKk3H0EDW3/ZapKpO6KPDTyxo6SiKIOxyyLJKRXKSFUaczEVyjoH9CMzuytL53K8i9NgU4X5Mh76P7suudpqD5TnXRjQTwF9mDTHvMQKk8ONBnCiqWqJ+9HfR+d3Vam0HG54xoxikrI2b5voUaq0o1ZPvrCViMdg76osa7F8MGfs+MOXUpGmopHU9PtU/8XPBtHmijZsOoVRqNXjijQOAdo126sccpzp42Y8OD53bMH2qfQFGWsIcpkHOj2adYaOulc4a3yuWuVBhw+YzZmXcTp6mooX1ojzbx94si9iu8aEzvUB+Ns7+VxdJGNjZrv+hmRQerI0UUvq5vDJl+7ro8qSk318finCa3xEyktglFLMp+wbeHGB8bP77UtuTSdeRMek2xjldM6JITvf/Rzwu4hlLCXlesf3Q1Q7sHPLlfR2AlDzMrH3EOplF8cGtMzkuVNu2bD"
+},
+{
+"ts": 1764665175.4963596,
+"direction": "in",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "me",
+"text": "KX2;ver=1;fp=d2f082c6ec8cfd243e4f866cc89cfe65520ae961293ad2bb964cb25db5edb31b;ekeyB=ENVWfuJ2fyzSwRFAThNddaG+Mwsn+Xk0PGgwXZdQkkN0CVsoZSPBs47g1XzUR3/lmAAc6qYVwqT4zrIbHmkUjtw+3+EkIXTfS7dlXMOtYSFdrjleU2Rxk0dqo5K4lvZqFudOKyFhJBG5dB4Bd4UU+Hf/kk6KDUZg3Xb2hTRo53yehhqgs2gDn2/syrFhiYuBiYxwCnwHC+Oo4DUwU67Da4cIvFTcVfV6dIIdLEfiLkZt17WVQr0AbLksEEGAnHnoP/AsGUWeQdy+nRZuR5k10KliwqJQ+bcPntt/egAVlS2TwkWfxF2H3qEpXfAuIZmxIKMFDxDwJcXc8jswov0aMaCuK7tolawk+68TYnyNshBAXhhuw0nIeLrgl8Y4ciyo4fqTIz04dKHRyPqNzszm9J/YeQn0+k56xxP3ivB8jPBEGv2KvOZXIthFn9jLYggmxtxUkfxMLzEDDg9wj129oIjovYKcIz1nYTuE1vkZaCHpBguT3flh2FS6wNZD4wjF"
+},
+{
+"ts": 1764665175.6342776,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "KX2;ver=1;fp=cc650da5bc70043167d6f4f943457fe0daff3783babe90ac37345611981b3aab;ekeyB=HMH1/pPvmKLf9hCFs+CSM4jXju4yPrn9N+0Vd0/O4oyILN65QbT5rKSvBGcLCgHgRxgCAawxyVz57m+F00m2J9MhENznL9+jTU2yDhSSloKkgvaFF8Mb4WYMPv+RNA8XZJKzrYI+ohekvHIxnj0NbnjNLGO6XKvOpEq7y2LU7Y+z5BoDpv2iwwTzSoGtVNCTnhKuyRmvTMmHxw0ofM/ldqi2xnIm4v0fFAhHX7z2XhioqcTdyf+F84G8f+1epPo/zdhUQZygl4LhuKQQSU6WoShMU/dqsETeExqvuSLBfW7q6yom6oYduExA6x/dvaWe9AplYWoAS35AYM14XH/arx0bDkGZGP4Acp7lAsUfMptmifUPvdUKzvA82PhdJ/JCZqT51pBZ8ZbMkBjc7x9iPO3pxRlFZXoVjOhbkd8RAPvCOGLZGuFQZiPOIIeX5lRpkS/9ekSKIli9K9wC/VKEeR/JuqkY73JbGDvPp4PkaLXeudfChbl6JQalPnvn22Bi"
+},
+{
+"ts": 1764665175.8555589,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "KX2;ver=1;fp=cc650da5bc70043167d6f4f943457fe0daff3783babe90ac37345611981b3aab;ekeyB=HBjlp4GetBWbAZ0PO1XM5qUUaFYpKulTVkLSZjyTWzCl1yNBKbdSuOFIaxOHEbakiO6hxzUQSpgPL+Y9qT7SJMKnwp57V8akTNedAXkX7lVNc9mqG8JGM0h7u7ArvOnkVW2SKmQhvKu0l759YipELUQAGZ3p4FG38ePM/eh9uGxILbh2s0CWAHvHkdwncun3Qb4DIRf3muuSH0xu5nUre6XOCIxh9/eVzoZHT5hz8/n0tbbY/GtZgI9fFRaNddwEgQCPBHgJhXxqbcVrfWDKgj3FGVxCp8hRG0gKfY4qqmZt4Hm7BNQbauGGlhKIh/BYI+nB3g62t3U5XTwWTYfXmN1HM8Sb7BpGY4CkzpA/PW+8CsTbUDZqYRP1/8jU1zHQWSlw84Yds42gOO8xIJ1F3ve/QYWe3MwHMt0eiJtHj9hTzQbeCbGQwAXmulM2/oa43USIiEC692jXIFQfOG+lZtqE7M0gMvMuc5uAynsnK5+4BGcjG+snXFyU5Gce7gth"
+},
+{
+"ts": 1764665176.7626224,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "KX2;ver=1;fp=cc650da5bc70043167d6f4f943457fe0daff3783babe90ac37345611981b3aab;ekeyB=G9RMktNt9MTXB+i6E1Awl9nJImblOX2Hj/zcaM1ocleA08On0REdbu0q6iOZbDG5+G445uNRQeia38+Fs9ZY6LWMOXG1LAQomJ8nANebOYhDzKV6178/eLSJbOIr3xk+j+PmGhXXEgwOUqPBAGP5jwERWNwZgS7MP31Bvbjxli1LxQmMfRkeCkxtHrrKt45QfZ3zwo3BZrMof58v+ZRU1JOUSjqCHHxT06lnIoDItylXtbS07RcA1Imr0ihxosYRYzcr7xF1a6xIvnrweJI7DKsSavn84JqHYqjK2n3/XM+o3jXgBpPiK66+jNtkD/atCbtmalhIto/wUTI61ApYqOsaV7yEtrr7WTQwDkPyLaq6L13Rc1lgS6PLY4PByWv9Zkw4//yTmcICy49cBpeV5luI4SjC2D/9diqtoqEY5kTWkjRNSCi1zYHvX21oN0qlyoHU5tXWBMbXw8Y5Ghs/gXays90ZAbAzpJt18jgH283/MBmKsUvubjg4b39AvqsF"
+},
+{
+"ts": 1764665177.9265296,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "KX2;ver=1;fp=cc650da5bc70043167d6f4f943457fe0daff3783babe90ac37345611981b3aab;ekeyB=VQ4GYM8c6VeO2igZskhbgKH/NaZRrtvWhQXVFxlkhWWwONOJQDammyR4vulaUgbfDFdxOmZ8hWuv07YMgD8af01khkZwJNYxt4PQi+sk/piZwnBNk0M9qiuUSCTv2mH5RakTCUx4ths7LSzO2phcVJoFMYRH60E6lGyP2W3JsIQsQBNaTECFQmbmDbhlymAl/5mPIKMLjLJvxfCSCDdxP7npJOJf3RHzqCvAWUJux+fvjX+/TtQRQCOhMSWwSdfBaVRD8bUUQnXhbKWxWBX/KgslvXBuKwPOjCQewom9qzBPcc9KvhaASU6qV6Ghx5TxHwqiTJODNcRDHHu135Yd+NPPA2496ZzdNhgxn1HyPHMvFwSevhM96M/HSOglaSLbS/2hJOzjw/u4zb9F22nRfLy8Q1AuD9JFoUkWVWvjLcATewI/24B9ilUWUgpwEdMk1G4cMQr4+gWE96HIZ5/0nK39HpckYO5WHNRF/RDG4BlK7hEzn/gL6GU5jp/7uAnM"
+},
+{
+"ts": 1764665182.5630336,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "在吗？"
+},
+{
+"ts": 1764665192.9819455,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "PaddlerOCRbyZFeiQ:\nHello Neural Processing Unit NPU !!!\n！@#$%&*\n你好！神经处理单元！\n你好！麒麟类飞秋软件！"
 }
 ]
