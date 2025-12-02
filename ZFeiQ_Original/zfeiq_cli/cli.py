@@ -305,15 +305,16 @@ class ZFeiQCli:
             if not ip:
                 return
             if not self._ensure_keys():
-                self._user_print(f"[ENC] 本地密钥未就绪，无法对 {ip} 发起 KX1")
+                # 居中系统提示
+                self._handshake_event(ip, f"本地密钥未就绪，无法对 {ip} 发起 KX1")
                 return
             if ip not in self._peer_pubkeys:
-                self._user_print(f"[ENC] 尚未获得对端 {ip} 的公钥，无法发起 KX1")
+                self._handshake_event(ip, f"尚未获得对端 {ip} 的公钥，无法发起 KX1")
                 return
             if self._ensure_session(ip):
                 # 已有会话，无需重复发起
                 if self.debug:
-                    self._user_print(f"[ENC] 与 {ip} 的会话已存在，跳过 KX1")
+                    self._handshake_event(ip, f"与 {ip} 的会话已存在，跳过 KX1")
                 return
             import os
             seed = os.urandom(32)
@@ -324,10 +325,10 @@ class ZFeiQCli:
             self.transport.send_unicast(ip, pkt)
             # cache local seed until peer responds
             self._sessions[ip] = {"local_seed": seed, "last_ts": time.time()}
-            self._handshake_event(ip, "已向对端发送 KX1（发起密钥交换）")
+            self._handshake_event(ip, f"发送 KX1 到 {ip}")
         except Exception as e:
             try:
-                self._user_print(f"[ENC] 发起 KX1 到 {ip} 失败: {e}")
+                self._handshake_event(ip, f"发起 KX1 到 {ip} 失败: {e}")
             except Exception:
                 pass
 
@@ -346,7 +347,7 @@ class ZFeiQCli:
                 self._start_kx(ip)
         except Exception as e:
             try:
-                self._user_print(f"[ENC] force_start_kx({ip}) 异常: {e}")
+                self._handshake_event(ip, f"发起 KX1 到 {ip} 的请求异常: {e}")
             except Exception:
                 pass
 
@@ -737,7 +738,7 @@ class ZFeiQCli:
             try:
                 stored = self._ingest_peer_pubkey(src_ip, ext)
                 if not stored:
-                    self._user_print(f"[ENC] 收到 {src_ip} 的公钥响应但内容为空或无法解析，已忽略")
+                    self._handshake_event(src_ip, f"收到 {src_ip} 的公钥响应但内容为空或无法解析，已忽略")
                 else:
                     try:
                         if self.encrypt_mode in ("on", "strict") and (not self._ensure_session(src_ip)):
@@ -764,7 +765,7 @@ class ZFeiQCli:
                 text2 = f"KX2;ver=1;fp={fpB};ekeyB={b64e(eB)}"
                 pkt2 = build_packet(self.username or "?", self.hostname, IPMSG_SENDMSG, text2, encoding=self.encoding)
                 self.transport.send_unicast(src_ip, pkt2)
-                self._handshake_event(src_ip, "收到 KX1，已回复 KX2（返回本端密钥份额）")
+                self._handshake_event(src_ip, f"收到 KX1 来自 {src_ip}，已发送 KX2")
                 # derive session
                 # order by fingerprints to fix ikm ordering
                 fpA = fields.get("fp","")
@@ -780,7 +781,7 @@ class ZFeiQCli:
                 if self.debug:
                     print(f"[DBG] session established with {src_ip} sid={b64e(sid)}")
                     self._print_prompt(suppress_next=False)
-                self._handshake_event(src_ip, "本端会话密钥已建立，可使用 ENC2 加密通讯")
+                self._handshake_event(src_ip, f"与 {src_ip} 的会话已建立，可使用 ENC2 加密通讯")
             except Exception:
                 pass
             return
@@ -806,7 +807,7 @@ class ZFeiQCli:
                     if self.debug:
                         print(f"[DBG] session established with {src_ip} sid={b64e(sid)}")
                         self._print_prompt(suppress_next=False)
-                    self._handshake_event(src_ip, "本端会话密钥已建立（收到 KX2），可使用 ENC2 加密通讯")
+                    self._handshake_event(src_ip, f"收到 KX2 来自 {src_ip}，会话已建立，可使用 ENC2 加密通讯")
             except Exception:
                 pass
             return
@@ -1360,7 +1361,7 @@ class ZFeiQCli:
                     try:
                         if not s.get("_first_enc2_sent"):
                             s["_first_enc2_sent"] = True
-                            self._handshake_event(ip, "会话已建立并开始使用 ENC2 加密通讯")
+                            self._handshake_event(ip, f"与 {ip} 的会话已建立，开始使用 ENC2 加密通讯")
                     except Exception:
                         pass
                 else:
@@ -1374,7 +1375,11 @@ class ZFeiQCli:
                         # 触发 KX1
                         self._start_kx(ip)
                         if self.encrypt_mode == "strict":
-                            print("[ENC] 无对端公钥/会话，已请求握手，严格模式下不发送。")
+                            # 居中系统提示：严格模式下不发送
+                            try:
+                                self._handshake_event(ip, f"无对端公钥/会话，已请求与 {ip} 握手；严格模式下不发送")
+                            except Exception:
+                                pass
                             return
                     else:
                         # 旧路径：RSA 包裹一次性对称密钥
