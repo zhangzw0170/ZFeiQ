@@ -1,85 +1,5 @@
 [
 {
-"ts": 1763869968.9628718,
-"direction": "in",
-"user": "zhangzw0170",
-"ip": "192.168.1.10",
-"target": "me",
-"text": "Bug: Emoji on RK3566 is NOT completely support"
-},
-{
-"ts": 1763869971.137679,
-"direction": "in",
-"user": "zhangzw0170",
-"ip": "192.168.1.10",
-"target": "me",
-"text": "ed"
-},
-{
-"ts": 1763870006.6733801,
-"direction": "out",
-"user": "zhangzw0170_win",
-"ip": "192.168.1.102",
-"target": "ip:192.168.1.10",
-"text": "[FILE]shot_20251123_115028.png"
-},
-{
-"ts": 1763870045.021856,
-"direction": "in",
-"user": "zhangzw0170",
-"ip": "192.168.1.10",
-"target": "me",
-"text": "Bug: Cannot receive files from zhangzw0170_win"
-},
-{
-"ts": 1763912628.236406,
-"direction": "out",
-"user": "win",
-"ip": "192.168.1.102",
-"target": "all",
-"text": "[FILE]shot_20251123_234345.png"
-},
-{
-"ts": 1763913029.8159978,
-"direction": "out",
-"user": "win",
-"ip": "192.168.1.102",
-"target": "all",
-"text": "123456"
-},
-{
-"ts": 1763913044.5309353,
-"direction": "in",
-"user": "rk",
-"ip": "192.168.1.10",
-"target": "me",
-"text": "kylin@kylin:~$ pip3 list\nPackage                Version             \n---------------------- --------------------\nblinker                1.4                 \ncertifi                2019.11.28          \nchardet                3.0.4               \ncommand-not-found      0.3                 \ncryptography           2.8                 \ndbus-python            1.2.16              \ndistro                 1.4.0               \ndnspython              1.16.0              \nentrypoints            0.3                 \ngpg                    1.13.1-unknown      \nhttplib2               0.14.0              \nidna                   2.8                 \nkeyring                18.0.1              \nlaunchpadlib           1.10.13             \nlazr.restfulclient     0.14.2              \nlazr.uri               1.0.3               \nMarkdown               3.1.1               \nnetifaces              0.10.4              \nnumpy                  1.24.4              \noauthlib               3.1.0               \nonboard                1.4.1               \nopencv-python          4.12.0.88           \npackaging              20.3                \npillow                 10.4.0              \npip                    20.0.2              \npsutil                 7.1.3               \npycairo                1.16.2              \npyclipper              1.3.0.post6         \npycrypto               2.6.1               \nPygments               2.3.1               \nPyGObject              3.36.0              \nPyJWT                  1.7.1               \npyparsing              2.4.6               \nPyQt5                  5.14.1              \npython-apt             2.0.0+ubuntu0.20.4.5\nPyYAML                 5.3.1               \nrequests               2.22.0              \nrequests-unixsocket    0.2.0               \nrknn-toolkit-lite2     1.6.0               \nruamel-yaml-clib       0.2.8               \nruamel.yaml            0.18.16             \nSecretStorage          2.3.1               \nsetuptools             45.2.0              \nshapely                2.0.7               \nsimplejson             3.16.0              \nsip                    4.19.21             \nsix                    1.14.0              \nssh-import-id          5.10                \nubuntu-advantage-tools 27.2                \nurllib3                1.25.8              \nwadllib                1.3.3               \nwheel                  0.34.2"
-},
-{
-"ts": 1763913049.9472764,
-"direction": "in",
-"user": "rk",
-"ip": "192.168.1.10",
-"target": "me",
-"text": "?"
-},
-{
-"ts": 1763913452.9423523,
-"direction": "out",
-"user": "zhangzw0170",
-"ip": "172.26.88.222",
-"target": "all",
-"text": "有人吗？"
-},
-{
-"ts": 1764248422.7382822,
-"direction": "out",
-"user": "w",
-"ip": "172.26.88.222",
-"target": "all",
-"text": "🤩"
-},
-{
 "ts": 1764307091.942521,
 "direction": "out",
 "user": "w",
@@ -1598,5 +1518,85 @@
 "ip": "192.168.1.102",
 "target": "ip:192.168.1.10",
 "text": "PaddlerOCRbyZFeiQ:\nHello Neural Processing Unit NPU !!!\n！@#$%&*\n你好！神经处理单元！\n你好！麒麟类飞秋软件！"
+},
+{
+"ts": 1764665541.3414152,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "hello"
+},
+{
+"ts": 1764665926.4643958,
+"direction": "out",
+"user": "w",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "[ENC-TEST]"
+},
+{
+"ts": 1764667049.0985844,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "稍等一下～"
+},
+{
+"ts": 1764667079.3034754,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "[ENC-TEST]"
+},
+{
+"ts": 1764667096.7820327,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "收到。"
+},
+{
+"ts": 1764669721.0259283,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "PaddlerOCRbyZFeiQ:\nHello Neural Processing Unit NPU !!!\n！@#$%&*\n你好！神经处理单元！\n你好！麒麟类飞秋软件！"
+},
+{
+"ts": 1764669728.175838,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "[ENC-TEST]"
+},
+{
+"ts": 1764669741.2257173,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "[FILE]test.jpg"
+},
+{
+"ts": 1764670082.8372815,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "all",
+"text": "[FILE]zfeiq_gui_ss_edhml5_8.png"
+},
+{
+"ts": 1764670109.3816745,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:172.26.88.222",
+"text": "[FILE]zfeiq_gui_ss_fg9i8s6j.png"
 }
 ]

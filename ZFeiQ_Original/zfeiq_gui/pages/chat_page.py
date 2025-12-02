@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import tempfile
+import time
 from html import escape
 from typing import Dict, List, Optional
 
@@ -111,6 +113,42 @@ class ChatPage(QtWidgets.QWidget):
         target_id = self.target_for_index(idx)
         if target_id:
             self.remove_chat_tab(target_id)
+
+    def do_gui_screenshot(self) -> None:
+        """Hide the window briefly, then capture the primary screen."""
+        self._pending_gui_screenshot_ts = time.time()
+        win = self.window()
+        if win:
+            win.hide()
+        QtCore.QTimer.singleShot(500, self._perform_screenshot_logic)
+
+    def _perform_screenshot_logic(self) -> None:
+        """Grab the screen and enqueue the image for sending."""
+        win = self.window()
+        try:
+            screen = QtWidgets.QApplication.primaryScreen()
+            if not screen:
+                raise RuntimeError("primary screen unavailable")
+            pixmap = screen.grabWindow(0)
+            if pixmap.isNull():
+                print("截图失败：图像为空")
+                return
+            fd, path = tempfile.mkstemp(suffix=".png", prefix="zfeiq_gui_ss_")
+            os.close(fd)
+            if not pixmap.save(path, "PNG"):
+                print("截图失败：无法保存 PNG")
+                try:
+                    os.remove(path)
+                except Exception:
+                    pass
+                return
+            self.add_pending_file(path)
+        except Exception as e:
+            print(f"截图异常: {e}")
+        finally:
+            if win:
+                win.showNormal()
+                win.activateWindow()
 
     def set_avatar(self, path: str):
         try:
@@ -233,6 +271,7 @@ class ChatPage(QtWidgets.QWidget):
 
         self.emoji_btn = _make_action_btn(t['emoji'])
         self.screenshot_btn = _make_action_btn(t['screenshot'])
+        self.screenshot_btn.clicked.connect(self.do_gui_screenshot)
         self.quicktext_btn = _make_action_btn(t['quick'])
         # 历史按钮在当前UX中移除（保留对象以兼容外部引用，但隐藏且不加入布局）
         self.history_btn = _make_action_btn(t['history'])

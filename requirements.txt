@@ -56,3 +56,5 @@ ssh-import-id==5.10
 urllib3==1.25.8
 wadllib==1.3.3
 wheel==0.34.2
+# System package required for screenshot region captures on Linux (not a pip package):
+# scrot (install with `sudo apt install scrot`)

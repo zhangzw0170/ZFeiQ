@@ -211,7 +211,12 @@ class ZFeiQCli:
         self._priv_pem: Optional[bytes] = None
         self._pub_pem: Optional[bytes] = None
         self._peer_pubkeys: dict = {}  # ip -> pub_pem bytes
-        self._peer_fps: dict = {}  # ip -> fingerprint hex
+        self._peer_fps: dict = {}  # ip -> fingerprint hex (actual, from pubkey)
+        self._peer_fp_announced: dict = {}  # ip -> fingerprint hex (from BR_ENTRY/ANSENTRY)
+        # nonce 基字符串（只影响 ENC2 会话 nonce 生成），可在高级设置中覆盖
+        self.nonce_base: str = os.environ.get("ZFEIQ_NONCE_BASE", "zfeiq_msg")
+        # 简单的握手去抖：记录最近一次收到 KX1/KX2 的时间，避免短时重复处理
+        self._kx_recent: dict = {}
         # Linux 上绑定 0.0.0.0 以可靠接收广播，同时通过 iface_ip 指定发送所依据的网卡地址
         listen_ip = self.local_ip if os.name == "nt" else "0.0.0.0"
         self.encoding: str = "utf-8"  # utf-8 | gbk
@@ -278,11 +283,16 @@ class ZFeiQCli:
 
     # ======== session helpers (ENC2) ========
     def _sess_nonce(self, sid: bytes, ctr: int, direction: str) -> bytes:
-        # derive 12-byte nonce: SHA256(sid||dir||ctr)[0:12]
+        # derive 12-byte nonce: SHA256(sid||nonce_base||ctr)[0:12]
+        # direction 仅用于内部逻辑，不再参与 nonce 派生，避免双方实现差异导致解密失败
         import hashlib
         h = hashlib.sha256()
         h.update(sid)
-        h.update(direction.encode('ascii'))
+        try:
+            base = (self.nonce_base or "zfeiq_msg").encode("utf-8", errors="ignore")
+        except Exception:
+            base = b"zfeiq_msg"
+        h.update(base)
         h.update(str(ctr).encode('ascii'))
         return h.digest()[:12]
 
@@ -304,6 +314,15 @@ class ZFeiQCli:
         try:
             if not ip:
                 return
+            # 避免对自身 IP/本机其它网卡地址发起握手
+            try:
+                if ip == self.local_ip:
+                    return
+                local_ips = {a for a, _ in (_win_list_ipv4_addrs() if os.name == "nt" else _linux_list_ipv4_addrs())}
+                if ip in local_ips:
+                    return
+            except Exception:
+                pass
             if not self._ensure_keys():
                 # 居中系统提示
                 self._handshake_event(ip, f"本地密钥未就绪，无法对 {ip} 发起 KX1")
@@ -432,6 +451,23 @@ class ZFeiQCli:
             prv, pub = generate_rsa_keypair(3072)
             self._priv_pem, self._pub_pem = prv, pub
             self._save_keys()
+            # 新密钥对生成后，清空会话与对端公钥缓存，触发重新握手
+            try:
+                self._sessions.clear()
+            except Exception:
+                self._sessions = {}
+            self._peer_pubkeys.clear()
+            self._peer_fps.clear()
+            self._peer_fp_announced.clear()
+            # 若已登录，则广播一次上线信息，携带新的指纹，促使对端重新获取公钥
+            try:
+                if self.username:
+                    ext = self._build_status_ext()
+                    cmd = IPMSG_BR_ENTRY if self.status != "away" else IPMSG_BR_ABSENCE
+                    pkt = build_packet(self.username, self.hostname, cmd, ext, encoding=self.encoding)
+                    self.transport.send_broadcast(pkt)
+            except Exception:
+                pass
             return True
         except Exception as e:
             print(f"[ERR] keygen: {e}")
@@ -604,11 +640,24 @@ class ZFeiQCli:
             if not pem_bytes:
                 return False
             fp = hashlib.sha256(pem_bytes).hexdigest()
-            prev_fp = self._peer_fps.get(src_ip)
-            if prev_fp and prev_fp != fp:
-                print(f"[WARN] fingerprint mismatch for {src_ip}: announced={prev_fp} actual={fp}")
+            prev_ann = self._peer_fp_announced.get(src_ip)
+            prev_actual = self._peer_fps.get(src_ip)
+            # 仅在首次发现 announced 与 actual 不一致时告警一次，避免刷屏
+            if prev_ann and prev_ann != fp and not getattr(self, "_fp_warned", {}).get(src_ip, False):
+                print(f"[WARN] fingerprint mismatch for {src_ip}: announced={prev_ann} actual={fp}")
+                try:
+                    warned = getattr(self, "_fp_warned", {})
+                    warned[src_ip] = True
+                    self._fp_warned = warned
+                except Exception:
+                    pass
             self._peer_pubkeys[src_ip] = pem_bytes
             self._peer_fps[src_ip] = fp
+            # 覆盖旧的 announced 指纹为实际指纹，便于后续 /debug encinfo 收敛一致
+            try:
+                self._peer_fp_announced[src_ip] = fp
+            except Exception:
+                pass
             if self.debug:
                 print(f"[DBG] learned pubkey from {src_ip} ({len(pem_bytes)} bytes) fp={fp}")
                 self._print_prompt(suppress_next=False)
@@ -748,6 +797,35 @@ class ZFeiQCli:
 
         # 会话握手：KX1/KX2（级别B）
         if base == IPMSG_SENDMSG and (ext or "").startswith("KX1;"):
+            # 忽略来自本机任一 IP 的握手包
+            try:
+                local_ips = {ip for ip, _ in (_win_list_ipv4_addrs() if os.name == "nt" else _linux_list_ipv4_addrs())}
+                if src_ip in local_ips:
+                    return
+            except Exception:
+                pass
+            # 若 KX1 中携带的指纹与本机公钥指纹一致，也视为自发自收，直接忽略
+            try:
+                fp_self = hashlib.sha256((self._pub_pem or b"")).hexdigest() if self._pub_pem else ""
+                fields_probe = dict(x.split("=",1) for x in (seg.strip() for seg in (ext or "").split(";") ) if "=" in x)
+                if fields_probe.get("fp","") and fp_self and fields_probe.get("fp") == fp_self:
+                    return
+            except Exception:
+                pass
+            # 若已存在有效会话，视为重发，直接忽略
+            try:
+                if self._ensure_session(src_ip):
+                    return
+            except Exception:
+                pass
+            # 去抖：3 秒内重复的 KX1 只处理一次
+            try:
+                now_ts = time.time()
+                if now_ts - (self._kx_recent.get((src_ip, "KX1"), 0.0)) < 3.0:
+                    return
+                self._kx_recent[(src_ip, "KX1")] = now_ts
+            except Exception:
+                pass
             try:
                 # parse ekeyA
                 fields = dict(x.split("=",1) for x in (seg.strip() for seg in ext.split(";") ) if "=" in x)
@@ -782,6 +860,35 @@ class ZFeiQCli:
                 pass
             return
         if base == IPMSG_SENDMSG and (ext or "").startswith("KX2;"):
+            # 忽略来自本机任一 IP 的握手包
+            try:
+                local_ips = {ip for ip, _ in (_win_list_ipv4_addrs() if os.name == "nt" else _linux_list_ipv4_addrs())}
+                if src_ip in local_ips:
+                    return
+            except Exception:
+                pass
+            # 若 KX2 中携带的指纹与本机公钥指纹一致，也视为自发自收，直接忽略
+            try:
+                fp_self = hashlib.sha256((self._pub_pem or b"")).hexdigest() if self._pub_pem else ""
+                fields_probe = dict(x.split("=",1) for x in (seg.strip() for seg in (ext or "").split(";") ) if "=" in x)
+                if fields_probe.get("fp","") and fp_self and fields_probe.get("fp") == fp_self:
+                    return
+            except Exception:
+                pass
+            # 若已存在有效会话，视为重发，直接忽略
+            try:
+                if self._ensure_session(src_ip):
+                    return
+            except Exception:
+                pass
+            # 去抖：3 秒内重复的 KX2 只处理一次
+            try:
+                now_ts = time.time()
+                if now_ts - (self._kx_recent.get((src_ip, "KX2"), 0.0)) < 3.0:
+                    return
+                self._kx_recent[(src_ip, "KX2")] = now_ts
+            except Exception:
+                pass
             try:
                 fields = dict(x.split("=",1) for x in (seg.strip() for seg in ext.split(";") ) if "=" in x)
                 eB = b64d(fields.get("ekeyB",""))
@@ -825,7 +932,7 @@ class ZFeiQCli:
             try:
                 fp = self._parse_fp_from_ext(ext)
                 if fp:
-                    self._peer_fps[src_ip] = fp
+                    self._peer_fp_announced[src_ip] = fp
             except Exception:
                 pass
             old_status = was.status if was else None
@@ -882,7 +989,7 @@ class ZFeiQCli:
             try:
                 fp = self._parse_fp_from_ext(ext)
                 if fp:
-                    self._peer_fps[src_ip] = fp
+                    self._peer_fp_announced[src_ip] = fp
             except Exception:
                 pass
             old_status = was.status if was else None
@@ -947,6 +1054,10 @@ class ZFeiQCli:
             # ENC2 会话加密
             if text.startswith("ENC2;"):
                 try:
+                    # 加密关闭时，直接忽略 ENC2（仍回 ACK，不噪声提示）
+                    if self.encrypt_mode == "off":
+                        text = ""
+                        raise RuntimeError("enc-off-ignore")
                     fields = dict(x.split("=",1) for x in (seg.strip() for seg in text.split(";") ) if "=" in x)
                     sid = b64d(fields.get("sid",""))
                     ctr = int(fields.get("ctr","0"))
@@ -975,8 +1086,12 @@ class ZFeiQCli:
                             except Exception:
                                 break
                     s["recv_window"] = rw
-                except Exception:
-                    text = "[加密消息解密失败]"
+                except Exception as _e:
+                    if str(_e) == "enc-off-ignore":
+                        # 已在上方置空 text，这里不产生“解密失败”噪声
+                        pass
+                    else:
+                        text = "[加密消息解密失败]"
             # 解密加密消息（以 ENC; 开头）
             if text.startswith("ENC;"):
                 try:
@@ -1224,9 +1339,9 @@ class ZFeiQCli:
     def _build_status_ext(self) -> str:
         """构造 BR_ENTRY/ANSENTRY 使用的扩展字段，包含用户名、状态与能力位。"""
         caps = ["cap=ack"]
-        # 若本地存在公钥或当前加密模式非 off，则声明支持加密能力
+        # 仅在 encrypt=on|strict 时声明支持加密能力
         try:
-            if (self._pub_pem and len(self._pub_pem) > 0) or self.encrypt_mode in ("on", "strict"):
+            if self.encrypt_mode in ("on", "strict"):
                 caps.append("cap=enc")
         except Exception:
             pass
@@ -1345,6 +1460,14 @@ class ZFeiQCli:
         if not text:
             print(self._t("send.empty"))
             return
+        # 若目标 IP 实际上是本机其它网卡地址，强制使用当前绑定 IP 发送，避免“自己给自己发一份”
+        try:
+            addrs = _win_list_ipv4_addrs() if os.name == "nt" else _linux_list_ipv4_addrs()
+            local_ips = {a for a, _ in addrs}
+            if ip in local_ips and ip != self.local_ip:
+                ip = self.local_ip
+        except Exception:
+            pass
         pkt_no = gen_packet_no()
         node = self.registry.get_by_ip(ip)
         need_ack = bool(node and node.supports_ack)
@@ -1611,16 +1734,38 @@ class ZFeiQCli:
             return
         self.cmd_file_send(target, path)
 
-    # ======== CLI screenshot (Windows only full screen BMP) ========
+    # ======== CLI screenshot (cross-platform with scrot on Linux) ========
     def _capture_fullscreen_bmp(self) -> Optional[str]:
+        """Capture the screen via scrot/gnome-screenshot on Linux or Win32 APIs."""
+        import subprocess
+        import tempfile
+
         if os.name != "nt":
-            print("screenshot only supported on Windows in CLI")
+            try:
+                fd, path = tempfile.mkstemp(suffix=".png", prefix="zfeiq_ss_")
+                os.close(fd)
+                print("正在启动截图... (请使用鼠标框选区域，或点击屏幕截取全屏)")
+                try:
+                    subprocess.run(["scrot", "-s", path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    if os.path.exists(path) and os.path.getsize(path) > 0:
+                        return path
+                except (FileNotFoundError, subprocess.CalledProcessError):
+                    try:
+                        subprocess.run(["gnome-screenshot", "-a", "-f", path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        if os.path.exists(path) and os.path.getsize(path) > 0:
+                            return path
+                    except Exception:
+                        print("[ERR] 截图失败: 请安装 scrot (sudo apt install scrot)")
+                        return None
+            except Exception as e:
+                print(f"[ERR] screenshot error: {e}")
+                return None
             return None
         try:
+            print("[INFO] Windows CLI 截图逻辑执行中...")
             # 首选：Pillow 的 ImageGrab（更稳健）
             try:
                 from PIL import ImageGrab  # type: ignore
-                import tempfile
                 img = ImageGrab.grab(all_screens=True)
                 fd, path = tempfile.mkstemp(suffix=".bmp", prefix="zfeiq_ss_")
                 os.close(fd)
@@ -1647,7 +1792,6 @@ class ZFeiQCli:
             hbmp = CreateCompatibleBitmap(hdc_screen, cx, cy)
             SelectObject(hdc_mem, hbmp)
             BitBlt(hdc_mem, 0, 0, cx, cy, hdc_screen, 0, 0, SRCCOPY)
-            # 准备 DIB 头并通过 GetDIBits 取出像素
             class BITMAPFILEHEADER(ctypes.Structure):
                 _fields_ = [
                     ("bfType", wintypes.WORD),
@@ -1674,7 +1818,7 @@ class ZFeiQCli:
             bmi = BITMAPINFOHEADER()
             bmi.biSize = ctypes.sizeof(BITMAPINFOHEADER)
             bmi.biWidth = cx
-            bmi.biHeight = -cy  # top-down DIB
+            bmi.biHeight = -cy
             bmi.biPlanes = 1
             bmi.biBitCount = 24
             bmi.biCompression = BI_RGB
@@ -1684,11 +1828,10 @@ class ZFeiQCli:
             GetDIBits = gdi32.GetDIBits
             GetDIBits.argtypes = [wintypes.HDC, wintypes.HBITMAP, wintypes.UINT, wintypes.UINT, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT]
             GetDIBits(hdc_mem, hbmp, 0, cy, ctypes.byref(buf), ctypes.byref(bmi), 0)
-            import tempfile
             fd, path = tempfile.mkstemp(suffix=".bmp", prefix="zfeiq_ss_")
             os.close(fd)
             bfh = BITMAPFILEHEADER()
-            bfh.bfType = 0x4D42  # 'BM'
+            bfh.bfType = 0x4D42
             bfh.bfOffBits = ctypes.sizeof(BITMAPFILEHEADER) + ctypes.sizeof(BITMAPINFOHEADER)
             bfh.bfSize = bfh.bfOffBits + imgsize
             bfh.bfReserved1 = 0
@@ -1697,7 +1840,6 @@ class ZFeiQCli:
                 f.write(bytes(bfh))
                 f.write(bytes(bmi))
                 f.write(bytes(buf))
-            # 清理资源
             DeleteObject(hbmp)
             DeleteDC(hdc_mem)
             ReleaseDC(None, hdc_screen)
@@ -2132,6 +2274,22 @@ class ZFeiQCli:
                                 else:
                                     self.encrypt_mode = v
                                 print(f"encrypt={self.encrypt_mode}")
+                                # 切换加密模式后的配套行为：
+                                try:
+                                    # 1) 清理或启用会话
+                                    if self.encrypt_mode == "off":
+                                        try:
+                                            self._sessions.clear()
+                                        except Exception:
+                                            self._sessions = {}
+                                    # 2) 广播一次在线状态，更新 cap=enc 与指纹
+                                    if self.username:
+                                        ext2 = self._build_status_ext()
+                                        cmd2 = IPMSG_BR_ENTRY if self.status != "away" else IPMSG_BR_ABSENCE
+                                        pkt2 = build_packet(self.username or "?", self.hostname, cmd2, ext2, encoding=self.encoding)
+                                        self.transport.send_broadcast(pkt2)
+                                except Exception:
+                                    pass
                             else:
                                 print("usage: /set encrypt <off|on|strict>")
                         else:
@@ -2193,6 +2351,86 @@ class ZFeiQCli:
                             print(f"[ENC] /kx failed for {ip}: {e}")
                     else:
                         print("usage: /kx <ip>")
+                elif cmdline.startswith("/debug encinfo"):
+                    # 调试：打印当前加密会话与公钥信息
+                    try:
+                        print("-- ENC INFO --")
+                        print(f"encrypt_mode = {self.encrypt_mode}")
+                        print(f"nonce_base = {getattr(self, 'nonce_base', 'zfeiq_msg')}")
+                        print("\nSessions:")
+                        if not self._sessions:
+                            print(" (no sessions)")
+                        for ip, s in list(self._sessions.items()):
+                            try:
+                                sid = b64e(s.get('sid')) if s.get('sid') else ''
+                            except Exception:
+                                sid = str(s.get('sid'))
+                            send_ctr = s.get('send_ctr', 0)
+                            recv_ctr = s.get('recv_ctr', 0)
+                            last_ts = s.get('last_ts')
+                            last = ts_str_full(last_ts) if last_ts else 'N/A'
+                            key_len = len(s.get('key')) if isinstance(s.get('key'), (bytes, bytearray)) else 'N/A'
+                            print(f" - {ip}: sid={sid} send_ctr={send_ctr} recv_ctr={recv_ctr} last={last} key_len={key_len}")
+                        print("\nPeer announced fingerprints:")
+                        for ip, fp in self._peer_fp_announced.items():
+                            print(f" - {ip}: announced={fp}")
+                        print("\nPeer actual fingerprints (from pubkeys):")
+                        for ip, fp in self._peer_fps.items():
+                            print(f" - {ip}: actual={fp}")
+                        print("\nKnown peer pubkey sizes:")
+                        for ip, pem in self._peer_pubkeys.items():
+                            try:
+                                plen = len(pem)
+                            except Exception:
+                                plen = 'unknown'
+                            print(f" - {ip}: pubkey_bytes={plen}")
+                    except Exception as e:
+                        print(f"[DBG] encinfo failed: {e}")
+                elif cmdline == "/admin reset-keys":
+                    # 删除 commons/keys 下的密钥并重建，然后广播一次携带新指纹
+                    try:
+                        d = self._keys_dir()
+                        try:
+                            for fn in ("priv.pem", "pub.pem"):
+                                p = os.path.join(d, fn)
+                                if os.path.exists(p):
+                                    os.remove(p)
+                        except Exception:
+                            pass
+                        self._priv_pem = None; self._pub_pem = None
+                        ok = self._ensure_keys()
+                        if ok:
+                            print("[ENC] keys regenerated")
+                            if self.username:
+                                ext = self._build_status_ext()
+                                cmd2 = IPMSG_BR_ENTRY if self.status != "away" else IPMSG_BR_ABSENCE
+                                pkt2 = build_packet(self.username or "?", self.hostname, cmd2, ext, encoding=self.encoding)
+                                self.transport.send_broadcast(pkt2)
+                        else:
+                            print("[ENC] key regeneration failed")
+                    except Exception as e:
+                        print(f"[ENC] reset-keys failed: {e}")
+                elif cmdline == "/admin purge-sessions":
+                    try:
+                        self._sessions.clear()
+                    except Exception:
+                        self._sessions = {}
+                    print("[ENC] sessions cleared")
+                elif cmdline == "/admin refresh-fp":
+                    try:
+                        # 清空 announced，强制后续以实际 pubkey 回写
+                        self._peer_fp_announced.clear()
+                    except Exception:
+                        self._peer_fp_announced = {}
+                    try:
+                        if self.username:
+                            ext = self._build_status_ext()
+                            cmd2 = IPMSG_BR_ENTRY if self.status != "away" else IPMSG_BR_ABSENCE
+                            pkt2 = build_packet(self.username or "?", self.hostname, cmd2, ext, encoding=self.encoding)
+                            self.transport.send_broadcast(pkt2)
+                        print("[ENC] announced fingerprints will refresh on next discovery")
+                    except Exception as e:
+                        print(f"[ENC] refresh-fp failed: {e}")
               
                 elif cmdline.startswith("/ocr "):
                     # 用法: /ocr <image_path> [--send [target]]

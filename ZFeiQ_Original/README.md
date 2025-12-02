@@ -63,6 +63,17 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
    python main.py --cli
    ```
 
+   Note on screenshots (Linux): the GUI/CLI may rely on a system screenshot utility. On many Linux
+   distributions the `scrot` package is used for region captures. Install it when running on
+   desktop Linux or embedded images that don't provide a native screenshot helper:
+
+   ```bash
+   sudo apt update && sudo apt install -y scrot
+   ```
+
+   On some desktop environments the app will use the environment's native screenshot tool
+   if available; `ZFEIQ_USE_SYSTEM_SCREENSHOT=1` can force using the system helper where supported.
+
 ## 运行说明（重要细节）
 
 - 默认网络端口：`2425`。可传入 `--port <num>` 或使用环境变量 `ZFEIQ_PORT` 覆盖。
