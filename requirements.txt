@@ -9,7 +9,7 @@ command-not-found==0.3
 # 实际运行 ZFeiQ 加密功能（KX1/KX2/ENC2）时，请在目标环境中执行：
 #   pip install --upgrade "cryptography>=46.0.0"
 # 以获得完整的 AES-GCM / HKDF 能力。
-cryptography==2.8
+cryptography>=46.0.0
 dbus-python==1.2.16
 distro==1.4.0
 dnspython==1.16.0
