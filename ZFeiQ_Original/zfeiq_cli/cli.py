@@ -995,6 +995,14 @@ class ZFeiQCli:
                     text = pt.decode(self.encoding, errors="ignore")
                 except Exception:
                     text = "[加密消息解密失败]"
+            # 若是握手文本（KX1/KX2），避免作为普通消息显示（但仍然按下方流程 ACK）
+            try:
+                if text.startswith("KX1;") or text.startswith("KX2;"):
+                    # 已在专用分支处理过（或我们将忽略展示），清空文本避免入历史
+                    text = ""
+            except Exception:
+                pass
+
             # 收到消息时也刷新能力位与状态（若有）并更新在线表
             cap_ack = self._parse_cap_ack_from_ext(ext)
             st = self._parse_status_from_ext(ext)
