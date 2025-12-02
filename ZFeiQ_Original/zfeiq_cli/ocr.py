@@ -133,8 +133,12 @@ class ZFeiQOcr:
             img_det = np.array(img_det_pil)
             
             if self.use_npu:
-                # RKNN 直接输入 NHWC uint8
-                det_out = self.det_sess.inference(inputs=[img_det], data_format='nhwc')[0]
+                # RKNN 直接输入 NHWC uint8，注意需添加 batch 维度
+                img_det_b = img_det[np.newaxis, ...]
+                outs = self.det_sess.inference(inputs=[img_det_b], data_format='nhwc')
+                if outs is None or len(outs) == 0:
+                    raise RuntimeError("Det inference returned None")
+                det_out = outs[0]
             else:
                 # ONNX: Float32 + CHW + Normalize
                 img_det_norm = img_det.astype(np.float32)
@@ -164,7 +168,11 @@ class ZFeiQOcr:
                 crop_arr = np.array(crop)
 
                 if self.use_npu:
-                    rec_out = self.rec_sess.inference(inputs=[crop_arr], data_format='nhwc')[0]
+                    crop_b = crop_arr[np.newaxis, ...]
+                    outs = self.rec_sess.inference(inputs=[crop_b], data_format='nhwc')
+                    if outs is None or len(outs) == 0:
+                        continue
+                    rec_out = outs[0]
                 else:
                     crop_norm = crop_arr.astype(np.float32)
                     crop_norm = (crop_norm / 255.0 - 0.5) / 0.5

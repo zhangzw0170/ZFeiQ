@@ -703,11 +703,7 @@ class ZFeiQCli:
         host = header.get("hostname", "?")
         pkt_no = header.get("packet_no", 0)
 
-        # 自动选网卡：若未被用户锁定绑定，且收到来自某网段的报文，尝试切到同网段的本地 IP
-        try:
-            self._auto_rebind_consider(src_ip)
-        except Exception:
-            pass
+        # （已禁用）自动选网卡逻辑已移除，避免多网卡环境频繁切换
 
         if self.debug:
             try:

@@ -55,17 +55,40 @@ class GuiBackend(QObject):
                 src_ip = addr[0]
                 if base == IPMSG_SENDMSG:
                     text = ext.split("\0", 1)[0] if ext else ""
-                    # 握手/会话相关：收到 KX1/KX2/ENC2 消息时通知界面刷新加密状态
+                    # 握手/会话相关：收到 KX1/KX2/ENC2/ENC 时通知界面刷新加密状态
                     try:
-                        if text.startswith("KX1;") or text.startswith("KX2;") or text.startswith("ENC2;"):
+                        if text.startswith("KX1;") or text.startswith("KX2;") or text.startswith("ENC2;") or text.startswith("ENC;"):
                             self.encryption_changed.emit()
                     except Exception:
                         pass
-                    # emit message for UI：普通文本 + ENC 手动确认帧
+                    # 对握手原文 KX1/KX2：不作为普通消息展示
+                    try:
+                        if text.startswith("KX1;") or text.startswith("KX2;"):
+                            text = ""
+                    except Exception:
+                        pass
+                    # 对 ENC2/ENC：优先从 CLI 历史中提取已解密明文，避免显示原始帧
+                    try:
+                        if text.startswith("ENC2;") or text.startswith("ENC;"):
+                            last_plain = None
+                            try:
+                                hist = self.zcli.history.get(src_ip)
+                                for ts, d, t in reversed(hist):
+                                    if d == "in" and t and not t.startswith("["):
+                                        last_plain = t
+                                        break
+                            except Exception:
+                                last_plain = None
+                            if last_plain:
+                                self.message_signal.emit(user, src_ip, last_plain)
+                                self._record("in", user=user, ip=src_ip, target="me", text=last_plain)
+                            # 无论是否成功取到明文，都不再把 ENC* 原文透传给 UI
+                            text = ""
+                    except Exception:
+                        pass
+                    # emit message for UI：仅普通文本
                     if text and not text.startswith("FILE_OFFER;"):
-                        # ENC-TEST 仍作为普通文本显示，方便调试
                         self.message_signal.emit(user, src_ip, text)
-                        # record incoming message
                         self._record("in", user=user, ip=src_ip, target="me", text=text)
                     # attachments
                     attaches = []
