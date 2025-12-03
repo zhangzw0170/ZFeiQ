@@ -50,8 +50,8 @@ class SettingsPage(QtWidgets.QWidget):
         try:
             tabs.setUsesScrollButtons(False)
             tabs.setMovable(False)
-            # 当标签数较少时自动隐藏 TabBar，减少渲染与误触
-            tabs.setTabBarAutoHide(True)
+            # 保持标签栏可见，避免误隐藏导致“安全”页不可见
+            tabs.setTabBarAutoHide(False)
         except Exception:
             pass
         self._tabs = tabs
@@ -99,16 +99,13 @@ class SettingsPage(QtWidgets.QWidget):
         # self.lbl_avatar = QtWidgets.QLabel(t['avatar'])
         # pform.addRow(self.lbl_avatar, self._row_widget(self.edit_avatar, self.btn_pick_avatar))
         # 将密钥/安全管理移到独立的 tab：Security (与个人/文件同级)
-        try:
-            self.key_section = KeyPage()
-            tab_security = QtWidgets.QWidget()
-            sec_layout = QtWidgets.QVBoxLayout(tab_security)
-            sec_layout.setContentsMargins(12, 12, 12, 12)
-            sec_layout.setSpacing(8)
-            sec_layout.addWidget(self.key_section)
-            tabs.addTab(tab_security, t.get('security_tab', '安全'))
-        except Exception:
-            pass
+        self.key_section = KeyPage()
+        tab_security = QtWidgets.QWidget()
+        sec_layout = QtWidgets.QVBoxLayout(tab_security)
+        sec_layout.setContentsMargins(12, 12, 12, 12)
+        sec_layout.setSpacing(8)
+        sec_layout.addWidget(self.key_section)
+        tabs.addTab(tab_security, t.get('security_tab', '安全'))
 
         tab_general = QtWidgets.QWidget()
         tabs.addTab(tab_general, t['general_tab'])

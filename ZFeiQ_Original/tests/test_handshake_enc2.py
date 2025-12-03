@@ -1,4 +1,4 @@
-"""In-process ENC2 handshake test using dummy transport bridging two ZFeiQCli instances.
+"""In-process ENC (session) handshake test using dummy transport bridging two ZFeiQCli instances.
 
 Steps:
 1. Construct two clients A(10.0.0.1) and B(10.0.0.2) with DummyTransport that forwards packets directly.
@@ -54,12 +54,9 @@ def make_client(ip: str, port: int = 2425) -> ZFeiQCli:
 
 
 def wait_pubkeys(a: ZFeiQCli, b: ZFeiQCli, timeout: float = 3.0):
-    t0 = time.time()
-    while time.time() - t0 < timeout:
-        if (b.local_ip in getattr(a, '_peer_pubkeys', {})) and (a.local_ip in getattr(b, '_peer_pubkeys', {})):
-            return True
-        time.sleep(0.05)
-    return False
+    # HKDF-only: pubkeys are not required; keep function for compatibility
+    time.sleep(0.1)
+    return True
 
 def wait_sessions(a: ZFeiQCli, b: ZFeiQCli, timeout: float = 3.0):
     t0 = time.time()
@@ -86,22 +83,15 @@ def main():
 
     # Allow discovery (ANSENTRY replies)
     time.sleep(0.2)
-    # Manually inject peer pubkeys & fingerprints (simplify in-process test without real GETPUBKEY/ANSPUBKEY traffic)
-    import hashlib
-    a._peer_pubkeys[b.local_ip] = b._pub_pem
-    a._peer_fps[b.local_ip] = hashlib.sha256(b._pub_pem).hexdigest()
-    b._peer_pubkeys[a.local_ip] = a._pub_pem
-    b._peer_fps[a.local_ip] = hashlib.sha256(a._pub_pem).hexdigest()
-    print('Pubkeys exchanged: True (manual injection)')
+    print('HKDF-only: pubkeys not required')
 
     # Manual session derivation (simulate successful KX1/KX2 without network timing complexity)
     import os
+    import hashlib
     seedA = os.urandom(32)
     seedB = os.urandom(32)
-    fpA = hashlib.sha256(a._pub_pem).hexdigest()
-    fpB = hashlib.sha256(b._pub_pem).hexdigest()
-    order = sorted([fpA, fpB])
-    ikm = seedA + seedB if order[0] == fpA else seedB + seedA
+    order_ips = sorted([a.local_ip, b.local_ip])
+    ikm = seedA + seedB if order_ips[0] == a.local_ip else seedB + seedA
     from zfeiq_cli.crypto import hkdf_sha256
     key = hkdf_sha256(ikm, info=b"zfeiq-aes256gcm", length=32)
     sid = hashlib.sha256(ikm).digest()[:8]
@@ -136,7 +126,7 @@ def main():
     # Pubkey exchange assumed true after manual injection
     assert sa.get('key') and sb.get('key'), 'Missing session keys'
     assert last == 'hello-secure', 'Decrypted plaintext mismatch'
-    print('ENC2 handshake test PASS')
+    print('ENC handshake test PASS')
 
 if __name__ == '__main__':
     main()

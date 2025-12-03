@@ -447,20 +447,27 @@ class MainWindow(QtWidgets.QMainWindow):
                 _refresh_target_header(target_id)
 
             def on_send():
-                target = self._chat_page.current_target_id()
+                # Basic guards & sensible defaults
+                tloc = self._current_translations or {}
                 text = self._chat_page.outbox.toPlainText().strip()
                 files = self._chat_page.get_pending_files()
-                if not target:
-                    if text or files:
-                        t = self._current_translations or {}
-                        QtWidgets.QMessageBox.information(
-                            self,
-                            t['no_target_warning_title'],
-                            t['no_target_warning_body'],
-                        )
-                    return
                 if not text and not files:
                     return
+                # not logged in
+                try:
+                    if not getattr(backend, 'zcli', None) or not getattr(backend.zcli, 'username', None):
+                        QtWidgets.QMessageBox.information(
+                            self,
+                            tloc.get('login_first_title', '未登录'),
+                            tloc.get('login_first_body', '请先登录后再发送。'),
+                        )
+                        return
+                except Exception:
+                    pass
+                target = self._chat_page.current_target_id()
+                # If no explicit target selected, fallback to broadcast "all"
+                if not target:
+                    target = "all"
                 tab_label = _tab_label_for_target(target)
                 display = _display_for_target(target)
                 try:
@@ -471,12 +478,21 @@ class MainWindow(QtWidgets.QMainWindow):
                         try:
                             backend.send_file(target, p)
                             self._chat_page.append_file_sent(target, display, p, tab_label=tab_label)
-                        except Exception:
-                            pass
+                        except Exception as fe:
+                            QtWidgets.QMessageBox.warning(
+                                self,
+                                tloc.get('send_file_failed_title', '发送文件失败'),
+                                tloc.get('send_file_failed_body', '发送文件失败：') + str(fe),
+                            )
                     self._chat_page.outbox.clear()
                     self._chat_page.clear_pending_files()
-                except Exception:
-                    pass
+                except Exception as e:
+                    # Surface the error instead of silently swallowing
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        tloc.get('send_failed_title', '发送失败'),
+                        tloc.get('send_failed_body', '发送失败：') + str(e),
+                    )
 
             self._chat_page.send_btn.clicked.connect(on_send)
             try:
@@ -939,7 +955,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._chat_page.quicktext_btn.clicked.connect(self.on_quicktext_menu)
             except Exception:
                 pass
-            # 交换公钥按钮：仅在 encrypt=on/strict 时显示
+            # 握手按钮：仅在 encrypt=on/strict 时显示（HKDF-only）
             try:
                 def _update_kx_visibility():
                     try:
@@ -965,7 +981,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             except Exception:
                                 pass
                             try:
-                                msg = '通讯已加密（ENC2 会话就绪）' if ok else '已尝试交换公钥并建立会话，但仍未加密'
+                                msg = '通讯已加密（ENC2 会话就绪）' if ok else '已尝试发起握手，但仍未加密'
                                 self.statusBar().showMessage(msg, 4000)
                             except Exception:
                                 pass
@@ -973,7 +989,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             # 无特定 IP 时回退为全局刷新
                             getattr(backend, 'refresh_encryption', lambda: None)()
                             try:
-                                self.statusBar().showMessage('已广播公钥并尝试建立会话', 3000)
+                                self.statusBar().showMessage('已广播握手并尝试建立会话', 3000)
                             except Exception:
                                 pass
                     except Exception:

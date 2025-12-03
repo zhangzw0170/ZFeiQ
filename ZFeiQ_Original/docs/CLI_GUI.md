@@ -1,5 +1,5 @@
 
-# CLI 与 GUI 功能对照表（**Alpha 5.1**）
+# CLI 与 GUI 功能对照表（**Alpha 5.2**）
 
 | 功能点/说明 | GUI支持 | CLI支持/命令 | 备注 |
 |---|---|---|---|
@@ -32,7 +32,9 @@
 | 进入群聊 | ✅ “进入聊天” | `/send group:<group> <text>` |  |
 | 新建分组 | ✅ 新建按钮 | `/group <group> -add` |  |
 | 重命名分组 | ✅ 重命名按钮 | `/group <group> -rename <newname>` | CLI 支持原子重命名（新增 `-rename` 子命令） |
-| 加密模式 | ✅ 安全（密钥）页 | `/set encrypt <off|on|strict>` |  |
+| 加密模式 | ✅ 安全（密钥）页 | `/set encrypt <off|on|strict>` | 现已支持“登录后启用加密”即时握手：CLI/GUI 切到 on/strict 将主动请求公钥、发起 KX，并广播/请求列表 |
+| 解密成功标签 | ✅ 安全（密钥）页开关 | `/set encrypt EDtag <on|off>` | 显示 `[E-D OK]` 标签 |
+| 打印原始密文 | ✅ 安全（密钥）页开关 | `/set encrypt cipher <on|off>` | 打印 `[cipher] ENC sid=... ctr=... tag=... b64=...` |
 | 密钥生成/加载 | ✅ 安全（密钥）页 | 自动生成/加载 | CLI无显式命令 |
 | 指纹展示/公钥导出/重生成 | ✅ 安全（密钥）页 | ❌ | GUI专属 |
 | 查看与用户历史 | ✅ 历史窗口 | `/info user:<name>` |  |

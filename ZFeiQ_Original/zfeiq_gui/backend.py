@@ -144,6 +144,19 @@ class GuiBackend(QObject):
         # load persisted state before start
         self._load_state()
         self.zcli.start()
+        # GUI 启动后，根据当前加密模式立即刷新能力与会话，避免必须“登录前启用”才能生效
+        try:
+            mode = getattr(self.zcli, 'encrypt_mode', 'on')
+            if mode in ('on','strict'):
+                self._ensure_local_keys()
+                self._broadcast_encryption_state()
+                self._attempt_pubkey_and_sessions()
+                try:
+                    self.encryption_changed.emit()
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     def stop(self):
         # GUI 退出时，若已登录，先广播一次 BR_EXIT 再停止传输
@@ -163,12 +176,30 @@ class GuiBackend(QObject):
     # proxy methods
     def login(self, name: str):
         self.zcli.cmd_login(name)
+        # 登录后若开启加密，立即刷新加密能力并尝试握手，提升 CLI-GUI 互通成功率
+        try:
+            if getattr(self.zcli, 'encrypt_mode', 'off') in ('on','strict'):
+                self._ensure_local_keys()
+                self._broadcast_encryption_state()
+                self._attempt_pubkey_and_sessions()
+                try:
+                    self.encryption_changed.emit()
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     def logout(self):
         self.zcli.cmd_logout()
 
     def discover(self, target_ip: Optional[str] = None):
         self.zcli.cmd_discover(target_ip)
+        # 发现后若开启加密，尝试基于最新在线表推进会话建立
+        try:
+            if getattr(self.zcli, 'encrypt_mode', 'off') in ('on','strict'):
+                self._attempt_pubkey_and_sessions()
+        except Exception:
+            pass
 
     def send_text(self, target: str, text: str):
         # target can be ip:1.2.3.4 or user:name or group:name
@@ -401,7 +432,7 @@ class GuiBackend(QObject):
                     language=self.zcli.language,
                     status=self.zcli.status,
                     encoding=self.zcli.encoding,
-                    encrypt_mode=getattr(self.zcli, 'encrypt_mode', 'off'),
+                    encrypt_mode=getattr(self.zcli, 'encrypt_mode', 'on'),
                     keepalive=self.zcli.keepalive_interval,
                     expire=self.zcli.expire_seconds,
                     bind_ip=self.zcli.local_ip if getattr(self.zcli, '_bind_locked', False) else "",
@@ -474,6 +505,12 @@ class GuiBackend(QObject):
             if cfg.get("encrypt_mode") in ("off","on","strict"):
                 try:
                     self.zcli.encrypt_mode = cfg.get("encrypt_mode")
+                except Exception:
+                    pass
+            else:
+                # 默认启用加密
+                try:
+                    self.zcli.encrypt_mode = 'on'
                 except Exception:
                     pass
             if cfg.get("download_dir"):
@@ -550,9 +587,9 @@ class GuiBackend(QObject):
     # ---- encryption/key helpers ----
     def get_encrypt_mode(self) -> str:
         try:
-            return getattr(self.zcli, 'encrypt_mode', 'off')
+            return getattr(self.zcli, 'encrypt_mode', 'on')
         except Exception:
-            return 'off'
+            return 'on'
 
     def set_encrypt_mode(self, mode: str):
         if mode not in ("off","on","strict"):
@@ -633,6 +670,13 @@ class GuiBackend(QObject):
             if not ip:
                 return
             self._ensure_local_keys()
+            # 若已有会话但状态异常，先清理确保干净重试
+            try:
+                purge = getattr(self.zcli, 'purge_session', None)
+                if callable(purge):
+                    purge(ip)
+            except Exception:
+                pass
             # 若已有对端公钥，直接发起 KX；否则先请求公钥
             peer_pub = getattr(self.zcli, '_peer_pubkeys', {}).get(ip)
             if peer_pub:
@@ -678,10 +722,13 @@ class GuiBackend(QObject):
                 except Exception:
                     pass
                 return True
-            # 若尚未会话但有公钥，尝试发起 KX1
+            # 若尚未会话但有公钥，尝试发起 KX1（先清理旧状态）
             peer_pub = getattr(self.zcli, '_peer_pubkeys', {}).get(ip)
             if peer_pub:
                 try:
+                    purge = getattr(self.zcli, 'purge_session', None)
+                    if callable(purge):
+                        purge(ip)
                     if not has_sess(ip):
                         # 同样优先使用显式的强制 KX 接口
                         force_kx = getattr(self.zcli, 'force_start_kx', None)

@@ -15,7 +15,7 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 
 ## 最新特性（**Alpha 5.1**）
 
-- **加密通讯（Level B）**：新增 KX1/KX2 握手与 ENC2 会话消息，使用 RSA‑3072（OAEP‑SHA256）+ HKDF‑SHA256 + AES‑256‑GCM，支持会话 `sid/ctr` 与重放窗口；严格模式（strict）下无安全会话拒绝发送。
+- **加密通讯（Level B）**：KX1/KX2 握手与 ENC 会话消息，采用 HKDF‑SHA256 + AES‑256‑GCM（不再依赖 RSA），支持会话 `sid/ctr` 与重放窗口；严格模式（strict）下无安全会话拒绝发送。可选：`/set encrypt cipher on|off` 打印原始密文；`/set encrypt EDtag on|off` 在明文旁显示 `[E-D OK]`。
 - **聊天页加密指示**：在聊天头部 IP 左侧显示“通讯已加密/未加密”（本地化）。
 - **用户列表三行显示**：非本机节点显示“状态+用户名 / @IP / [主机名]”；本机节点 `LOCAL` 保持单行以减少噪音。
 - **组页优化**：补充顶端“全员（All）”入口、成员显示稳态，单成员组不再压缩为省略号。
@@ -24,7 +24,7 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 
 新增要点（**Alpha 5.1**）：
 
-- **Level B 会话加密已落地**：KX1/KX2/ENC2 全流程实现，旧版仍可回退到传统 ENC 路径以保持互通。
+- **Level B 会话加密已落地**：KX1/KX2/ENC 全流程实现；兼容旧版来消息的 `ENC;...` 解密，但发送端不再使用 RSA 回退路径。
 - **strict 模式**：当启用 strict 且未建立安全会话时，客户端将拒绝发送敏感消息。
 - **本地化与显示**：新增加密状态本地化文案；用户/组列表显示与高度细化。
 - **Linux 友好与路径规范化**：运行期持久化目录统一映射到 `<program-root>/commons/*`，设置页与启动信息显示真实路径。
@@ -41,7 +41,7 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 
    > **注意（RK3566 / aarch64）**：
    > 
-   > - 加密通讯（KX1/KX2/ENC2）依赖 `cryptography` 新版本的 AES‑GCM / HKDF 实现。
+   > - 加密通讯（KX1/KX2/ENC2）依赖 `cryptography` 的 AES‑GCM / HKDF 实现（HKDF‑only 握手）。
    > - 若板子自带的系统 Python 环境中存在旧版 `cryptography`（例如 2.8），将导致握手/加密静默失败或异常。
    > - 请务必在实际运行环境中执行：
    > 
@@ -86,7 +86,7 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
    python main.py
    ```
 
-- RSA 密钥：程序会在第一次需要时自动生成密钥对并写入 `./keys/priv.pem` 与 `./keys/pub.pem`。在 **Alpha 5.1** 中程序生成的 `keys/` 会被映射到 `commons/keys/`（即 `<program-root>/commons/keys/`）。要强制重新生成，删除相应 `commons/keys/` 下的文件后重启程序。
+- RSA 密钥：当前 KX1/KX2 握手不再依赖 RSA；仍保留公钥导出与指纹显示以供 UI 展示或兼容旧版客户端的 `ENC;...` 来消息解密。
 - 文件传输：IPMSG 附件互操作通过内置的小型 TCP 服务（默认端口 2425）实现；发送方会创建一个 TCP offer，接收方通过 offer 下载文件，相关映射存于 CLI 的 `_attach_map`。默认保存目录若未在设置中显式指定，将被创建为程序主目录下的 `commons/downloads/`，便于嵌入式部署与权限管理。
 
 ## 开发与调试要点
@@ -114,8 +114,8 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 
 ## 加密通讯（Level B）简述
 
-- **握手**：通过 SENDMSG 文本前缀 `KX1;...` / `KX2;...` 完成种子交换（RSA‑OAEP），双方使用 HKDF 派生会话密钥。
-- **消息**：`ENC2;sid=<b64>;ctr=<u64>;...` 采用 AES‑256‑GCM 加密，nonce 由 `sid|dir|ctr` 派生，具备基础重放窗口检查。
+- **握手**：通过 SENDMSG 文本前缀 `KX1;seedA=<b64>` / `KX2;seedB=<b64>` 交换随机种子（明文）；双方按 IP 字典序规则拼接 `IKM`，以 HKDF‑SHA256 派生 32 字节会话密钥；`sid = SHA256(IKM)[0:8]`。
+- **消息**：`ENC;sid=<b64>;ctr=<u64>;...` 采用 AES‑256‑GCM 加密（原 ENC2 语义），nonce 由 `sid|ctr` 派生，具备基础重放窗口检查。CLI 可通过 `/set encrypt cipher on` 打印原始密文行，再输出解密后的明文；可通过 `/set encrypt EDtag on` 在明文旁附加 `[E-D OK]`。
 - **模式**：`/set encrypt off|on|strict`；`on` 优先使用 ENC2，失败时回退；`strict` 禁止无会话发送。
 - **兼容**：保留旧 `ENC;...` 路径与公钥交换 `GETPUBKEY/ANSPUBKEY`，平滑兼容未升级节点。
 - 详见：`docs/CRYPTO_PLAN.md`。

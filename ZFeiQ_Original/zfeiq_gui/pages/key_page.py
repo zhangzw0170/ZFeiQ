@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets, QtGui
 
 
 class KeyPage(QtWidgets.QWidget):
@@ -86,10 +86,18 @@ class KeyPage(QtWidgets.QWidget):
             pass
         layout.addWidget(self.btn_export)
 
+        # 复选框：显示原始密文 / 显示 [E-D OK] 标记
+        self.chk_show_cipher = QtWidgets.QCheckBox(t.get('show_cipher', '显示原始密文'))
+        self.chk_show_edtag = QtWidgets.QCheckBox(t.get('show_edtag', '显示明文旁 [E-D OK] 标记'))
+        layout.addWidget(self.chk_show_cipher)
+        layout.addWidget(self.chk_show_edtag)
+
         # 信号连接
         # 刷新按钮已移除：Key 重新生成会自动更新指纹
         self.btn_regen.clicked.connect(self.on_regen_clicked)
         self.btn_export.clicked.connect(self.on_export_clicked)
+        self.chk_show_cipher.toggled.connect(self.on_toggle_cipher)
+        self.chk_show_edtag.toggled.connect(self.on_toggle_edtag)
 
     def set_fingerprint(self, hexstr: str) -> None:
         formatted = self.format_fingerprint(hexstr)
@@ -128,6 +136,8 @@ class KeyPage(QtWidgets.QWidget):
             self.lbl_fp_desc.setText(translations.get("key_fp", self.lbl_fp_desc.text()))
             self.btn_regen.setText(translations.get("key_regen", "重生成密钥"))
             self.btn_export.setText(translations.get("key_export", "导出公钥…"))
+            self.chk_show_cipher.setText(translations.get('show_cipher', self.chk_show_cipher.text()))
+            self.chk_show_edtag.setText(translations.get('show_edtag', self.chk_show_edtag.text()))
         except Exception:
             pass
 
@@ -208,3 +218,25 @@ class KeyPage(QtWidgets.QWidget):
         except Exception as e:
             title = self._translations.get('key_export', '导出公钥…')
             QtWidgets.QMessageBox.warning(self, title, self._translations.get('key_export_failed', '导出失败：{error}').format(error=e))
+
+    def on_toggle_cipher(self, checked: bool):
+        try:
+            if not self._backend:
+                return
+            z = getattr(self._backend, 'zcli', None)
+            if not z:
+                return
+            z.encrypt_show_cipher = bool(checked)
+        except Exception:
+            pass
+
+    def on_toggle_edtag(self, checked: bool):
+        try:
+            if not self._backend:
+                return
+            z = getattr(self._backend, 'zcli', None)
+            if not z:
+                return
+            z.encrypt_edtag = bool(checked)
+        except Exception:
+            pass

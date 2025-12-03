@@ -35,7 +35,7 @@ from .protocol import (
     encode_fileattach_lines,
     decode_fileattach_lines,
 )
-from .crypto import generate_rsa_keypair, rsa_encrypt, rsa_decrypt, aes_gcm_encrypt, aes_gcm_decrypt, b64e, b64d, hkdf_sha256
+from .crypto import generate_rsa_keypair, aes_gcm_encrypt, aes_gcm_decrypt, b64e, b64d, hkdf_sha256
 from .transport import UdpTransport, DEFAULT_PORT
 from .filetransfer import create_offer, download_file, IPMsgFileServer, ipmsg_download_file
 from .state import NodeRegistry, PendingAck, ChatHistory
@@ -209,6 +209,9 @@ class ZFeiQCli:
         # encryption settings
         # 默认改为 on，便于用户无需手动开启即可进行公钥交换与加密通讯
         self.encrypt_mode: str = "on"  # off|on|strict
+        # 显示原始密文与 E-D OK 标签的开关（CLI）
+        self.encrypt_show_cipher: bool = False
+        self.encrypt_edtag: bool = False
         self._priv_pem: Optional[bytes] = None
         self._pub_pem: Optional[bytes] = None
         self._peer_pubkeys: dict = {}  # ip -> pub_pem bytes
@@ -261,6 +264,51 @@ class ZFeiQCli:
             self._load_keys()
         except Exception:
             pass
+
+    def _send_text(self, ip: str, text: str) -> None:
+        """发送纯文本或 ENC2 加密文本到指定 IP。
+
+        - 优先使用已建立的 ENC2 会话；
+        - 若未建会话：触发 HKDF-only 握手；strict 模式下不发送；
+        - 始终请求回执（SENDCHECKOPT）。
+        """
+        if not ip or not isinstance(text, str):
+            return
+        cmd = IPMSG_SENDMSG | IPMSG_SENDCHECKOPT
+        pkt_no = gen_packet_no()
+        ext = text
+        try:
+            if self.encrypt_mode in ("on", "strict"):
+                if self._ensure_session(ip):
+                    s = self._sessions.get(ip) or {}
+                    ctr = int(s.get("send_ctr") or 0) + 1
+                    s["send_ctr"] = ctr
+                    self._sessions[ip] = s
+                    nonce = self._sess_nonce(s.get("sid"), ctr, direction="out")
+                    _, ct, tag = aes_gcm_encrypt(s.get("key"), text.encode(self.encoding, errors="ignore"), aad=(s.get("sid") or b""), nonce=nonce)
+                    # 简化：统一使用 ENC 前缀承载会话加密帧（原 ENC2 语义）
+                    ext = f"ENC;sid={b64e(s.get('sid'))};ctr={ctr};tag={b64e(tag)};b64=" + b64e(ct)
+                    try:
+                        if not s.get("_first_enc2_sent"):
+                            s["_first_enc2_sent"] = True
+                            self._handshake_event(ip, f"与 {ip} 的会话已建立，首次通过 ENC 发送加密消息")
+                    except Exception:
+                        pass
+                else:
+                    # 触发 HKDF-only 握手；严格模式下暂不发送
+                    self._start_kx(ip)
+                    if self.encrypt_mode == "strict":
+                        try:
+                            self._handshake_event(ip, f"尚无 ENC2 会话，已发起与 {ip} 的 HKDF 握手；严格模式下不发送")
+                        except Exception:
+                            pass
+                        return
+        except Exception as e:
+            print(f"[ENC] 加密失败，退回明文: {e}")
+        packet = build_packet_with_no(pkt_no, self.username or "?", self.hostname, cmd, ext, encoding=self.encoding)
+        self.transport.send_unicast(ip, packet)
+        self.pending.add(pkt_no, ip, text)
+        self.history.add(ip, "out", text)
 
     # ---- handshake / encryption system events ----
     def _handshake_event(self, ip: str, text: str) -> None:
@@ -320,10 +368,9 @@ class ZFeiQCli:
         return bool(isinstance(s.get('key'), (bytes, bytearray)) and isinstance(s.get('sid'), (bytes, bytearray)))
 
     def _start_kx(self, ip: str, port_override: Optional[int] = None) -> None:
-        """Send KX1 if we have peer pubkey and no session.
+        """Send KX1 (HKDF-only): exchange random seeds in clear text.
 
-        若前置条件不满足（无本地密钥/无对端公钥/已存在会话），输出清晰的 [ENC] 提示，
-        便于 CLI 与 GUI 排查为何没有发出 KX1。
+        不再依赖 RSA 公钥；双方通过随机种子 + IP 顺序规则派生 IKM 与会话密钥。
         """
         try:
             if not ip:
@@ -339,13 +386,7 @@ class ZFeiQCli:
                         return
             except Exception:
                 pass
-            if not self._ensure_keys():
-                # 居中系统提示
-                self._handshake_event(ip, f"本地密钥未就绪，无法对 {ip} 发起 KX1")
-                return
-            if ip not in self._peer_pubkeys:
-                self._handshake_event(ip, f"尚未获得对端 {ip} 的公钥，无法发起 KX1")
-                return
+            # HKDF-only：不需要本地或对端 RSA 密钥
             if self._ensure_session(ip):
                 # 已有会话，无需重复发起
                 if self.debug:
@@ -353,9 +394,9 @@ class ZFeiQCli:
                 return
             import os
             seed = os.urandom(32)
-            ekey = rsa_encrypt(self._peer_pubkeys[ip], seed)
-            fp = self._peer_fps.get(self.local_ip) or (hashlib.sha256(self._pub_pem or b"").hexdigest() if self._pub_pem else "")
-            text = f"KX1;ver=1;fp={fp};ekeyA={b64e(ekey)}"
+            # 直接携带种子（A）明文；fp 字段留空以兼容旧解析
+            fp = ""
+            text = f"KX1;ver=1;fp={fp};seedA={b64e(seed)}"
             pkt = build_packet(self.username or "?", self.hostname, IPMSG_SENDMSG, text, encoding=self.encoding)
             try:
                 if port_override is not None:
@@ -403,6 +444,24 @@ class ZFeiQCli:
                 self._handshake_event(ip, f"发起 KX1 到 {ip} 的请求异常: {e}")
             except Exception:
                 pass
+
+    def purge_session(self, ip: str) -> None:
+        """Clear session and recent KX debounce for a specific peer to allow a clean retry."""
+        try:
+            if ip in self._sessions:
+                try:
+                    del self._sessions[ip]
+                except Exception:
+                    self._sessions.pop(ip, None)
+            try:
+                # 清除最近的 KX1/KX2 记录，允许立即重试
+                self._kx_recent.pop((ip, "KX1"), None)
+                self._kx_recent.pop((ip, "KX2"), None)
+            except Exception:
+                pass
+            self._handshake_event(ip, f"已清理与 {ip} 的会话状态，准备重新握手")
+        except Exception:
+            pass
 
     # ============ lifecycle ============
     def start(self) -> None:
@@ -861,16 +920,14 @@ class ZFeiQCli:
             except Exception:
                 pass
             try:
-                # parse ekeyA
+                # parse seedA (plain)
                 fields = dict(x.split("=",1) for x in (seg.strip() for seg in ext.split(";") ) if "=" in x)
-                eA = b64d(fields.get("ekeyA",""))
-                seedA = rsa_decrypt(self._priv_pem or b"", eA)
-                # prepare our seedB and reply KX2
+                seedA = b64d(fields.get("seedA",""))
+                # prepare our seedB and reply KX2 (plain)
                 import os
                 seedB = os.urandom(32)
-                eB = rsa_encrypt(self._peer_pubkeys.get(src_ip, b"") or b"", seedB)
-                fpB = self._peer_fps.get(self.local_ip) or (hashlib.sha256(self._pub_pem or b"").hexdigest() if self._pub_pem else "")
-                text2 = f"KX2;ver=1;fp={fpB};ekeyB={b64e(eB)}"
+                fpB = ""
+                text2 = f"KX2;ver=1;fp={fpB};seedB={b64e(seedB)}"
                 pkt2 = build_packet(self.username or "?", self.hostname, IPMSG_SENDMSG, text2, encoding=self.encoding)
                 self.transport.send_unicast(src_ip, pkt2)
                 self._handshake_event(src_ip, f"收到 KX1 来自 {src_ip}，已发送 KX2")
@@ -883,7 +940,7 @@ class ZFeiQCli:
                 if self.debug:
                     print(f"[DBG] session established with {src_ip} sid={b64e(sid)}")
                     self._print_prompt(suppress_next=False)
-                self._handshake_event(src_ip, f"与 {src_ip} 的会话已建立，可使用 ENC2 加密通讯")
+                self._handshake_event(src_ip, f"与 {src_ip} 的会话已建立，可使用 ENC 加密通讯")
             except Exception:
                 pass
             return
@@ -919,8 +976,7 @@ class ZFeiQCli:
                 pass
             try:
                 fields = dict(x.split("=",1) for x in (seg.strip() for seg in ext.split(";") ) if "=" in x)
-                eB = b64d(fields.get("ekeyB",""))
-                seedB = rsa_decrypt(self._priv_pem or b"", eB)
+                seedB = b64d(fields.get("seedB",""))
                 # fetch cached seedA；若因历史状态缺失未找到，则无法建立对称会话
                 sess_entry = self._sessions.get(src_ip) or {}
                 seedA = sess_entry.get("local_seed")
@@ -944,7 +1000,7 @@ class ZFeiQCli:
                 if self.debug:
                     print(f"[DBG] session established with {src_ip} sid={b64e(sid)}")
                     self._print_prompt(suppress_next=False)
-                self._handshake_event(src_ip, f"收到 KX2 来自 {src_ip}，会话已建立，可使用 ENC2 加密通讯")
+                self._handshake_event(src_ip, f"收到 KX2 来自 {src_ip}，会话已建立，可使用 ENC 加密通讯")
             except Exception as e:
                 if self.debug:
                     print(f"[DBG] failed to process KX2 from {src_ip}: {e}")
@@ -1087,8 +1143,11 @@ class ZFeiQCli:
                 pass
         elif base == IPMSG_SENDMSG:
             text = ext.split("\0", 1)[0] if ext else ""
+            enc_success = False
+            enc_ctx = None  # {'sid':str,'ctr':int,'b64':str,'tag':str}
             # ENC2 会话加密
-            if text.startswith("ENC2;"):
+            # 会话加密：统一解析 ENC;sid=...（原 ENC2 语义）
+            if text.startswith("ENC;"):
                 try:
                     # 加密关闭时，直接忽略 ENC2（仍回 ACK，不噪声提示）
                     if self.encrypt_mode == "off":
@@ -1114,7 +1173,17 @@ class ZFeiQCli:
                     tag_b64 = fields.get("tag","")
                     # 需传入与加密端相同的 AAD (sid)，否则 GCM 验证失败
                     pt = aes_gcm_decrypt(s.get("key"), nonce, b64d(cipher_b64), b64d(tag_b64) if tag_b64 else b"\x00"*16, aad=s.get("sid"))
+                    if self.debug:
+                        try:
+                            print(f"[ENC] DEC ok from {src_ip}: sid={b64e(s.get('sid'))} ctr={ctr}")
+                        except Exception:
+                            pass
                     text = pt.decode(self.encoding, errors="ignore")
+                    enc_success = True
+                    try:
+                        enc_ctx = {"sid": b64e(s.get("sid")), "ctr": ctr, "b64": cipher_b64, "tag": tag_b64}
+                    except Exception:
+                        enc_ctx = None
                     # update window
                     rw.add(ctr)
                     if len(rw) > 512:
@@ -1134,23 +1203,10 @@ class ZFeiQCli:
                         # 若开启 debug，输出更详细的错误原因，便于排查会话/nonce/AAD 问题
                         try:
                             if self.debug:
-                                print(f"[ENC] ENC2 decrypt error from {src_ip}: {_e}")
+                                print(f"[ENC] ENC decrypt error from {src_ip}: {_e}")
                         except Exception:
                             pass
-            # 解密加密消息（以 ENC; 开头）
-            if text.startswith("ENC;"):
-                try:
-                    meta, _, payload = text.partition(";b64=")
-                    fields = dict(x.split("=",1) for x in (seg.strip() for seg in meta.split(";")) if "=" in x)
-                    ekey = b64d(fields.get("ekey", ""))
-                    nonce = b64d(fields.get("nonce", ""))
-                    tag = b64d(fields.get("tag", ""))
-                    cipher = b64d(payload.strip()) if payload else b""
-                    sk = rsa_decrypt(self._priv_pem or b"", ekey)
-                    pt = aes_gcm_decrypt(sk, nonce, cipher, tag)
-                    text = pt.decode(self.encoding, errors="ignore")
-                except Exception:
-                    text = "[加密消息解密失败]"
+            # 兼容旧 ENC 一次性密钥的解密路径已移除（开发阶段不再保留）
             # 若是握手文本（KX1/KX2），避免作为普通消息显示（但仍然按下方流程 ACK）
             try:
                 if text.startswith("KX1;") or text.startswith("KX2;"):
@@ -1221,7 +1277,11 @@ class ZFeiQCli:
             if text and not (only_attach_no_text or is_file_offer):
                 self.history.add(src_ip, "in", text)
                 ts = ts_str_full(time.time()) if self.time_format == "full" else ts_str(time.time())
-                print(f"\n[{ts}] <{user}@{src_ip}> {text}")
+                # 可选打印原始密文
+                if enc_success and self.encrypt_show_cipher and enc_ctx:
+                    print(f"\n[{ts}] [cipher] ENC sid={enc_ctx.get('sid','')} ctr={enc_ctx.get('ctr','')} tag={enc_ctx.get('tag','')} b64={enc_ctx.get('b64','')}")
+                tag = " [E-D OK]" if (enc_success and self.encrypt_edtag) else ""
+                print(f"\n[{ts}] <{user}@{src_ip}>{tag} {text}")
             # ack
             ack = build_packet(self.username or "?", self.hostname, IPMSG_RECVMSG, str(pkt_no), encoding=self.encoding)
             self.transport.send_unicast(src_ip, ack)
@@ -1519,7 +1579,7 @@ class ZFeiQCli:
                 pass
         # 扩展字段：默认仅为文本；不再附加非标准的 cap=ack，避免对端显示为文本
         ext = text
-        # 加密：优先使用会话 ENC2；否则根据模式与是否有对端公钥决定（旧 ENC）
+        # 加密：优先使用会话 ENC2；否则尝试发起 HKDF-only 握手
         try:
             if self.encrypt_mode in ("on","strict"):
                 if self._ensure_session(ip):
@@ -1528,40 +1588,24 @@ class ZFeiQCli:
                     s["send_ctr"] = ctr
                     nonce = self._sess_nonce(s.get("sid"), ctr, direction="out")
                     _, ct, tag = aes_gcm_encrypt(s.get("key"), text.encode(self.encoding, errors="ignore"), aad=(s.get("sid") or b""), nonce=nonce)
-                    ext = f"ENC2;sid={b64e(s.get('sid'))};ctr={ctr};tag={b64e(tag)};b64=" + b64e(ct)
+                    ext = f"ENC;sid={b64e(s.get('sid'))};ctr={ctr};tag={b64e(tag)};b64=" + b64e(ct)
                     # 若这是本会话首次使用 ENC2 发送消息，可记录一条握手事件
                     try:
                         if not s.get("_first_enc2_sent"):
                             s["_first_enc2_sent"] = True
                             # 更明确的提示：仅表示“本端首次通过现有会话发送 ENC2 消息”，不会重新建会话
-                            self._handshake_event(ip, f"与 {ip} 的会话已建立，首次通过 ENC2 发送加密消息")
+                            self._handshake_event(ip, f"与 {ip} 的会话已建立，首次通过 ENC 发送加密消息")
                     except Exception:
                         pass
                 else:
-                    pub = self._peer_pubkeys.get(ip)
-                    if not pub:
+                    # 无会话：直接触发 HKDF-only 握手；严格模式下暂不发送
+                    self._start_kx(ip)
+                    if self.encrypt_mode == "strict":
                         try:
-                            req = build_packet(self.username or "?", self.hostname, IPMSG_GETPUBKEY, "GETPUBKEY", encoding=self.encoding)
-                            self.transport.send_unicast(ip, req)
+                            self._handshake_event(ip, f"尚无 ENC2 会话，已发起与 {ip} 的 HKDF 握手；严格模式下不发送")
                         except Exception:
                             pass
-                        # 触发 KX1
-                        self._start_kx(ip)
-                        if self.encrypt_mode == "strict":
-                            # 居中系统提示：严格模式下不发送
-                            try:
-                                self._handshake_event(ip, f"无对端公钥/会话，已请求与 {ip} 握手；严格模式下不发送")
-                            except Exception:
-                                pass
-                            return
-                    else:
-                        # 旧路径：RSA 包裹一次性对称密钥
-                        import os
-                        sk = os.urandom(32)
-                        n0, cipher, tag = aes_gcm_encrypt(sk, text.encode(self.encoding, errors="ignore"))
-                        ekey = rsa_encrypt(pub, sk)
-                        enc_head = f"ENC;alg=aes256gcm;ekey={b64e(ekey)};nonce={b64e(n0)};tag={b64e(tag)};b64="
-                        ext = enc_head + b64e(cipher)
+                        return
         except Exception as e:
             print(f"[ENC] 加密失败，退回明文: {e}")
         # 注意：不在 SENDMSG 中拼接自定义扩展键值，避免互通客户端将其当作文本显示
@@ -2312,8 +2356,21 @@ class ZFeiQCli:
                                 v = v[3:]
                             self._rebind(v, user_initiated=True)
                         elif key == "encrypt":
-                            v = val.lower()
-                            if v in ("off","on","strict"):
+                            # 允许子项与参数包含空格，例如：/set encrypt cipher on
+                            try:
+                                v = cmdline.split(" ", 2)[2].strip().lower()
+                            except Exception:
+                                v = val.lower()
+                            # 子项：cipher/EDtag
+                            if v.startswith("cipher "):
+                                onoff = v.split(" ", 1)[1].strip()
+                                self.encrypt_show_cipher = (onoff == "on")
+                                print(f"encrypt.cipher={'on' if self.encrypt_show_cipher else 'off'}")
+                            elif v.startswith("edtag ") or v.startswith("edtag"):
+                                onoff = v.split(" ", 1)[1].strip() if " " in v else "on"
+                                self.encrypt_edtag = (onoff == "on")
+                                print(f"encrypt.edtag={'on' if self.encrypt_edtag else 'off'}")
+                            elif v in ("off","on","strict"):
                                 if v in ("on","strict") and not self._ensure_keys():
                                     print("[ENC] 生成或加载密钥失败，仍切换为 off")
                                     self.encrypt_mode = "off"
@@ -2334,10 +2391,38 @@ class ZFeiQCli:
                                         cmd2 = IPMSG_BR_ENTRY if self.status != "away" else IPMSG_BR_ABSENCE
                                         pkt2 = build_packet(self.username or "?", self.hostname, cmd2, ext2, encoding=self.encoding)
                                         self.transport.send_broadcast(pkt2)
+                                        # 3) 若切到 on/strict，立即触发发现与握手，以便登录后也能建立加密
+                                        if self.encrypt_mode in ("on", "strict"):
+                                            # 3.1 主动向已知节点请求公钥（若尚未缓存）
+                                            try:
+                                                for n in self.registry.list_nodes():
+                                                    if n.ip == self.local_ip:
+                                                        continue
+                                                    if n.ip not in self._peer_pubkeys:
+                                                        req = build_packet(self.username or "?", self.hostname, IPMSG_GETPUBKEY, "GETPUBKEY", encoding=self.encoding)
+                                                        self.transport.send_unicast(n.ip, req)
+                                            except Exception:
+                                                pass
+                                            # 3.2 对已有公钥但未建会话的节点，立即发起 KX
+                                            try:
+                                                for ip, pem in list(self._peer_pubkeys.items()):
+                                                    if ip == self.local_ip:
+                                                        continue
+                                                    if not self._ensure_session(ip):
+                                                        self._start_kx(ip)
+                                            except Exception:
+                                                pass
+                                            # 3.3 发送一次单播/广播发现，促使对端回复 ANSENTRY 并携带能力位
+                                            try:
+                                                # 广播 BR_ENTRY + GETLIST（与 cmd_discover 的行为一致）
+                                                pkt3 = build_packet(self.username or "?", self.hostname, IPMSG_GETLIST, encoding=self.encoding)
+                                                self.transport.send_broadcast(pkt3)
+                                            except Exception:
+                                                pass
                                 except Exception:
                                     pass
                             else:
-                                print("usage: /set encrypt <off|on|strict>")
+                                print("usage: /set encrypt <off|on|strict> | encrypt cipher <on|off> | encrypt EDtag <on|off>")
                         else:
                             print(self._t("set.unknown"))
                 elif cmdline.startswith("/file "):
@@ -2712,6 +2797,8 @@ class ZFeiQCli:
             ("/set trace <on|off>", self._t("诊断开关（更详细日志）") if self.language=="zhCN" else "trace logging on/off"),
             ("/set encoding <utf8|gbk>", self._t("设置发送编码（与飞秋兼容可用 gbk）") if self.language=="zhCN" else "set outgoing encoding"),
             ("/set encrypt <off|on|strict>", self._t("设置加密模式（off|on|strict）") if self.language=="zhCN" else "set encryption mode"),
+            ("/set encrypt cipher <on|off>", self._t("启用/关闭显示原始密文") if self.language=="zhCN" else "toggle showing raw cipher"),
+            ("/set encrypt EDtag <on|off>", self._t("启用/关闭明文旁 [E-D OK] 标记") if self.language=="zhCN" else "toggle E-D OK tag on plaintext"),
             ("/set bind <ip>", self._t("切换绑定网卡/IP（多网卡环境）") if self.language=="zhCN" else "switch bound NIC/IP (multi-NIC)"),
             ("/send user:<name> <text>", self._t("按用户名发送消息") if self.language=="zhCN" else "send to username"),
             ("/send ip:<ip> <text>", self._t("按 IP 发送消息") if self.language=="zhCN" else "send to ip"),
