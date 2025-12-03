@@ -1,5 +1,5 @@
 
-# ZFeiQ（IPMSG/飞秋互通 · CLI + GUI） — **Alpha 5.1**
+# ZFeiQ（IPMSG/飞秋互通 · CLI + GUI） — **Alpha 5.2**
 
 ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG 协议，支持 Windows 与 Linux（含 Ubuntu Kylin aarch64 / RK3566）。
 
@@ -13,22 +13,22 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 4. 支持表情包发送(可自定义表情包)、截图功能。
 5. 调用RK3569/3566的NPU，实现典型边缘AI智能的加速功能
 
-## 最新特性（**Alpha 5.1**）
+## 最新特性（**Alpha 5.2**）
 
-- **加密通讯（Level B）**：KX1/KX2 握手与 ENC 会话消息，采用 HKDF‑SHA256 + AES‑256‑GCM（不再依赖 RSA），支持会话 `sid/ctr` 与重放窗口；严格模式（strict）下无安全会话拒绝发送。可选：`/set encrypt cipher on|off` 打印原始密文；`/set encrypt EDtag on|off` 在明文旁显示 `[E-D OK]`。
+- **加密通讯（Level B）**：HKDF‑only 握手（KX1/KX2 明文种子）与统一的 ENC 会话消息，采用 HKDF‑SHA256 + AES‑256‑GCM，支持会话 `sid/ctr` 与基础重放窗口；严格模式（strict）下无安全会话拒绝发送。CLI/GUI 在启用加密后会主动广播/获取公钥并触发握手以建立会话。可选：`/set encrypt cipher on|off` 打印原始密文；`/set encrypt EDtag on|off` 在明文旁显示 `[E-D OK]`。
 - **聊天页加密指示**：在聊天头部 IP 左侧显示“通讯已加密/未加密”（本地化）。
 - **用户列表三行显示**：非本机节点显示“状态+用户名 / @IP / [主机名]”；本机节点 `LOCAL` 保持单行以减少噪音。
 - **组页优化**：补充顶端“全员（All）”入口、成员显示稳态，单成员组不再压缩为省略号。
 - **路径与平台兼容**：保持嵌入式适配与异常保护（RK3566/aarch64 软件 OpenGL、字体与权限降级）。
 - **UI 体验**：气泡聊天、文件块统一发送、双语主题等维持与增强。
 
-新增要点（**Alpha 5.1**）：
+新增要点（**Alpha 5.2**）：
 
-- **Level B 会话加密已落地**：KX1/KX2/ENC 全流程实现；兼容旧版来消息的 `ENC;...` 解密，但发送端不再使用 RSA 回退路径。
+- **Level B 会话加密已落地**：HKDF‑only KX1/KX2/ENC 全流程实现；兼容旧版来消息的 `ENC;...` 解密，但发送端不再使用 RSA 回退路径。
 - **strict 模式**：当启用 strict 且未建立安全会话时，客户端将拒绝发送敏感消息。
 - **本地化与显示**：新增加密状态本地化文案；用户/组列表显示与高度细化。
 - **Linux 友好与路径规范化**：运行期持久化目录统一映射到 `<program-root>/commons/*`，设置页与启动信息显示真实路径。
-- **OCR 规划**：保留 PP‑OCR v4 的集成设计与降级策略，后续提供 CLI `/ocr` 与 GUI 按钮。
+- **OCR/NPU（已实现 CLI 路径）**：在 RK3566 上完成基于 RKNN Lite2 的 NPU 推理闭环，提供 CLI `/ocr <path>` 命令可直接识别图片文本并输出结果（支持中文/英文）。GUI 集成按钮按规划进行中；非 aarch64 平台自动回退到 CPU 路径。
 
 ## 快速开始
 
@@ -41,7 +41,7 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 
    > **注意（RK3566 / aarch64）**：
    > 
-   > - 加密通讯（KX1/KX2/ENC2）依赖 `cryptography` 的 AES‑GCM / HKDF 实现（HKDF‑only 握手）。
+   > - 加密通讯（KX1/KX2/ENC）依赖 `cryptography` 的 AES‑GCM / HKDF 实现（HKDF‑only 握手）。
    > - 若板子自带的系统 Python 环境中存在旧版 `cryptography`（例如 2.8），将导致握手/加密静默失败或异常。
    > - 请务必在实际运行环境中执行：
    > 
@@ -74,6 +74,14 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
    On some desktop environments the app will use the environment's native screenshot tool
    if available; `ZFEIQ_USE_SYSTEM_SCREENSHOT=1` can force using the system helper where supported.
 
+4. 运行 OCR（RK3566 / CLI 示例）：
+
+   ```bash
+   # 启动 CLI 后，在命令输入：
+   /ocr ./PPOCRv4/test.jpg
+   ```
+   输出包含识别文本与耗时；在 RK3566 上将优先走 NPU（RKNN Lite2）。
+
 ## 运行说明（重要细节）
 
 - 默认网络端口：`2425`。可传入 `--port <num>` 或使用环境变量 `ZFEIQ_PORT` 覆盖。
@@ -88,6 +96,30 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 
 - RSA 密钥：当前 KX1/KX2 握手不再依赖 RSA；仍保留公钥导出与指纹显示以供 UI 展示或兼容旧版客户端的 `ENC;...` 来消息解密。
 - 文件传输：IPMSG 附件互操作通过内置的小型 TCP 服务（默认端口 2425）实现；发送方会创建一个 TCP offer，接收方通过 offer 下载文件，相关映射存于 CLI 的 `_attach_map`。默认保存目录若未在设置中显式指定，将被创建为程序主目录下的 `commons/downloads/`，便于嵌入式部署与权限管理。
+
+- 群聊加密说明（课程范围）：群组消息当前采用明文发送以确保演示稳定性；群组发起握手的 UI 已隐藏。点对点会话仍按 HKDF-only 握手建立 ENC 加密。
+
+### OCR/NPU 使用（RK3566 示例）
+
+在 aarch64 RK3566 平台已验证 NPU 推理闭环：
+
+```bash
+# 安装基础依赖（如未安装）
+pip install numpy Pillow
+# 安装 RKNN Lite2（根据 Python 版本选择对应 whl）
+pip install ./PPOCRv4/rknn_toolkit_lite2-1.6.0-cp38-cp38-linux_aarch64.whl
+
+# 运行 CLI 并调用 OCR（示例路径）
+python main.py --cli
+# 在 CLI 中输入：
+/ocr ./PPOCRv4/test.jpg
+```
+
+可配置环境变量：`ZFEIQ_OCR_MODE=cpu|npu|auto`；非 aarch64 或无 RKNN 依赖时自动回退到 CPU。
+
+常见问题：
+- 若出现 RKNN 输出 size_with_stride 警告，为性能提示，可忽略；不影响识别结果。
+- 模型文件缺失会导致自动禁用 NPU 路径，请确认 `PPOCRv4/build_output/*.rknn` 与字典 `ppocr_keys_v1.txt` 存在。
 
 ## 开发与调试要点
 
@@ -115,10 +147,14 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 ## 加密通讯（Level B）简述
 
 - **握手**：通过 SENDMSG 文本前缀 `KX1;seedA=<b64>` / `KX2;seedB=<b64>` 交换随机种子（明文）；双方按 IP 字典序规则拼接 `IKM`，以 HKDF‑SHA256 派生 32 字节会话密钥；`sid = SHA256(IKM)[0:8]`。
-- **消息**：`ENC;sid=<b64>;ctr=<u64>;...` 采用 AES‑256‑GCM 加密（原 ENC2 语义），nonce 由 `sid|ctr` 派生，具备基础重放窗口检查。CLI 可通过 `/set encrypt cipher on` 打印原始密文行，再输出解密后的明文；可通过 `/set encrypt EDtag on` 在明文旁附加 `[E-D OK]`。
-- **模式**：`/set encrypt off|on|strict`；`on` 优先使用 ENC2，失败时回退；`strict` 禁止无会话发送。
+- **消息**：`ENC;sid=<b64>;ctr=<u64>;...` 采用 AES‑256‑GCM 加密，nonce 由 `sid|ctr` 派生，具备基础重放窗口检查。CLI 可通过 `/set encrypt cipher on` 打印原始密文行，再输出解密后的明文；可通过 `/set encrypt EDtag on` 在明文旁附加 `[E-D OK]`。
+- **模式**：`/set encrypt off|on|strict`；启用后会主动尝试建立会话；`strict` 禁止无会话发送。
 - **兼容**：保留旧 `ENC;...` 路径与公钥交换 `GETPUBKEY/ANSPUBKEY`，平滑兼容未升级节点。
 - 详见：`docs/CRYPTO_PLAN.md`。
+
+故障排查：
+- 启用加密后未显示“通讯已加密”：确认双方均为 5.2+ 版本，网络发现正常；可在 CLI 执行 `/set encrypt strict` 强制仅在会话建立后发送。
+- 收到 `unknown session`：可能是握手时序竞争，稍后自动重试；也可在 CLI 执行 `purge_session <ip>` 后重试。
 
 
 ## 适用场景
@@ -128,7 +164,7 @@ ZFeiQ 是一个基于 Python 的局域网即时通信工具，兼容飞秋/IPMSG
 
 ## OCR/NPU 文字识别集成规划（PP-OCR v4 for RK3566）
 
-本节为集成 PP-OCR v4 详细规划，原“项目要求（禁止修改）”保持不变。目标：在 RK3566（aarch64 Ubuntu Kylin）环境，利用 `PPOCRv4/build_output/` 下的 PP-OCR v4 检测/识别模型（ONNX/RKNN 格式）与 NPU 加速，实现截图与图片消息的快捷文字识别，并兼容 Windows/Linux 普通 PC（自动降级到 CPU）。
+本节为集成 PP-OCR v4 详细规划与现状说明。目标：在 RK3566（aarch64 Ubuntu Kylin）环境，利用 `PPOCRv4/build_output/` 下的 PP-OCR v4 检测/识别模型（ONNX/RKNN 格式）与 NPU 加速，实现截图与图片消息的快捷文字识别，并兼容 Windows/Linux 普通 PC（自动降级到 CPU）。当前已实现 CLI 入口与 NPU 路径，GUI 按钮与设置持久化按计划推进。
 
 ### 模型与工具来源
 - 检测模型：`PPOCRv4/build_output/ocr_det_rk3566_v4.rknn`、`ocr_det_static.onnx`
@@ -302,6 +338,12 @@ tests/test_ocr_integration.py
 ```
 
 README 与设置页同步增加使用说明与安装提示。
+
+## 发布与分发（建议）
+
+- Windows 建议发布“便携版”zip（含 venv 与依赖），避免 PyInstaller `--onefile` 带来的启动卡顿；如需可执行，优先选择 Nuitka 的单目录构建。
+- RK3566 建议发布 tar.gz（含 venv 与 `run_gui.sh`/`run_cli.sh`），并在 README 提示 `ZFEIQ_FORCE_SOFTGL=1` 与 RKNN Lite2 安装。
+- 如采用 PyInstaller，请使用 `--onedir` 并精简收集项，减少冷启动开销。
 
 ### 14. 后续可选增强
 

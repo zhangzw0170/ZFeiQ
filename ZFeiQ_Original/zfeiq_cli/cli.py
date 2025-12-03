@@ -2082,6 +2082,20 @@ class ZFeiQCli:
                 continue
             self._send_text(n.ip, text)
 
+    def _send_plain(self, ip: str, text: str) -> None:
+        """直接以明文发送到指定 IP，不走会话加密路径。
+
+        用于课程作业场景下的群组消息明文收发。
+        """
+        if not ip or not isinstance(text, str):
+            return
+        cmd = IPMSG_SENDMSG | IPMSG_SENDCHECKOPT
+        pkt_no = gen_packet_no()
+        packet = build_packet_with_no(pkt_no, self.username or "?", self.hostname, cmd, text, encoding=self.encoding)
+        self.transport.send_unicast(ip, packet)
+        self.pending.add(pkt_no, ip, text)
+        self.history.add(ip, "out", text)
+
     def cmd_group(self, group_name: str, subcmd: str, arg: Optional[str]) -> None:
         # subcmd starts with '-' per spec
         sub = subcmd.lstrip('-').lower()
@@ -2109,12 +2123,31 @@ class ZFeiQCli:
                 else:
                     self._user_print(f"group '{group_name}' not found")
         elif sub == "send":
-            # 兼容旧命令：转发为 /send group:<group> <text>
+            # 课程作业约定：群组消息统一按明文逐个成员发送，不在群组中发起握手
             text = arg or ""
             if not text:
                 self._user_print(self._t("group.send_usage_legacy"))
                 return
-            self.cmd_send(f"group:{group_name}", text)
+            ms = sorted(self.groups.get(group_name, set()))
+            if not ms:
+                self._user_print(self._t("group.empty_or_missing", group=group_name))
+                return
+            sent = 0
+            for uname in ms:
+                matches = self.registry.find_by_username(uname)
+                if not matches:
+                    self._user_print(self._t("group.member_offline", user=uname))
+                    continue
+                if len(matches) > 1:
+                    self._user_print(self._t("group.member_ambiguous", user=uname))
+                    continue
+                ip = matches[0].ip
+                if ip == self.local_ip and uname == (self.username or ""):
+                    continue
+                # 强制明文发送
+                self._send_plain(ip, text)
+                sent += 1
+            self._user_print(self._t("group.sent_count", group=group_name, count=sent))
         elif sub == "rename":
             # Rename group atomically: move members to new name, fail if target exists
             new_name = arg or ""

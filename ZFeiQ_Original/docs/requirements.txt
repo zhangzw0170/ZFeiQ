@@ -1,5 +1,4 @@
-cryptography>=42.0
-pycryptodome>=3.19
+cryptography>=46.0
 
 
 # fonts-noto-color-emoji
