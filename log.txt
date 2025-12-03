@@ -1,0 +1,312 @@
+# 2025-12-03 19：49 log
+
+## PC
+
+zhangzw0170@LAPTOP-5DE9621H:~/proj/ZFeiQ/ZFeiQ_Original$ python3 main.py
+Python: 3.8.10 (Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.29)
+  PIL: present, version=10.4.0
+  rknnlite: not installed or import failed
+  cryptography: present, version=46.0.3
+已切换绑定到 192.168.1.102
+[WARN] fingerprint mismatch for 192.168.1.102: announced=1118e35f75253c99842e1cc2324c0b14df53b000dcccfd31c45d333e0d967d65 actual=cdff3c2bc558e72613dd8c0044fb4613d53e60158b69636500e553afac04c391
+[WARN] fingerprint mismatch for 192.168.1.10: announced=b29b3d17267172ac24a38ba521164feab9654ddabe654aa566b4e248a32133ae actual=e70c9a2206147a2782b5d27a7d41ed1ced21799d97ac18a4ee4ac2c6cd50e2b3
+
+[20:07:00] [DBG] RECV base=0x2 from 192.168.1.102 user=w
+已切换绑定到 192.168.1.102
+
+[20:07:00] [DBG] RECV base=0x1 from 192.168.1.102 user=w
+
+[20:07:00] [DBG] RECV base=0x17 from 192.168.1.102 user=w
+[DBG] learned pubkey from 192.168.1.102 (624 bytes) fp=cdff3c2bc558e72613dd8c0044fb4613d53e60158b69636500e553afac04c391
+
+[20:07:00] [DBG] RECV base=0x3 from 192.168.1.102 user=w
+
+[20:07:00] [DBG] RECV base=0x17 from 192.168.1.10 user=rk
+[DBG] learned pubkey from 192.168.1.10 (624 bytes) fp=e70c9a2206147a2782b5d27a7d41ed1ced21799d97ac18a4ee4ac2c6cd50e2b3
+
+[20:07:00] [DBG] RECV base=0x3 from 192.168.1.10 user=rk
+
+[20:07:10] [DBG] RECV base=0x1 from 192.168.1.10 user=rk
+
+[20:07:10] [DBG] RECV base=0x1 from 192.168.1.10 user=rk
+
+[20:07:14] [DBG] RECV base=0x20 from 192.168.1.10 user=rk
+[ENC] ENC decrypt error from 192.168.1.10: unknown session
+
+[20:07:14] <rk@192.168.1.10> [加密消息解密失败]
+
+[20:07:18] [DBG] RECV base=0x1 from 192.168.1.102 user=w
+
+[20:07:18] [DBG] RECV base=0x17 from 192.168.1.102 user=w
+[DBG] learned pubkey from 192.168.1.102 (624 bytes) fp=cdff3c2bc558e72613dd8c0044fb4613d53e60158b69636500e553afac04c391
+
+[20:07:18] [DBG] RECV base=0x3 from 192.168.1.102 user=w
+
+[20:07:18] [DBG] RECV base=0x17 from 192.168.1.10 user=rk
+[DBG] learned pubkey from 192.168.1.10 (624 bytes) fp=e70c9a2206147a2782b5d27a7d41ed1ced21799d97ac18a4ee4ac2c6cd50e2b3
+
+[20:07:18] [DBG] RECV base=0x3 from 192.168.1.10 user=rk
+
+[20:07:18] [DBG] RECV base=0x17 from 192.168.1.10 user=rk
+[DBG] learned pubkey from 192.168.1.10 (624 bytes) fp=e70c9a2206147a2782b5d27a7d41ed1ced21799d97ac18a4ee4ac2c6cd50e2b3
+
+[20:07:18] [DBG] RECV base=0x3 from 192.168.1.10 user=rk
+
+[20:07:22] [DBG] RECV base=0x1 from 192.168.1.102 user=w
+
+[20:07:22] [DBG] RECV base=0x17 from 192.168.1.102 user=w
+[DBG] learned pubkey from 192.168.1.102 (624 bytes) fp=cdff3c2bc558e72613dd8c0044fb4613d53e60158b69636500e553afac04c391
+
+[20:07:22] [DBG] RECV base=0x3 from 192.168.1.102 user=w
+
+[20:07:22] [DBG] RECV base=0x17 from 192.168.1.10 user=rk
+[DBG] learned pubkey from 192.168.1.10 (624 bytes) fp=e70c9a2206147a2782b5d27a7d41ed1ced21799d97ac18a4ee4ac2c6cd50e2b3
+
+[20:07:22] [DBG] RECV base=0x3 from 192.168.1.10 user=rk
+
+[20:07:22] [DBG] RECV base=0x17 from 192.168.1.10 user=rk
+[DBG] learned pubkey from 192.168.1.10 (624 bytes) fp=e70c9a2206147a2782b5d27a7d41ed1ced21799d97ac18a4ee4ac2c6cd50e2b3
+
+[20:07:22] [DBG] RECV base=0x3 from 192.168.1.10 user=rk
+
+[20:07:30] [DBG] RECV base=0x2 from 192.168.1.10 user=rk
+
+[20:07:30] - rk@192.168.1.10 下线
+
+[20:07:30] [DBG] RECV base=0x2 from 192.168.1.10 user=rk
+
+[20:07:52] [DBG] RECV base=0x1 from 192.168.1.102 user=w
+
+[20:07:52] [DBG] RECV base=0x17 from 192.168.1.102 user=w
+[DBG] learned pubkey from 192.168.1.102 (624 bytes) fp=cdff3c2bc558e72613dd8c0044fb4613d53e60158b69636500e553afac04c391
+
+[20:07:52] [DBG] RECV base=0x3 from 192.168.1.102 user=w
+
+[20:07:52] [DBG] RECV base=0x17 from 192.168.1.10 user=?
+[DBG] learned pubkey from 192.168.1.10 (624 bytes) fp=e70c9a2206147a2782b5d27a7d41ed1ced21799d97ac18a4ee4ac2c6cd50e2b3
+
+[20:07:52] [DBG] RECV base=0x20 from 192.168.1.10 user=?
+[DBG] session established with 192.168.1.10 sid=9CfKe0EEIFI=
+
+[20:08:09] [DBG] RECV base=0x1 from 192.168.1.10 user=rk
+
+[20:08:10] [DBG] RECV base=0x1 from 192.168.1.10 user=rk
+
+[20:08:10] [DBG] RECV base=0x1 from 192.168.1.10 user=rk
+
+[20:08:21] [DBG] RECV base=0x21 from 192.168.1.10 user=rk
+
+[20:08:22] [DBG] RECV base=0x1 from 192.168.1.102 user=w
+
+[20:08:22] [DBG] RECV base=0x17 from 192.168.1.102 user=w
+[DBG] learned pubkey from 192.168.1.102 (624 bytes) fp=cdff3c2bc558e72613dd8c0044fb4613d53e60158b69636500e553afac04c391
+
+[20:08:22] [DBG] RECV base=0x3 from 192.168.1.102 user=w
+
+[20:08:22] [DBG] RECV base=0x17 from 192.168.1.10 user=rk
+[DBG] learned pubkey from 192.168.1.10 (624 bytes) fp=e70c9a2206147a2782b5d27a7d41ed1ced21799d97ac18a4ee4ac2c6cd50e2b3
+
+[20:08:22] [DBG] RECV base=0x3 from 192.168.1.10 user=rk
+
+[20:08:22] [DBG] RECV base=0x17 from 192.168.1.10 user=rk
+[DBG] learned pubkey from 192.168.1.10 (624 bytes) fp=e70c9a2206147a2782b5d27a7d41ed1ced21799d97ac18a4ee4ac2c6cd50e2b3
+
+[20:08:22] [DBG] RECV base=0x3 from 192.168.1.10 user=rk
+
+[20:08:40] [DBG] RECV base=0x1 from 192.168.1.10 user=rk
+
+[20:08:40] [DBG] RECV base=0x1 from 192.168.1.10 user=rk
+
+[20:08:52] [DBG] RECV base=0x1 from 192.168.1.102 user=w
+
+[20:08:52] [DBG] RECV base=0x17 from 192.168.1.102 user=w
+[DBG] learned pubkey from 192.168.1.102 (624 bytes) fp=cdff3c2bc558e72613dd8c0044fb4613d53e60158b69636500e553afac04c391
+
+[20:08:52] [DBG] RECV base=0x3 from 192.168.1.102 user=w
+
+[20:08:52] [DBG] RECV base=0x17 from 192.168.1.10 user=rk
+[DBG] learned pubkey from 192.168.1.10 (624 bytes) fp=e70c9a2206147a2782b5d27a7d41ed1ced21799d97ac18a4ee4ac2c6cd50e2b3
+
+[20:08:52] [DBG] RECV base=0x3 from 192.168.1.10 user=rk
+
+[20:08:52] [DBG] RECV base=0x17 from 192.168.1.10 user=rk
+[DBG] learned pubkey from 192.168.1.10 (624 bytes) fp=e70c9a2206147a2782b5d27a7d41ed1ced21799d97ac18a4ee4ac2c6cd50e2b3
+
+[20:08:52] [DBG] RECV base=0x3 from 192.168.1.10 user=rk
+
+[20:08:57] [DBG] RECV base=0x20 from 192.168.1.10 user=rk
+[ENC] DEC ok from 192.168.1.10: sid=9CfKe0EEIFI= ctr=1
+
+[20:08:57] [cipher] ENC sid=9CfKe0EEIFI= ctr=1 tag=bPwmuwo4Vprymt3cqGFGpA== b64=PbQn9RFu/FAl
+
+[20:08:57] <rk@192.168.1.10> [E-D OK] hello enc
+
+[20:09:02] [DBG] RECV base=0x20 from 192.168.1.10 user=rk
+[ENC] DEC ok from 192.168.1.10: sid=9CfKe0EEIFI= ctr=2
+
+[20:09:02] [cipher] ENC sid=9CfKe0EEIFI= ctr=2 tag=ww5uj///jmaLbHvEaSXYDA== b64=w+Sf+trZXNMQ
+
+[20:09:02] <rk@192.168.1.10> [E-D OK] hello enc
+
+[20:09:10] [DBG] RECV base=0x1 from 192.168.1.10 user=rk
+
+[20:09:10] [DBG] RECV base=0x1 from 192.168.1.10 user=rk
+
+[20:09:13] [DBG] RECV base=0x1 from 172.26.103.217 user=Theresa
+
+[20:09:22] [DBG] RECV base=0x1 from 192.168.1.102 user=w
+
+[20:09:22] [DBG] RECV base=0x17 from 192.168.1.102 user=w
+[DBG] learned pubkey from 192.168.1.102 (624 bytes) fp=cdff3c2bc558e72613dd8c0044fb4613d53e60158b69636500e553afac04c391
+
+[20:09:22] [DBG] RECV base=0x3 from 192.168.1.102 user=w
+
+[20:09:22] [DBG] RECV base=0x17 from 192.168.1.10 user=rk
+[DBG] learned pubkey from 192.168.1.10 (624 bytes) fp=e70c9a2206147a2782b5d27a7d41ed1ced21799d97ac18a4ee4ac2c6cd50e2b3
+
+[20:09:22] [DBG] RECV base=0x3 from 192.168.1.10 user=rk
+
+[20:09:22] [DBG] RECV base=0x17 from 192.168.1.10 user=rk
+[DBG] learned pubkey from 192.168.1.10 (624 bytes) fp=e70c9a2206147a2782b5d27a7d41ed1ced21799d97ac18a4ee4ac2c6cd50e2b3
+
+[20:09:22] [DBG] RECV base=0x3 from 192.168.1.10 user=rk
+
+## RK
+
+kylin@kylin:~/Documents/ZFeiQ/ZFeiQ_Original$ python3 main.py --cli
+ZFeiQ - Alpha 5.1 - CLI
+最近更新：2025 / 12 / 01
+- /login <用户名>: 上线
+- /help: 查看命令帮助
+本机 IP：
+192.168.1.10
+下载目录： /home/kylin/Documents/ZFeiQ/ZFeiQ_Original
+[ZFeiQ] => /set encrypt on
+encrypt=on
+[ZFeiQ] => /set debug on
+debug=on
+[ZFeiQ] [Debug ON] => /set encrypt EDtag on
+encrypt.edtag=on
+[ZFeiQ] [Debug ON] => /set encrypt
+[20:07:53] [DBG] RECV base=0x1 from 192.168.1.102 user=w
+
+[ZFeiQ] [Debug ON] =>
+[20:07:53] + w@192.168.1.102 上线
+
+[ZFeiQ] [Debug ON] =>
+[20:07:53] [DBG] RECV base=0x20 from 192.168.1.102 user=w
+
+[ZFeiQ] [Debug ON] => [20:07:53] [ENC] 收到 KX1 来自 192.168.1.102，已发送 KX2
+[DBG] session established with 192.168.1.102 sid=9CfKe0EEIFI=
+
+[ZFeiQ] [Debug ON] => [20:07:53] [ENC] 与 192.168.1.102 的会话已建立，可使用 ENC 加密通讯
+
+[ZFeiQ] [Debug ON] => /set encrypt cipher on
+encrypt.cipher=on
+[ZFeiQ] [Debug ON] => /login rk
+
+[DEBUG] send_broadcast: local_ip=192.168.1.10, bcast=192.168.1.255, port=2425
+
+<rk> [Debug ON] => 已上线 rk@192.168.1.10
+<rk> [Debug ON] =>
+[20:08:10] [DBG] RECV base=0x1 from 192.168.1.10 user=rk
+
+<rk> [Debug ON] =>
+[20:08:10] [DBG] RECV base=0x17 from 192.168.1.102 user=w
+
+<rk> [Debug ON] => [WARN] fingerprint mismatch for 192.168.1.102: announced=1118e35f75253c99842e1cc2324c0b14df53b000dcccfd31c45d333e0d967d65 actual=cdff3c2bc558e72613dd8c0044fb4613d53e60158b69636500e553afac04c391
+[DBG] learned pubkey from 192.168.1.102 (624 bytes) fp=cdff3c2bc558e72613dd8c0044fb4613d53e60158b69636500e553afac04c391
+
+<rk> [Debug ON] =>
+[20:08:10] [DBG] RECV base=0x3 from 192.168.1.102 user=w
+
+<rk> [Debug ON] =>
+[20:08:10] [DBG] RECV base=0x17 from 192.168.1.10 user=rk
+
+<rk> [Debug ON] => [WARN] fingerprint mismatch for 192.168.1.10: announced=b29b3d17267172ac24a38ba521164feab9654ddabe654aa566b4e248a32133ae actual=e70c9a2206147a2782b5d27a7d41ed1ced21799d97ac18a4ee4ac2c6cd50e2b3
+[DBG] learned pubkey from 192.168.1.10 (624 bytes) fp=e70c9a2206147a2782b5d27a7d41ed1ced21799d97ac18a4ee4ac2c6cd50e2b3
+
+<rk> [Debug ON] =>
+[20:08:10] [DBG] RECV base=0x3 from 192.168.1.10 user=rk
+
+<rk> [Debug ON] =>
+[DEBUG] send_broadcast: local_ip=192.168.1.10, bcast=192.168.1.255, port=2425
+
+<rk> [Debug ON] =>
+[20:08:11] [DBG] RECV base=0x1 from 192.168.1.10 user=rk
+
+<rk> [Debug ON] =>
+[20:08:11] [DBG] RECV base=0x17 from 192.168.1.10 user=rk
+
+<rk> [Debug ON] => [DBG] learned pubkey from 192.168.1.10 (624 bytes) fp=e70c9a2206147a2782b5d27a7d41ed1ced21799d97ac18a4ee4ac2c6cd50e2b3
+
+<rk> [Debug ON] =>
+[20:08:11] [DBG] RECV base=0x3 from 192.168.1.10 user=rk
+
+<rk> [Debug ON] =>
+[20:08:11] [DBG] RECV base=0x17 from 192.168.1.102 user=w
+
+<rk> [Debug ON] => [DBG] learned pubkey from 192.168.1.102 (624 bytes) fp=cdff3c2bc558e72613dd8c0044fb4613d53e60158b69636500e553afac04c391
+
+<rk> [Debug ON] =>
+[20:08:11] [DBG] RECV base=0x3 from 192.168.1.102 user=w
+
+<rk> [Debug ON] =>
+[20:08:11] [DBG] RECV base=0x17 from 192.168.1.102 user=w
+
+<rk> [Debug ON] => [DBG] learned pubkey from 192.168.1.102 (624 bytes) fp=cdff3c2bc558e72613dd8c0044fb4613d53e60158b69636500e553afac04c391
+
+<rk> [Debug ON] =>
+[20:08:11] [DBG] RECV base=0x3 from 192.168.1.102 user=w
+
+<rk> [Debug ON] =>
+<rk> [Debug ON] =>
+[20:08:22] [DBG] RECV base=0x20 from 192.168.1.102 user=w
+
+<rk> [Debug ON] => [ENC] DEC ok from 192.168.1.102: sid=9CfKe0EEIFI= ctr=1
+
+[20:08:22] [cipher] ENC sid=9CfKe0EEIFI= ctr=1 tag=TCWu7LKY7J+LBVEeGjMKdQ== b64=Mbcq
+
+[20:08:22] <w@192.168.1.102> [E-D OK] dfa
+
+<rk> [Debug ON] =>
+[20:08:23] [DBG] RECV base=0x1 from 192.168.1.102 user=w
+
+<rk> [Debug ON] =>
+[20:08:23] [DBG] RECV base=0x1 from 192.168.1.102 user=w
+
+<rk> [Debug ON] =>
+<rk> [Debug ON] => /send user:w hello enc
+[DEBUG] send_broadcast: local_ip=192.168.1.10, bcast=192.168.1.255, port=2425
+
+<rk> [Debug ON] =>
+[20:08:41] [DBG] RECV base=0x1 from 192.168.1.10 user=rk
+
+<rk> [Debug ON] =>
+[20:08:41] [DBG] RECV base=0x17 from 192.168.1.10 user=rk
+
+<rk> [Debug ON] => [DBG] learned pubkey from 192.168.1.10 (624 bytes) fp=e70c9a2206147a2782b5d27a7d41ed1ced21799d97ac18a4ee4ac2c6cd50e2b3
+
+<rk> [Debug ON] =>
+[20:08:41] [DBG] RECV base=0x3 from 192.168.1.10 user=rk
+
+<rk> [Debug ON] =>
+[20:08:41] [DBG] RECV base=0x17 from 192.168.1.102 user=w
+
+<rk> [Debug ON] => [DBG] learned pubkey from 192.168.1.102 (624 bytes) fp=cdff3c2bc558e72613dd8c0044fb4613d53e60158b69636500e553afac04c391
+
+<rk> [Debug ON] =>
+[20:08:41] [DBG] RECV base=0x3 from 192.168.1.102 user=w
+
+<rk> [Debug ON] =>
+[20:08:41] [DBG] RECV base=0x17 from 192.168.1.102 user=w
+
+<rk> [Debug ON] => [DBG] learned pubkey from 192.168.1.102 (624 bytes) fp=cdff3c2bc558e72613dd8c0044fb4613d53e60158b69636500e553afac04c391
+
+<rk> [Debug ON] =>
+[20:08:41] [DBG] RECV base=0x3 from 192.168.1.102 user=w
+
+<rk> [Debug ON] =
+<rk> [Debug ON] =>
+<rk> [Debug ON] => /send user:w hello enc
+[20:08:53] [DBG] RECV base=0x1 from 192.168.1.102 user=w
