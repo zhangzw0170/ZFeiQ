@@ -96,11 +96,7 @@ def create_offer(filepath: str, bind_ip: str = "0.0.0.0") -> OutgoingOffer:
 
 
 def download_file(ip: str, port: int, save_path: str, timeout: float = 300.0, on_progress=None, retries: int = 0, stop_event: Optional[threading.Event] = None) -> None:
-    """Download file from TCP server with interruptible loop.
-
-    - Uses socket timeouts and checks `stop_event` between recv attempts.
-    - `stop_event` is optional; if set and becomes signalled, function raises `InterruptedError`.
-    """
+    """Download file from TCP server with interruptible loop (Generic TCP)."""
     attempt = 0
     while True:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -152,15 +148,15 @@ def download_file(ip: str, port: int, save_path: str, timeout: float = 300.0, on
 
 
 class IPMsgFileServer:
-    """Minimal TCP/2425 server to serve files for IPMSG_GETFILEDATA requests.
-
-    resolver(pid:int, aid:int) -> filepath or None
+    """Minimal TCP server to serve files for IPMSG_GETFILEDATA requests.
+    Standard port is 2425, but can be customized.
     """
 
-    def __init__(self, resolver: Callable[[int, int], Optional[str]], bind_ip: str = "0.0.0.0", releaser: Optional[Callable[[int, int], None]] = None) -> None:
+    def __init__(self, resolver: Callable[[int, int], Optional[str]], bind_ip: str = "0.0.0.0", port: int = 2425, releaser: Optional[Callable[[int, int], None]] = None) -> None:
         self.resolver = resolver
         self.releaser = releaser
         self.bind_ip = bind_ip
+        self.port = port
         self._sock: Optional[socket.socket] = None
         self._thread: Optional[threading.Thread] = None
         self._stop = threading.Event()
@@ -170,7 +166,7 @@ class IPMsgFileServer:
             return
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind((self.bind_ip, 2425))
+        s.bind((self.bind_ip, self.port))
         s.listen(5)
         self._sock = s
         self._thread = threading.Thread(target=self._serve, daemon=True)
@@ -217,7 +213,6 @@ class IPMsgFileServer:
                         break
                     raw += chunk
                     if b":" in raw:
-                        # heuristic: enough for parse_packet to split 6 parts
                         if raw.count(b":") >= 5:
                             break
             except Exception:
@@ -242,7 +237,6 @@ class IPMsgFileServer:
                         self.releaser(pid, aid)
                     except Exception:
                         pass
-                # nothing to send back; close
                 return
             # GETFILEDATA
             path = self.resolver(pid, aid) if (pid and aid) else None
@@ -264,15 +258,12 @@ class IPMsgFileServer:
                 pass
 
 
-def ipmsg_download_file(ip: str, packet_no: int, attach_id: int, save_path: str, username: str, hostname: str, encoding: str = "utf-8", timeout: float = 300.0, on_progress=None, send_release: bool = True, stop_event: Optional[threading.Event] = None) -> None:
-    """Download file via IPMSG_GETFILEDATA from peer's TCP/2425.
-
-    This implementation is interruptible via `stop_event` and uses short recv timeouts
-    to periodically check for cancellation and timeouts.
+def ipmsg_download_file(ip: str, packet_no: int, attach_id: int, save_path: str, username: str, hostname: str, encoding: str = "utf-8", port: int = 2425, timeout: float = 300.0, on_progress=None, send_release: bool = True, stop_event: Optional[threading.Event] = None) -> None:
+    """Download file via IPMSG_GETFILEDATA from peer's TCP port.
     """
     total = 0
     # create initial connection
-    s = socket.create_connection((ip, 2425), timeout=min(10.0, timeout))
+    s = socket.create_connection((ip, port), timeout=min(10.0, timeout))
     try:
         s.settimeout(5.0)
         pkt = build_packet_with_no(packet_no, username, hostname, IPMSG_GETFILEDATA, f"{packet_no}:{attach_id}", encoding=encoding)
@@ -303,10 +294,10 @@ def ipmsg_download_file(ip: str, packet_no: int, attach_id: int, save_path: str,
             s.close()
         except Exception:
             pass
-    # 下载完成后，按规范发送 RELEASEFILES 通知对端（可选）
+    # Send RELEASEFILES notification
     if send_release:
         try:
-            with socket.create_connection((ip, 2425), timeout=min(10.0, timeout)) as s2:
+            with socket.create_connection((ip, port), timeout=min(10.0, timeout)) as s2:
                 s2.settimeout(5.0)
                 rel = build_packet_with_no(packet_no, username, hostname, IPMSG_RELEASEFILES, f"{packet_no}:{attach_id}", encoding=encoding)
                 s2.sendall(rel)

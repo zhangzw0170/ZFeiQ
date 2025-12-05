@@ -60,7 +60,6 @@ class ZFeiQCore:
         self._load_groups()
         
         # --- 网络与传输 ---
-        # [Fix] 显式类型转换，确保 listen_ip 是 str
         self.local_ip: str = bind_ip or self._detect_best_ip()
         
         if bind_ip:
@@ -74,6 +73,7 @@ class ZFeiQCore:
             iface_ip=self.local_ip,
             recv_callback=self._on_recv
         )
+        self.tcp_port = port  # 记录 TCP 监听端口，通常与 UDP 端口一致
         
         # --- 密钥与安全 ---
         self.identity_priv = None
@@ -158,19 +158,14 @@ class ZFeiQCore:
 
     # --- 截图 ---
     def capture_screen(self, save_path: str = "") -> Optional[str]:
-        """调用系统工具截图并保存"""
-        # 如果未提供路径，生成默认路径
+        """调用系统工具截图并保存 (CLI 使用，GUI 建议使用 SnippingTool)"""
         if not save_path:
-            import datetime
             ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            # 确保 screenshots 目录存在
             save_dir = os.path.join(self.download_dir, "screenshots")
             self._ensure_dir(save_dir)
             save_path = os.path.join(save_dir, f"screenshot_{ts}.png")
         
-        # 确保父目录存在
         self._ensure_dir(os.path.dirname(save_path))
-        
         try:
             sys_plat = platform.system()
             if sys_plat == "Windows":
@@ -183,7 +178,6 @@ class ZFeiQCore:
                     self._emit(EV_LOG_ERR, msg="Screenshot failed: Pillow not installed")
                     return None
             elif sys_plat == "Linux":
-                # 优先尝试 scrot，其次 gnome-screenshot
                 try:
                     subprocess.run(["scrot", save_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     return save_path
@@ -302,8 +296,6 @@ class ZFeiQCore:
             }])
             ext_payload = f"\0{attach_line}\0"
 
-            # [修改] 增加 IPMSG_SENDCHECKOPT 以启用 PendingAck 重传
-            # 这样即使 UDP 丢包，Core 也会自动重试，直到收到对方的 ACK
             flag = IPMSG_SENDMSG | IPMSG_FILEATTACHOPT | IPMSG_SENDCHECKOPT
             
             pkt = build_packet_with_no(
@@ -313,7 +305,6 @@ class ZFeiQCore:
             )
             self.transport.send_unicast(target_ip, pkt)
             
-            # 记录到 pending，cmd_override 必须与发送的 flag 一致
             self.pending.add(pkt_no, target_ip, ext_payload, cmd_override=flag)
             
             self._emit(EV_LOG_INFO, msg=f"Offered file {filename} to {target_ip}")
@@ -327,14 +318,16 @@ class ZFeiQCore:
             return
         target_dir = save_dir or self.download_dir
         self._ensure_dir(target_dir)
-        ip, pkt, aid, filename = offer['ip'], offer['pkt'], offer['aid'], offer['name']
+        # 获取对方端口，默认为 2425
+        ip, port, pkt, aid, filename = offer['ip'], offer.get('port', 2425), offer['pkt'], offer['aid'], offer['name']
         save_path = os.path.join(target_dir, filename)
 
         def _worker():
             try:
                 def _prog_cb(current):
                     self._emit(EV_FILE_PROG, offer_id=offer_id, current=current, total=offer['size'])
-                ipmsg_download_file(ip, pkt, aid, save_path, self.username or "?", self.hostname, on_progress=_prog_cb)
+                # 传入端口进行下载
+                ipmsg_download_file(ip, pkt, aid, save_path, self.username or "?", self.hostname, encoding=self.encoding, port=port, on_progress=_prog_cb)
                 self._emit(EV_FILE_DONE, offer_id=offer_id, path=save_path)
                 rel_pkt = self._build_packet(IPMSG_RELEASEFILES, f"{pkt}:{aid}")
                 self.transport.send_unicast(ip, rel_pkt)
@@ -454,6 +447,7 @@ class ZFeiQCore:
 
     def _on_recv(self, data: bytes, addr: Tuple[str, int]):
         src_ip = addr[0]
+        src_port = addr[1]
         try:
             head, ext = parse_packet(data)
             cmd, base = head['command'], base_command(head['command'])
@@ -487,7 +481,17 @@ class ZFeiQCore:
                         if len(parts) > 1:
                             for f in decode_fileattach_lines(parts[1]):
                                 oid = f"{head['packet_no']}:{f['id']}"
-                                self._incoming_offers[oid] = {"ip": src_ip, "name": f['name'], "size": f['size'], "pkt": head['packet_no'], "aid": f['id']}
+                                # 记录发送方端口，以便 TCP 连接
+                                self._incoming_offers[oid] = {
+                                    "ip": src_ip, 
+                                    "port": src_port,
+                                    "name": f['name'], 
+                                    "size": f['size'], 
+                                    "pkt": head['packet_no'], 
+                                    "aid": f['id']
+                                }
+                                # 额外输出一条 INFO，方便自动化脚本匹配 offer id
+                                self._emit(EV_LOG_INFO, msg=f"File offer: {f['name']} ({f['size']} bytes) from {src_ip} | offer={oid}")
                                 self._emit(EV_FILE_OFFER, offer_id=oid, sender=head['username'], filename=f['name'], size=f['size'])
                     except Exception as e: self._emit(EV_LOG_ERR, msg=f"Attach parse error: {e}")
                 if text and not (text.startswith("FILE_OFFER;") or ((cmd & IPMSG_FILEATTACHOPT) and not text)):
@@ -550,10 +554,9 @@ class ZFeiQCore:
 
     def _ensure_ipmsg_server(self):
         if not self._ipmsg_srv:
-            # [修改] 始终绑定到 local_ip (即传入的 bind_ip)，
-            # 避免在 Linux 下写死 0.0.0.0 导致单机多实例测试时 TCP 端口冲突
             self._ipmsg_srv = IPMsgFileServer(
                 bind_ip=self.local_ip,
+                port=self.tcp_port,  # 传入端口
                 resolver=self._resolve_file_path,
                 releaser=self._release_file_mapping
             )
