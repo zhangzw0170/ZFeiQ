@@ -109,7 +109,7 @@ def run_test():
         
         # [修改] 匹配 CLI 实际输出的日志内容，而不是内部事件名
         if alice.expect("Node list updated"):
-            print("  -> Alice successfully discovered peers.")
+            print("  -> PASS: Alice successfully discovered peers.")
         else:
             print("  -> [WARN] Discovery logs not seen, proceeding anyway.")
 
