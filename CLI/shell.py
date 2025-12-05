@@ -22,8 +22,8 @@ except ImportError:
     Style = None
 
 # 引入核心层
-from zfeiq_core.engine import ZFeiQCore
-from zfeiq_core.events import *
+from core.engine import ZFeiQCore
+from core.events import *
 
 class ZFeiQShell:
     def __init__(self, port: int, bind_ip: Optional[str]):

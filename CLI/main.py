@@ -8,7 +8,7 @@ import os
 # 确保能找到 zfeiq_core
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from zfeiq_cli.shell import ZFeiQShell
+from CLI.shell import ZFeiQShell
 
 def main():
     parser = argparse.ArgumentParser(description="ZFeiQ Refactored CLI")

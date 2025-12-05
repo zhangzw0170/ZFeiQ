@@ -5,7 +5,7 @@ from zfeiq_gui.lang import get_translations, get_current_language
 
 # 导入我们之前写好的核心 OCR 引擎
 try:
-    from zfeiq_cli.ocr import ZFeiQOcr
+    from CLI.ocr import ZFeiQOcr
 except ImportError:
     ZFeiQOcr = None
 

@@ -205,7 +205,7 @@ class KeyPage(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, title, self._translations.get('key_regen_no_zcli', '后端内部错误：找不到 zcli 实例。'))
                 return
             # 生成新密钥对并保存
-            from zfeiq_cli.crypto import generate_rsa_keypair
+            from CLI.crypto import generate_rsa_keypair
             prv, pub = generate_rsa_keypair(3072)
             z._priv_pem, z._pub_pem = prv, pub
             try:
