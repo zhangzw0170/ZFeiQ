@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 import time
 import threading
+from collections import UserDict
 
 
 @dataclass
@@ -62,30 +63,24 @@ class NodeRegistry:
                 removed.append(self._by_ip.pop(ip))
         return removed
 
-
-class PendingAck:
-    def __init__(self) -> None:
-        # packet_no -> (ip, text, attempts, last_ts)
-        self._data: Dict[int, Tuple[str, str, int, float]] = {}
-        self._lock = threading.Lock()
-
-    def add(self, packet_no: int, ip: str, text: str) -> None:
-        with self._lock:
-            self._data[packet_no] = (ip, text, 1, time.time())
+class PendingAck(UserDict):
+    """
+    Manage unacknowledged packets for retransmission.
+    Key: packet_no (int)
+    Value: (ip, text, attempts, last_ts, cmd_override)
+    """
+    def add(self, packet_no: int, ip: str, text: str, cmd_override: Optional[int] = None) -> None:
+        # [修改] 存储 5 元组，增加 cmd_override
+        self.data[packet_no] = (ip, text, 0, time.time(), cmd_override)
 
     def remove(self, packet_no: int) -> None:
-        with self._lock:
-            self._data.pop(packet_no, None)
-
-    def items(self):
-        with self._lock:
-            return list(self._data.items())
+        if packet_no in self.data:
+            del self.data[packet_no]
 
     def update_attempt(self, packet_no: int) -> None:
-        with self._lock:
-            ip, text, attempts, _ = self._data.get(packet_no, ("", "", 0, 0.0))
-            if attempts > 0:
-                self._data[packet_no] = (ip, text, attempts + 1, time.time())
+        if packet_no in self.data:
+            ip, text, tries, _, cmd = self.data[packet_no]
+            self.data[packet_no] = (ip, text, tries + 1, time.time(), cmd)
 
 
 class ChatHistory:

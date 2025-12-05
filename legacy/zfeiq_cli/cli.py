@@ -2697,7 +2697,7 @@ class ZFeiQCli:
                     except Exception as e:
                         print(f"[DBG] encinfo failed: {e}")
                 elif cmdline == "/admin reset-keys":
-                    # 删除 commons/keys 下的密钥并重建，然后广播一次携带新指纹
+                    # 删除 common/keys 下的密钥并重建，然后广播一次携带新指纹
                     try:
                         d = self._keys_dir()
                         try:

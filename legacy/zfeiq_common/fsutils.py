@@ -24,11 +24,11 @@ def find_main_dir(start_path: str = None) -> str:
 
 
 def ensure_dir(path: str) -> str:
-    """Ensure directory exists under project commons directory.
+    """Ensure directory exists under project common directory.
 
     Behavior:
     - All directories (relative or absolute) are created under
-      <project_main_dir>/commons/<relpath-or-basename>.
+      <project_main_dir>/common/<relpath-or-basename>.
       This avoids creating nested absolute-path-like folders when code
       runs on a different OS or with a different CWD.
     - Returns the absolute path created.
@@ -37,7 +37,7 @@ def ensure_dir(path: str) -> str:
     if not path:
         raise ValueError("empty path")
 
-    # compute a relative component to place under commons
+    # compute a relative component to place under common
     # Treat Windows-style absolute paths (e.g. 'E:\\... or E:/...') as external
     # and reduce them to their basename when running on non-Windows hosts.
     is_windows_abs = bool(re.match(r"^[A-Za-z]:[\\/].*", path))
@@ -51,7 +51,7 @@ def ensure_dir(path: str) -> str:
         raise ValueError(f"invalid path component derived from: {path}")
 
     base = find_main_dir()
-    final = os.path.join(base, "commons", rel)
+    final = os.path.join(base, "common", rel)
 
     # create directories with sane default permissions
     try:

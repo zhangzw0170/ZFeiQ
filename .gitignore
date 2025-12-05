@@ -1,3 +1,10 @@
+### Developer.gitignore
+common/*
+PPOCRv4/*
+RKNN-dependence/*
+
+### Python.gitignore
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
