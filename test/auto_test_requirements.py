@@ -107,7 +107,8 @@ def run_test():
         alice.send(f"discover {CHARLIE_IP}")
         time.sleep(2)
         
-        if alice.expect("node.update"):
+        # [修改] 匹配 CLI 实际输出的日志内容，而不是内部事件名
+        if alice.expect("Node list updated"):
             print("  -> Alice successfully discovered peers.")
         else:
             print("  -> [WARN] Discovery logs not seen, proceeding anyway.")

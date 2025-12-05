@@ -300,13 +300,21 @@ class ZFeiQCore:
                 "id": file_id, "name": filename, "size": size, "mtime": mtime, "attr": 0
             }])
             ext_payload = f"\0{attach_line}\0"
+
+            # [修改] 增加 IPMSG_SENDCHECKOPT 以启用 PendingAck 重传
+            # 这样即使 UDP 丢包，Core 也会自动重试，直到收到对方的 ACK
+            flag = IPMSG_SENDMSG | IPMSG_FILEATTACHOPT | IPMSG_SENDCHECKOPT
+            
             pkt = build_packet_with_no(
                 pkt_no, self.username or "?", self.hostname, 
-                IPMSG_SENDMSG | IPMSG_FILEATTACHOPT, 
+                flag, 
                 ext_payload, self.encoding
             )
             self.transport.send_unicast(target_ip, pkt)
-            self.pending.add(pkt_no, target_ip, ext_payload, cmd_override=(IPMSG_SENDMSG | IPMSG_FILEATTACHOPT))
+            
+            # 记录到 pending，cmd_override 必须与发送的 flag 一致
+            self.pending.add(pkt_no, target_ip, ext_payload, cmd_override=flag)
+            
             self._emit(EV_LOG_INFO, msg=f"Offered file {filename} to {target_ip}")
         except Exception as e:
             self._emit(EV_LOG_ERR, msg=f"Send file failed: {e}")

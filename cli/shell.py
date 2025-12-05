@@ -238,12 +238,27 @@ class ZFeiQShell:
             elif sub == "accept":
                 self.core.accept_file(parts[2])
 
-        # [新增] 分组命令
+        # 分组命令
         elif cmd == "group":
-            if len(parts) < 3:
-                print("Usage: group <create|add|msg> <args...>")
+            # group list
+            # group create <name>
+            # group add <name> <user>
+            # group msg <name> <text>
+            # [修改] 放宽长度检查，允许 group list (2 parts)
+            if len(parts) < 2:
+                print("Usage: group <list|create|add|msg> <args...>")
                 return
+            
             sub = parts[1].lower()
+            
+            if sub == "list":
+                print("--- Groups ---")
+                if not self.core.groups:
+                    print("(no groups)")
+                for name, members in self.core.groups.items():
+                    print(f"{name}: {', '.join(members)}")
+                return
+
             if sub == "create":
                 self.core.create_group(parts[2])
             elif sub == "add":
