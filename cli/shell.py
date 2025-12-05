@@ -119,10 +119,8 @@ class ZFeiQShell:
             p, s = ev.data['peer'], ev.data['state']
             if _HAS_PT and HTML: _print(HTML(f"<debug>[ENC] {p} -> {s}</debug>"))
 
-        # 处理节点列表更新事件，输出日志供测试脚本捕获
+        # [新增] 处理节点更新事件，输出日志供测试脚本捕获 (Step 1 修复)
         elif ev.type == EV_NODE_UPD:
-            # 仅在非交互式或详细模式下打印，避免刷屏，但为了测试通过需要输出
-            # 这里选择以 info 级别输出摘要
             count = len(self.core.registry.list_nodes())
             msg = f"Node list updated: {count} peers online."
             if _HAS_PT and HTML: _print(HTML(f"<info>[INFO] {msg}</info>"))
@@ -239,12 +237,14 @@ class ZFeiQShell:
                 self.core.accept_file(parts[2])
 
         # 分组命令
+        # [新增] 分组命令逻辑优化
         elif cmd == "group":
             # group list
             # group create <name>
             # group add <name> <user>
             # group msg <name> <text>
-            # [修改] 放宽长度检查，允许 group list (2 parts)
+            
+            # [修改] 允许 group list (长度为2)
             if len(parts) < 2:
                 print("Usage: group <list|create|add|msg> <args...>")
                 return

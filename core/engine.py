@@ -158,7 +158,8 @@ class ZFeiQCore:
 
     # --- 截图 ---
     def capture_screen(self, save_path: str = "") -> Optional[str]:
-        # [修改] 增加对空字符串的判断，确保默认路径逻辑生效
+        """调用系统工具截图并保存"""
+        # 如果未提供路径，生成默认路径
         if not save_path:
             import datetime
             ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -167,7 +168,7 @@ class ZFeiQCore:
             self._ensure_dir(save_dir)
             save_path = os.path.join(save_dir, f"screenshot_{ts}.png")
         
-        # 确保父目录存在 (针对用户传入自定义路径的情况)
+        # 确保父目录存在
         self._ensure_dir(os.path.dirname(save_path))
         
         try:
@@ -549,7 +550,13 @@ class ZFeiQCore:
 
     def _ensure_ipmsg_server(self):
         if not self._ipmsg_srv:
-            self._ipmsg_srv = IPMsgFileServer(bind_ip=(self.local_ip if os.name == "nt" else "0.0.0.0"), resolver=self._resolve_file_path, releaser=self._release_file_mapping)
+            # [修改] 始终绑定到 local_ip (即传入的 bind_ip)，
+            # 避免在 Linux 下写死 0.0.0.0 导致单机多实例测试时 TCP 端口冲突
+            self._ipmsg_srv = IPMsgFileServer(
+                bind_ip=self.local_ip,
+                resolver=self._resolve_file_path,
+                releaser=self._release_file_mapping
+            )
             self._ipmsg_srv.start()
 
     def _resolve_file_path(self, pid: int, aid: int) -> Optional[str]: return self._attach_map.get((pid, aid))
