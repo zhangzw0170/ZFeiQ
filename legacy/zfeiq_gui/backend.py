@@ -5,7 +5,7 @@ from PyQt5.QtCore import QObject, pyqtSignal
 import threading
 import hashlib
 from zfeiq_cli.cli import ZFeiQCli
-from CLI.protocol import parse_packet, base_command, IPMSG_SENDMSG, IPMSG_GETFILEDATA, decode_fileattach_lines
+from cli.protocol import parse_packet, base_command, IPMSG_SENDMSG, IPMSG_GETFILEDATA, decode_fileattach_lines
 
 
 class GuiBackend(QObject):
@@ -704,7 +704,7 @@ class GuiBackend(QObject):
 
     def regenerate_keys(self) -> bool:
         try:
-            from CLI.crypto import generate_rsa_keypair
+            from cli.crypto import generate_rsa_keypair
             prv, pub = generate_rsa_keypair(3072)
             self.zcli._priv_pem = prv
             self.zcli._pub_pem = pub
@@ -783,7 +783,7 @@ class GuiBackend(QObject):
                     pass
             else:
                 try:
-                    from CLI.protocol import build_packet, IPMSG_GETPUBKEY
+                    from cli.protocol import build_packet, IPMSG_GETPUBKEY
                     pkt = build_packet(self.zcli.username or '?', self.zcli.hostname, IPMSG_GETPUBKEY, 'GETPUBKEY', encoding=self.zcli.encoding)
                     self.zcli.transport.send_unicast(ip, pkt)
                 except Exception:
@@ -864,7 +864,7 @@ class GuiBackend(QObject):
         try:
             if not self.zcli.username:
                 return
-            from CLI.protocol import build_packet, IPMSG_BR_ENTRY, IPMSG_BR_ABSENCE
+            from cli.protocol import build_packet, IPMSG_BR_ENTRY, IPMSG_BR_ABSENCE
             cmd = IPMSG_BR_ENTRY if self.zcli.status != 'away' else IPMSG_BR_ABSENCE
             pkt = build_packet(self.zcli.username or '?', self.zcli.hostname, cmd, self.zcli._build_status_ext(), encoding=self.zcli.encoding)
             try:
@@ -882,7 +882,7 @@ class GuiBackend(QObject):
 
     def _attempt_pubkey_and_sessions(self) -> None:
         try:
-            from CLI.protocol import build_packet, IPMSG_GETPUBKEY
+            from cli.protocol import build_packet, IPMSG_GETPUBKEY
             for n in self.zcli.registry.list_nodes():
                 ip = getattr(n, 'ip', '')
                 if not ip or ip == self.zcli.local_ip:
