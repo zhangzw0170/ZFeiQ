@@ -238,14 +238,14 @@ class SettingsDialog(QDialog):
             raw = self.bridge.core.identity_pub_bytes
             if raw:
                 fp = hashlib.sha256(raw).hexdigest()
-        
-        lbl_fp = QLabel(fp)
-        lbl_fp.setWordWrap(True)
-        lbl_fp.setStyleSheet("font-family: Consolas; color: #555; background: #eee; padding: 5px; border-radius: 3px;")
-        v_sec.addWidget(lbl_fp)
+
+        self.lbl_fp = QLabel(fp)
+        self.lbl_fp.setWordWrap(True)
+        self.lbl_fp.setStyleSheet("font-family: Consolas; color: #555; background: #eee; padding: 5px; border-radius: 3px;")
+        v_sec.addWidget(self.lbl_fp)
         
         btn_regen = QPushButton(L('btn_regen'))
-        btn_regen.setFixedWidth(120)
+        btn_regen.setFixedWidth(150)
         btn_regen.clicked.connect(self._regen_keys)
         v_sec.addWidget(btn_regen)
         layout.addWidget(grp_sec)
@@ -311,6 +311,20 @@ class SettingsDialog(QDialog):
         if ret == QMessageBox.Yes:
             try:
                 self.bridge.core.regenerate_identity()
+                # refresh displayed fingerprint
+                try:
+                    raw = getattr(self.bridge.core, 'identity_pub_bytes', None)
+                    if raw:
+                        import hashlib
+                        new_fp = hashlib.sha256(raw).hexdigest()
+                    else:
+                        new_fp = 'Unknown'
+                    try:
+                        self.lbl_fp.setText(new_fp)
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
                 QMessageBox.information(self, L('info_title'), L('regen_success'))
             except Exception as e:
                 QMessageBox.critical(self, L('err_title'), L('regen_fail').format(err=str(e)))

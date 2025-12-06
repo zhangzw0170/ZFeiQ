@@ -12,6 +12,7 @@ os.environ["QT_LOGGING_RULES"] = "*.debug=false;qt.qpa.*=false"
 from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5.QtCore import Qt, QCoreApplication
 from PyQt5.QtGui import QIcon
+from PyQt5 import QtWidgets, QtCore
 
 # 确保能引用到同级模块
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -63,6 +64,23 @@ def main():
     """)
 
     sys.excepthook = excepthook
+
+    # 3.5 尽力禁用 Qt 的内建 UI 动画/效果以减少 CPU/GPU 开销
+    try:
+        for eff in (
+            getattr(QtCore.Qt, 'UI_AnimateMenu', None),
+            getattr(QtCore.Qt, 'UI_AnimateCombo', None),
+            getattr(QtCore.Qt, 'UI_AnimateTooltip', None),
+            getattr(QtCore.Qt, 'UI_FadeMenu', None),
+            getattr(QtCore.Qt, 'UI_FadeTooltip', None),
+        ):
+            if eff is not None:
+                try:
+                    QApplication.setEffectEnabled(eff, False)
+                except Exception:
+                    pass
+    except Exception:
+        pass
 
     # 4. 启动后台桥梁 (独立线程)
     bridge = Bridge()
