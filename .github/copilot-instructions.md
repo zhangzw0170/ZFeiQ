@@ -1,46 +1,48 @@
-ZFeiQ — AI 编码助手使用说明
+ZFeiQ — AI Coding Agent 操作手册
+# ZFeiQ — AI 代码助手 快速指南
 
-本文件为 AI 编码代理（例如 Copilot 风格 agent）提供在此代码库中高效工作的必要要点。内容聚焦于可被代码、配置与示例直接证实的约定与操作步骤。
+目的：让新进 AI 编码代理快速上手本仓库，理解架构边界、关键文件、运行/测试命令与常见改动注意点。
 
-**Repository Overview**:
-- **Purpose**: 本仓库实现一个无服务器的局域网即时通讯（IPMSG 风格）客户端，现代化改写，重点在于 X25519 密钥协商、ChaCha20-Poly1305 加密与事件驱动的 FSM。
-- **Design Partition**: 核心逻辑在 `core/`，交互层在 `cli/`（可替换为 GUI），运行时与可选资源在 `common/` 与 `keys/`。
+## 快速架构与边界
+- 引擎（核心）：`core/engine.py`（类 `ZFeiQCore`）负责节点发现、会话管理、事件分发与持久化；上层 `cli/` 与 `gui/` 通过事件回调与其交互。
+- 会话与加密：`core/session.py` （类 `Session`）实现握手 FSM（例如 `KX1/KX2/ENCREADY` 流程），使用 X25519 + HKDF + ChaCha20-Poly1305，密文格式约定在 `core/session.py` 与 `core/protocol.py` 中。
+- 传输层：`core/transport.py`（`UdpTransport`）封装 UDP 广播/单播线程；IP/iface 推断逻辑在此处，广播相关调试日志以 `[DEBUG] send_broadcast` 标记。
 
-**How To Run (developer shortcuts)**:
-- **启动 CLI**: 在仓库根目录运行 `python3 cli/main.py`。
-- **绑定指定地址**: `python3 cli/main.py --bind 127.0.0.1`（用于多网卡或回环测试）。
-- **演示/集成测试**: 使用仓库内的 demo 脚本，例如 `python3 test/demo_p2p_secure_loopback.py` 和 `python3/test/demo_filetransfer.py`（在单机上模拟两端）。
+## 关键文件与职责（先看这些）
+- `core/engine.py` — 引擎主逻辑与事件队列。
+- `core/session.py` — 握手、密钥派生、加解密规则。
+- `core/protocol.py` — IPMSG 报文构建/解析与扩展字段位置（`ext` 区域，`\0` 分割）。
+- `core/events.py` — 事件常量；所有事件名在此统一管理。
+- `core/state.py` — `NodeRegistry`、节点信息持久化与查找逻辑。
+- `cli/shell.py` — CLI 命令实现与 `ZFeiQShell.on_core_event` 的事件处理示例。
+- `gui/bridge.py` — GUI 与引擎的事件桥接，查看如何把事件映射到 UI。
 
-**Key Files & What They Contain**:
-- **`core/crypto.py`**: 密码学原语（X25519, HKDF, ChaCha20-Poly1305）；所有加密调用应优先复用本模块。
-- **`core/session.py`**: 会话与握手有限状态机（KX_SENT -> ESTABLISHED）；处理重传、乱序与握手竞态逻辑。
-- **`core/engine.py`**: 引擎入口、事件总线和高层 API，连接 `transport` 与 `session`。
-- **`core/transport.py`**: UDP/TCP 抽象、超时与重试策略的实现点。
-- **`cli/shell.py`** & **`cli/main.py`**: 基于 `prompt_toolkit` 的交互实现与命令路由（参考命令表在 `README.md`）。
+## 常用运行与调试命令
+```
+python3 cli/main.py [--bind 127.0.0.X] [--port 2425]   # 启动 CLI
+python3 gui/main.py                                   # 启动 GUI
+python3 test/demo_p2p_secure_loopback.py               # 验证加密会话
+python3 test/demo_filetransfer.py                      # 文件传输演示
+python3 test/auto_test_requirements.py                 # 三节点自动校验脚本
+```
 
-**Project-specific Patterns & Conventions**:
-- **Core/CLI 分离**: 不要把协议或加密逻辑写入 `cli/`；所有网络/crypto 变更应在 `core/` 实现并通过 `engine` 暴露接口。
-- **事件驱动**: 代码倾向于发布/订阅方式传递消息（事件总线），请搜索 `publish`/`subscribe` / `emit` 等词以定位用法。
-- **有限状态机（FSM）**: 会话管理严格遵循 `session.py` 的状态转换，在修改握手流程前先阅读该文件以避免竞态问题。
-- **TOFU 身份模型**: 身份通过静态 X25519 公钥的指纹广播；首次见到的新指纹将被接受（Trust On First Use），变更将被记录/警告。
+## 项目约定与模式（请遵守）
+- 事件驱动：使用 `ZFeiQCore.set_event_handler(handler)` 订阅事件，事件形态为 `Event(type, data)`。
+- 配置与持久化：`common/config.json` 与 `common/groups.json` 由引擎自动读写，修改 schema 时需同步引擎的 `_load_*`/`_save_*` 实现。
+- 日志/调试：`EV_LOG_INFO` 用于事件日志；开启 `debug cipher on`（代码内或调试命令）会把密文相关日志输出，便于握手/加密调试。
 
-**Helpful Examples (copyable)**:
-- 启动本地 CLI：`python3 cli/main.py`
-- 回环/双节点演示：`python3 test/demo_p2p_secure_loopback.py`
-- 发送文件演示：`python3 test/demo_filetransfer.py`
+## 修改敏感区域（需要额外审查）
+- 握手流程、密钥派生函数（例如 `hkdf_sha256`）、密文格式或会话状态机改动必须附带示例日志与回归步骤。
+- 改动事件签名、`NodeRegistry` 数据模型或跨线程共享结构时，请提供 CLI/GUI 验证步骤及影响范围（尤其参考 `test/auto_test_requirements.py`）。
 
-**Testing & Debugging Tips**:
-- **日志级别**: 在 CLI 中执行 `log level debug` 可以看到握手与加密帧（配合 `debug cipher on` 更详细）。
-- **快速复现握手问题**: 使用回环演示脚本并开启 `debug cipher`，对比发送前后的密文/明文流（scripts 内已有打印点）。
-- **单元/集成脚本位置**: 演示与集成脚本位于 `test/`，优先阅读这些脚本来了解假定的网络拓扑与输入序列。
+## 常见小任务示例（查这些文件做对应改动）
+- 新增事件：修改 `core/events.py` -> 在 `core/engine.py` 广播 -> 更新 `cli/shell.py` 与 `gui/bridge.py` 的处理。
+- 新增 CLI 命令：在 `cli/shell.py` 添加解析与 handler，重用 `ZFeiQCore` 提供的 API。
+- 调试握手问题：在 `core/session.py` 增加详细日志（KX1/KX2），用 `test/demo_p2p_secure_loopback.py` 验证。
 
-**Code Change Guidance**:
-- 修改加密/会话：先在 `core/crypto.py` 或 `core/session.py` 编写变更并配套修改 `test/` 下的演示脚本以验证。
-- 添加 CLI 命令：在 `cli/shell.py` 注册命令回调，尽量调用 `engine` 的高层函数而非直接操作网络/crypto。
-- 配置与持久化：`common/config.json` 与 `keys/` 用于运行时配置与密钥，修改格式时更新相应读写逻辑。
+## 其它注意点与资源
+- 文件传输映射：查看 `core/filetransfer.py` 中 `_attach_map` 的使用与端口保留逻辑。
+- OCR：懒加载实现位于 `core/ocr.py`，运行 OCR 需 `onnxruntime` 或相应运行时。
 
-**When to Ask for Human Review**:
-- 修改握手顺序或密钥派生（HKDF）实现时必须有人审阅（高风险变更）。
-- 改动会话状态模型接口或事件总线签名时请先在 PR 描述中包含重现步骤与演示脚本。
-
-如果此文件有遗漏或希望补充更细的例子（例如常见 bug、变量名约定或常用正则匹配），请指出要补充的具体主题或文件，我会立即迭代更新。
+---
+请检查这份精简版：我已保留原有重要警告与运行示例，并把可操作要点提炼为“看哪几个文件、跑哪些命令、在哪些改动要审查”。如果你希望我把某部分扩展为具体示例（例如“如何新增事件”的代码片段或一组验证步骤），告诉我想要的深度，我会继续更新。

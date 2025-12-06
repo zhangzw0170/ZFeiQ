@@ -138,3 +138,49 @@ NZFeiQ/
 ---
 
 NZFeiQ Team | 2025
+
+## Legacy 版本功能迁移状态
+**已实现**
+- 事件驱动核心与加密握手：`core/engine.py`、`core/session.py` 延续了 X25519 + HKDF + ChaCha20-Poly1305 的会话流程，并通过事件回调覆盖 `legacy/zfeiq_cli` 的主要业务场景。
+- 基础 CLI 流程：`cli/shell.py` 提供登录、节点发现、群组消息、搜索、文件发送/接收、截图与 OCR 命令，与 `legacy/zfeiq_cli/cli.py` 的基础功能对齐。
+- 文件传输栈：`core/filetransfer.py` 与 `core/engine.py` 复用 TCP offer/下载逻辑，`gui/chat.py` 通过 `Bridge` 自动接收文件，能力上接续了旧版的核心文件流。
+- OCR 与截图：`core/ocr.py` 与 `core/engine.capture_screen` 仍支持 NPU/CPU 自动切换和命令行截图，`test/auto_test_requirements.py` 用于回归这些能力。
+
+**尚未实现**
+
+**尚未实现（详细清单与实现提示）**
+- CLI: 额外命令集合（推荐优先级与实现要点）
+	- `info` 系列：`/info`、`/info net`、`/info user:<name>`、`/info group:<name>`。
+		- 用途：调试网络/显示历史消息与本机绑定信息。
+		- 实现提示：`ZFeiQCore` 已有 `registry`、`history` 与 `_detect_best_ip` 可供查询；在 `cli/shell.py` 添加 `/info` 子命令即可。
+	- `send user:<name>` / `send all <text>`：按用户名或广播发送。
+		- 实现提示：使用 `core.state.NodeRegistry.find_by_username` 映射到 IP；广播映射到 `send_text('all', ...)`。
+	- 文件管理：`file list`（列出 `_incoming_offers`）、`file cancel <id>`（取消本地待接收/发送项）。
+		- 实现提示：`ZFeiQCore._incoming_offers` 与 `_attach_map` 已存在，暴露安全的只读/修改方法给 CLI。
+	- 群组管理扩展：`group delete`、`group rename`、按用户名批量添加/删除成员。
+		- 实现提示：`ZFeiQCore.groups` 已持久化到 `common/groups.json`，在 CLI 中实现 CRUD 并调用 `_save_groups()`。
+	- 高级 `/set`：`/set encoding <utf8|gbk>`、`/set language <zhCN|enUS>`、`/set bind <ip>`、`/set debug/trace`。
+		- 风险/注意：`/set bind` 需要重启或重建 `UdpTransport`（慎重）；语言切换需要移植或加载 `legacy/zfeiq_gui/lang.py` 中的字典。
+
+- GUI：欠缺的页面与 UX 功能
+	- 完整设置页（高级网络、下载/截图目录、编码自测）——`legacy/zfeiq_gui/pages/settings_page.py` 提供参考实现。
+	- 群组管理页（创建/重命名/成员管理）、文件列表页与 KeyPage（查看/导出 X25519 指纹）——均可复用 `legacy` 中的 UI 逻辑并通过 `Bridge` 调用 `ZFeiQCore`。
+	- 表情包/表情挑选器（`emotes_page.py`）与聊天面板的表情按钮绑定（`gui/chat.py` 按钮目前无实现）。
+
+- OCR / NPU / 模型资源
+	- `core/ocr.py` 已实现 CPU/ONNX 与 RKNN 分支，但仓库内并不保证包含 `PPOCRv4` 的模型文件（`build_output`）或 `ZFeiQ_Original/PPOCRv4` 目录。
+	- 实现提示：要启用 OCR，需要在仓库或部署环境中放置 ONNX/RKNN 模型文件并安装对应运行时（`onnxruntime` 或 `rknn-toolkit2`/`rknnlite`）。
+
+- 互操作/兼容性细节
+	- E‑D 标记、旧版 ENC2 语法与一些兼容性标签在 `legacy/zfeiq_cli/cli.py` 中有更多开关（如 `encrypt_edtag`），这些细粒度兼容选项尚未迁移。
+	- 运行时动态换绑定（`/set bind`）和多网卡治理（`iface_prefix` 设定）在新实现中未暴露运行时接口。
+
+- 测试与脚本
+	- 自动化/回归脚本（如更复杂的场景脚本、encoding 自测）多数集中在 `legacy` 或 `test/` 中的老脚本。部分旧版测试/自测脚本需要适配新命令与路径。
+
+**下一步建议**
+- 优先实现（CLI）: `info` 系列、`file list`/`file cancel`、`send user`、`send all`、`group delete/rename`。
+- 中期：迁移 GUI 页（`emotes`, `groups`, `files`, `key`）并把 `Bridge` 扩展为控制接口；补入语言字典以支持多语言切换。
+- OCR：确认模型文件与运行时后再开启完整 OCR 流（否则在运行时会报模型缺失）。
+
+若你同意优先级，我可以立即在 `cli/shell.py` 开始实现首批高优先级命令（会逐项提交变更并运行 smoke tests）。
