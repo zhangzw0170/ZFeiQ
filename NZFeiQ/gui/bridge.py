@@ -11,7 +11,7 @@ from core.events import (
     EV_MSG_RECV, EV_MSG_SENT, EV_NODE_UPD, 
     EV_FILE_OFFER, EV_FILE_PROG, EV_FILE_DONE, EV_FILE_ERR,
     EV_LOG_INFO, EV_LOG_WARN, EV_LOG_ERR, EV_LOG_DEBUG,
-    EV_ENC_STATE
+    EV_ENC_STATE, EV_OCR_DONE
 )
 
 class Bridge(QThread):
@@ -43,8 +43,8 @@ class Bridge(QThread):
     # 加密状态变更: (peer_ip, state)
     sig_enc_state = pyqtSignal(str, str)
 
-    # OCR 识别完成信号 (text)
-    sig_ocr_done = pyqtSignal(str)
+    # OCR 识别完成信号 (text, engine_type, elapsed_seconds)
+    sig_ocr_done = pyqtSignal(str, str, float)
 
     def __init__(self, port=2425, bind_ip=None):
         super().__init__()
@@ -123,7 +123,15 @@ class Bridge(QThread):
             elif evt_type == EV_ENC_STATE:
                 # 加密会话建立
                 self.sig_enc_state.emit(data['peer'], data['state'])
-                
+            
+
+            elif evt_type == EV_OCR_DONE:
+                # EV_OCR_DONE now includes optional 'engine_type' and 'elapsed'
+                txt = data.get('text', '')
+                eng = data.get('engine_type', 'Unknown')
+                el = float(data.get('elapsed', 0.0) or 0.0)
+                self.sig_ocr_done.emit(txt, eng, el)
+
             # 日志类事件
             elif evt_type == EV_LOG_INFO:
                 self.sig_log.emit("INFO", data['msg'])
@@ -195,3 +203,7 @@ class Bridge(QThread):
             "ip": self.core.local_ip,
             "status": self.core.status
         }
+    
+    def get_quick_texts(self):
+        """获取常用语列表"""
+        return self.core.get_quick_texts()

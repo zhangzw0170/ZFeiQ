@@ -13,6 +13,12 @@ class MainWindow(QMainWindow):
         # 核心容器：堆栈窗口
         self.stack = QStackedWidget()
         self.setCentralWidget(self.stack)
+
+        # 状态栏
+        self.statusBar().showMessage("就绪")
+        self.statusBar().setStyleSheet(
+            "QStatusBar { color: #666; background: #f0f0f0; border-top: 1px solid #ccc; }"
+        )
         
         # 1. 初始化登录页 (轻量)
         self.login_page = LoginPage(bridge)

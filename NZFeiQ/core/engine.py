@@ -365,20 +365,36 @@ class ZFeiQCore:
             return
         def _worker():
             try:
-                self._emit(EV_LOG_INFO, msg="OCR processing...")
+                # 初始化 OCR 引擎（懒加载）并汇报类型
                 if not self.ocr_engine:
                     self.ocr_engine = ZFeiQOcr.get_instance()
-                
+
+                engine_type = "Unknown"
+                if getattr(self.ocr_engine, 'use_npu', False):
+                    engine_type = "NPU"
+                elif getattr(self.ocr_engine, 'use_external_main', False):
+                    engine_type = "NPU (legacy main)"
+                else:
+                    engine_type = "CPU"
+
+                self._emit(EV_LOG_INFO, msg=f"OCR Engine: {engine_type}")
+                self._emit(EV_LOG_INFO, msg="OCR Processing...")
+
                 # 检查引擎是否初始化成功
                 if not self.ocr_engine.ready:
-                     self._emit(EV_LOG_ERR, msg="OCR engine failed to initialize")
-                     return
+                    self._emit(EV_LOG_ERR, msg="OCR engine failed to initialize")
+                    return
 
+                start = time.time()
                 text = self.ocr_engine.run(image_path)
-                
-                # [新增] 无论是否指定发送目标，都通知上层 OCR 已完成
-                self._emit(EV_OCR_DONE, text=text, image_path=image_path)
-                
+                elapsed = time.time() - start
+
+                self._emit(EV_LOG_INFO, msg=f"Time cost: {elapsed:.2f} s")
+
+                # 通知上层 OCR 完成（结果事件），包含引擎类型与耗时，便于上层做显示
+                self._emit(EV_OCR_DONE, text=text, image_path=image_path, engine_type=engine_type, elapsed=elapsed)
+
+                # 若指定发送目标且识别成功，则发送识别内容
                 if send_target and text and "Error" not in text:
                     header = f"[OCR Result: {os.path.basename(image_path)}]\n"
                     if send_target.startswith("group:"):

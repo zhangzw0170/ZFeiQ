@@ -150,9 +150,8 @@ NZFeiQ Team | 2025
 
 **尚未实现（详细清单与实现提示）**
 - CLI: 额外命令集合（推荐优先级与实现要点）
-	- `info` 系列：`/info`、`/info net`、`/info user:<name>`、`/info group:<name>`。
-		- 用途：调试网络/显示历史消息与本机绑定信息。
-		- 实现提示：`ZFeiQCore` 已有 `registry`、`history` 与 `_detect_best_ip` 可供查询；在 `cli/shell.py` 添加 `/info` 子命令即可。
+	- `info` 系列（已迁移）：`/info`、`/info net`、`/info user:<name>`、`/info group:<name>` 已在 `NZFeiQ/cli/shell.py` 中实现。
+		- 说明：完整的本机/网络摘要、节点列表与按用户/群组的历史查看由 `cli/shell.py` 使用 `ZFeiQCore.registry` 与 `ZFeiQCore.history` 提供。
 	- `send user:<name>` / `send all <text>`：按用户名或广播发送。
 		- 实现提示：使用 `core.state.NodeRegistry.find_by_username` 映射到 IP；广播映射到 `send_text('all', ...)`。
 	- 文件管理：`file list`（列出 `_incoming_offers`）、`file cancel <id>`（取消本地待接收/发送项）。
@@ -178,8 +177,34 @@ NZFeiQ Team | 2025
 - 测试与脚本
 	- 自动化/回归脚本（如更复杂的场景脚本、encoding 自测）多数集中在 `legacy` 或 `test/` 中的老脚本。部分旧版测试/自测脚本需要适配新命令与路径。
 
+### Legacy 未迁移清单（按文件映射）
+
+以下为从 `legacy/` 目录发现的、当前实现中尚未完整迁移的功能点与对应参考文件。迁移时可直接参考这些文件的实现细节。
+
+- `legacy/zfeiq_cli/cli.py`:
+	- 高级 `/info` 子命令（`/info net`、`/info user:<name>`、`/info group:<name>`）和丰富的本地网络检测逻辑（`get_best_local_ip`, `get_prefix_for_ip`）。
+	- 运行时动态 `--bind`/`/set bind` 重绑定与 iface 优先级（`iface_prefix`、auto-rebind 逻辑）。
+	- CLI 的编码自适应与兼容（`utf-8`/`gbk`/`cp936` 回退实现）。
+	- 文件传输细节与 `_attach_map`、`_incoming_offers`、`_ipmsg_srv` 管理逻辑（更多操作命令如 `file list`/`file cancel` 在此）。
+	- 表情包（emotes）目录管理与 CLI 支持。
+
+- `legacy/zfeiq_gui/pages/*.py` (各页面实现):
+	- `emotes_page.py`, `files_page.py`, `groups_page.py`, `key_page.py`, `ocr_page.py`, `settings_page.py`, `userlist_page.py`, `chat_page.py`, `info_page.py`, `login_page.py`
+	- 这些页面在 `legacy` 中包含完整 UI 控件、本地化字典（`lang.py`）与与 `Bridge`/core 的交互示例；当前 `NZFeiQ/gui/` 中部分页面尚未完全迁移（例如 `emotes`, `files`, `key`、群组管理等功能页）。
+
+- `legacy/zfeiq_gui/lang.py`:
+	- 语言字典与多语言切换机制，供 `settings` 与 UI 文本国际化使用；当前新 GUI 未完全集成该字典。
+
+- `legacy/zfeiq_cli/main.py` / `legacy/main.py`:
+	- 启动参数、守护/静默模式与老版 CLI 启动流程（用于自动化脚本与兼容性测试）。
+
+- `legacy/zfeiq_common/fsutils.py`:
+	- 辅助的文件系统工具（与 `emotes`、下载目录、路径规范化相关）。
+
+迁移提示：优先级建议按照 README 中 “下一步建议” 执行；对于每项迁移，保留 legacy 中的网络检测、编码回退与 UI 字典实现以减少兼容性回归。
+
 **下一步建议**
-- 优先实现（CLI）: `info` 系列、`file list`/`file cancel`、`send user`、`send all`、`group delete/rename`。
+-- 优先实现（CLI）: `file list`/`file cancel`、`send user`、`send all`、`group delete/rename`。
 - 中期：迁移 GUI 页（`emotes`, `groups`, `files`, `key`）并把 `Bridge` 扩展为控制接口；补入语言字典以支持多语言切换。
 - OCR：确认模型文件与运行时后再开启完整 OCR 流（否则在运行时会报模型缺失）。
 
