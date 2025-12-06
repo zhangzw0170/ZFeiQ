@@ -12,7 +12,23 @@ import subprocess
 from PyQt5.QtGui import QPainter, QColor, QFontMetrics, QBrush, QPen, QFont, QKeyEvent, QCursor, QDesktopServices
 from PyQt5.QtCore import QUrl
 from gui.lang import L
-from gui.styles import CHAT_COLOR_ME_ENC, CHAT_COLOR_RX_ENC, CHAT_COLOR_UNENC_BG, CHAT_COLOR_UNENC_BORDER
+from gui.styles import CHAT_COLOR_ME_ENC, CHAT_COLOR_RX_ENC, CHAT_COLOR_UNENC_BG, CHAT_COLOR_UNENC_BORDER, get_color
+
+
+def _hex_to_rgb(hex_str: str):
+    """Convert '#RRGGBB' or 'RRGGBB' to (r,g,b) ints. Returns (0,0,0) on error."""
+    if not hex_str:
+        return (0, 0, 0)
+    s = hex_str.lstrip('#')
+    try:
+        if len(s) == 6:
+            r = int(s[0:2], 16)
+            g = int(s[2:4], 16)
+            b = int(s[4:6], 16)
+            return (r, g, b)
+    except Exception:
+        pass
+    return (0, 0, 0)
 
 # 常量定义
 MSG_TYPE_TEXT = 'text'
@@ -59,11 +75,24 @@ class UserDelegate(QStyledItemDelegate):
         painter.setRenderHint(QPainter.Antialiasing)
         
         rect = option.rect
-        
-        if (option.state & QStyle.State_Selected) != 0:
-            painter.fillRect(rect, QColor("#e6e6e6"))
-        elif (option.state & QStyle.State_MouseOver) != 0:
-            painter.fillRect(rect, QColor("#f2f2f2"))
+        # theme-aware background for selection / hover
+        try:
+            theme_code = option.widget.property('theme') if option and option.widget is not None else None
+            if not theme_code:
+                theme_code = 'light'
+        except Exception:
+            theme_code = 'light'
+
+        try:
+            if (option.state & QStyle.State_Selected) != 0:
+                painter.fillRect(rect, QColor(get_color('HIGHLIGHT', theme_code)))
+            elif (option.state & QStyle.State_MouseOver) != 0:
+                painter.fillRect(rect, QColor(get_color('HOVER_BG', theme_code)))
+        except Exception:
+            if (option.state & QStyle.State_Selected) != 0:
+                painter.fillRect(rect, QColor("#e6e6e6"))
+            elif (option.state & QStyle.State_MouseOver) != 0:
+                painter.fillRect(rect, QColor("#f2f2f2"))
 
         name = data.get('name', '?')
         if not name: name = "?"
@@ -90,7 +119,10 @@ class UserDelegate(QStyledItemDelegate):
         text_x = avatar_rect.right() + 12
         name_y = rect.top() + 22
         
-        painter.setPen(QColor("#333"))
+        try:
+            painter.setPen(QColor(get_color('PRIMARY_TEXT', theme_code)))
+        except Exception:
+            painter.setPen(QColor("#333"))
         font.setPointSize(11)
         font.setBold(False)
         painter.setFont(font)
@@ -101,16 +133,28 @@ class UserDelegate(QStyledItemDelegate):
         if data.get('type') == 'group':
             ip_str = f"群组 ({data.get('count',0)}人)"
         
-        painter.setPen(QColor("#888"))
+        try:
+            painter.setPen(QColor(get_color('SECONDARY_TEXT', theme_code)))
+        except Exception:
+            painter.setPen(QColor("#888"))
         font.setPointSize(9)
         painter.setFont(font)
         painter.drawText(text_x, ip_y, ip_str)
 
         status = data.get('status', 'offline')
-        status_color = QColor("#999")
-        if status == 'online': status_color = QColor("#2ecc71")
-        elif status == 'busy': status_color = QColor("#e74c3c")
-        elif status == 'away': status_color = QColor("#f39c12")
+        try:
+            status_color = QColor(get_color('STATUS_OFFLINE', theme_code))
+            if status == 'online':
+                status_color = QColor(get_color('STATUS_ONLINE', theme_code))
+            elif status == 'busy':
+                status_color = QColor(get_color('STATUS_BUSY', theme_code))
+            elif status == 'away':
+                status_color = QColor(get_color('STATUS_AWAY', theme_code))
+        except Exception:
+            status_color = QColor("#999")
+            if status == 'online': status_color = QColor("#2ecc71")
+            elif status == 'busy': status_color = QColor("#e74c3c")
+            elif status == 'away': status_color = QColor("#f39c12")
         
         status_size = 12
         s_rect = QRect(avatar_rect.right() - 8, avatar_rect.bottom() - 8, status_size, status_size)
@@ -132,11 +176,25 @@ class LightUserDelegate(QStyledItemDelegate):
         if not data: return
         painter.save()
         rect = option.rect
-        if (option.state & QStyle.State_Selected) != 0:
-            painter.fillRect(rect, QColor("#e6e6e6"))
+        # theme-aware selection background
+        try:
+            theme_code = option.widget.property('theme') if option and option.widget is not None else None
+            if not theme_code:
+                theme_code = 'light'
+        except Exception:
+            theme_code = 'light'
+        try:
+            if (option.state & QStyle.State_Selected) != 0:
+                painter.fillRect(rect, QColor(get_color('HIGHLIGHT', theme_code)))
+        except Exception:
+            if (option.state & QStyle.State_Selected) != 0:
+                painter.fillRect(rect, QColor("#e6e6e6"))
         name = data.get('name', '')
         ip = data.get('ip', '')
-        painter.setPen(QColor("#333"))
+        try:
+            painter.setPen(QColor(get_color('PRIMARY_TEXT', theme_code)))
+        except Exception:
+            painter.setPen(QColor("#333"))
         font = painter.font()
         font.setPointSize(10)
         painter.setFont(font)
@@ -244,8 +302,18 @@ class ChatDelegate(QStyledItemDelegate):
         is_me = data['is_me']
         user = data['user']
         time_str = data.get('time', '')
-        
-        painter.setPen(QColor("#999"))
+        try:
+            # header text uses secondary text color
+            theme_code = getattr(self, '_theme_code', None)
+            if not theme_code:
+                # try to get from parent view if available
+                theme_code = 'light'
+        except Exception:
+            theme_code = 'light'
+        try:
+            painter.setPen(QColor(get_color('SECONDARY_TEXT', theme_code)))
+        except Exception:
+            painter.setPen(QColor("#999"))
         font = painter.font()
         font.setPointSize(9)
         painter.setFont(font)
@@ -303,7 +371,10 @@ class ChatDelegate(QStyledItemDelegate):
         painter.drawRoundedRect(bubble_rect, 6, 6)
         
         # 绘制文本
-        painter.setPen(QColor("#000000"))
+        try:
+            painter.setPen(QColor(get_color('PRIMARY_TEXT', getattr(self, '_theme_code', 'light'))))
+        except Exception:
+            painter.setPen(QColor("#000000"))
         t_rect = bubble_rect.adjusted(self.bubble_padding, self.bubble_padding, -self.bubble_padding, -self.bubble_padding)
         painter.drawText(t_rect, int(Qt.TextWordWrap | Qt.AlignLeft), text)
 
@@ -319,12 +390,16 @@ class ChatDelegate(QStyledItemDelegate):
         bubble_h = 80
         bubble_y = rect.top() + 30
         
-        if is_me:
-            bubble_x = rect.right() - bubble_w - 15
-            bg_color = QColor("#FFFFFF") # 发送文件通常也是白色底，或者稍微区分
-            border_color = QColor("#E0E0E0")
-        else:
-            bubble_x = rect.left() + 15
+        # file bubble background/border should follow unencrypted chat bubble colors
+        try:
+            bubble_x = rect.right() - bubble_w - 15 if is_me else rect.left() + 15
+            bg_color = QColor(CHAT_COLOR_UNENC_BG)
+            border_color = QColor(CHAT_COLOR_UNENC_BORDER)
+        except Exception:
+            if is_me:
+                bubble_x = rect.right() - bubble_w - 15
+            else:
+                bubble_x = rect.left() + 15
             bg_color = QColor("#FFFFFF")
             border_color = QColor("#E0E0E0")
             
@@ -344,7 +419,10 @@ class ChatDelegate(QStyledItemDelegate):
         
         # 绘制文件图标背景
         painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor("#f39c12")) # 橙色文件图标
+        try:
+            painter.setBrush(QColor(get_color('ICON_BG', getattr(self, '_theme_code', 'light'))))
+        except Exception:
+            painter.setBrush(QColor("#f39c12"))
         painter.drawRoundedRect(icon_rect, 4, 4)
         # 绘制 'DOC' 简写
         painter.setPen(Qt.white)
@@ -359,7 +437,10 @@ class ChatDelegate(QStyledItemDelegate):
         name_w = content_rect.width() - icon_size - 10
         name_rect = QRect(name_x, content_rect.top(), name_w, 20)
         
-        painter.setPen(QColor("#333"))
+        try:
+            painter.setPen(QColor(get_color('PRIMARY_TEXT', getattr(self, '_theme_code', 'light'))))
+        except Exception:
+            painter.setPen(QColor("#333"))
         f.setBold(True)
         f.setPointSize(10)
         painter.setFont(f)
@@ -372,8 +453,12 @@ class ChatDelegate(QStyledItemDelegate):
         progress_bg_rect = QRect(name_x, progress_y, name_w, progress_h)
         
         # 绘制进度条背景
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor("#eee"))
+        try:
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QColor(get_color('PROGRESS_BG', getattr(self, '_theme_code', 'light'))))
+        except Exception:
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QColor("#eee"))
         painter.drawRoundedRect(progress_bg_rect, 3, 3)
         
         # 绘制进度前景色
@@ -382,11 +467,15 @@ class ChatDelegate(QStyledItemDelegate):
         else:
             pct = 0
             
-        if pct > 0:
-            prog_w = int(name_w * pct)
-            prog_fg_rect = QRect(name_x, progress_y, prog_w, progress_h)
-            painter.setBrush(QColor("#2ecc71") if status == 'done' else QColor("#3498db"))
-            painter.drawRoundedRect(prog_fg_rect, 3, 3)
+            if pct > 0:
+                prog_w = int(name_w * pct)
+                prog_fg_rect = QRect(name_x, progress_y, prog_w, progress_h)
+                try:
+                    fg = get_color('PROGRESS_DONE', getattr(self, '_theme_code', 'light')) if status == 'done' else get_color('PROGRESS_ACTIVE', getattr(self, '_theme_code', 'light'))
+                    painter.setBrush(QColor(fg))
+                except Exception:
+                    painter.setBrush(QColor("#2ecc71") if status == 'done' else QColor("#3498db"))
+                painter.drawRoundedRect(prog_fg_rect, 3, 3)
 
         # 4. 状态文本 (大小 / 状态)
         status_rect = QRect(name_x, progress_y + 10, name_w, 15)
@@ -439,7 +528,7 @@ class ChatPage(QWidget):
         # === 核心区域 ===
         splitter = QSplitter(Qt.Horizontal)
         splitter.setHandleWidth(1)
-        splitter.setStyleSheet("QSplitter::handle { background: #dcdcdc; }")
+        splitter.setStyleSheet("QSplitter::handle { background: " + get_color('BORDER', 'light') + "; }")
         
         # --- 左侧：用户列表 (保持不变) ---
         # 搜索框（轻量级匹配用户 / IP / 组）
@@ -456,13 +545,13 @@ class ChatPage(QWidget):
         self.user_list.setModel(self.user_model)
         self.user_list.setItemDelegate(self.user_delegate)
         self.user_list.setFrameShape(QFrame.NoFrame)
-        self.user_list.setStyleSheet("background: #fdfdfd;")
+        self.user_list.setStyleSheet("background: " + get_color('BACKGROUND_PANEL', 'light') + ";")
         self.user_list.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.user_list.clicked.connect(self._on_user_clicked)
         
         left_panel = QWidget()
         # 左侧面板使用与消息区相近的背景，避免白色块视觉不协调
-        left_panel.setStyleSheet("background: #f5f5f5;")
+        left_panel.setStyleSheet("background: " + get_color('BACKGROUND_PANEL', 'light') + ";")
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0,0,0,0)
         left_layout.addWidget(self.search_box)
@@ -483,11 +572,8 @@ class ChatPage(QWidget):
         self.btn_settings.setCursor(Qt.PointingHandCursor)
         self.btn_settings.setToolButtonStyle(Qt.ToolButtonTextOnly)
         self.btn_settings.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
-        self.btn_settings.setStyleSheet("""
-            QToolButton { border: 1px solid transparent; border-radius: 4px; padding: 4px; color: #444; }
-            QToolButton:hover { background-color: #f0f0f0; border: 1px solid #dcdcdc; }
-            QToolButton:pressed { background-color: #e0e0e0; }
-        """)
+        # 仅保留结构性样式，颜色/hover 由主题引擎在 _on_theme_changed 中应用
+        self.btn_settings.setStyleSheet("QToolButton { border: 1px solid transparent; border-radius: 4px; padding: 4px; }")
         self.btn_settings.clicked.connect(self._open_settings)
 
         self.btn_group = QToolButton()
@@ -495,11 +581,8 @@ class ChatPage(QWidget):
         self.btn_group.setCursor(Qt.PointingHandCursor)
         self.btn_group.setToolButtonStyle(Qt.ToolButtonTextOnly)
         self.btn_group.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
-        self.btn_group.setStyleSheet("""
-            QToolButton { border: 1px solid transparent; border-radius: 4px; padding: 4px; color: #444; }
-            QToolButton:hover { background-color: #f0f0f0; border: 1px solid #dcdcdc; }
-            QToolButton:pressed { background-color: #e0e0e0; }
-        """)
+        # 仅保留结构性样式，颜色/hover 由主题引擎在 _on_theme_changed 中应用
+        self.btn_group.setStyleSheet("QToolButton { border: 1px solid transparent; border-radius: 4px; padding: 4px; }")
         self.btn_group.clicked.connect(self._open_group_manager)
 
         lb_layout.addWidget(self.btn_group)
@@ -518,7 +601,10 @@ class ChatPage(QWidget):
 
         # 右上：用户信息（当前选中目标）
         right_top = QWidget()
+        self.right_top = right_top
         right_top.setFixedHeight(48)
+        # 初始背景适配浅色，主题切换时更新
+        right_top.setStyleSheet("background: " + get_color('BACKGROUND_PANEL', 'light') + ";")
         rt_layout = QHBoxLayout(right_top)
         rt_layout.setContentsMargins(12, 6, 12, 6)
         self.lbl_title = QLabel(L('broadcast_hall'))
@@ -543,28 +629,21 @@ class ChatPage(QWidget):
         self.chat_list.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.chat_list.setSelectionMode(QAbstractItemView.NoSelection)
         # 现代化的细滚动条样式，与发送框一致：细长、圆角把手，hover 加深；在不支持样式的平台上视觉上接近隐藏
-        self.chat_list.setStyleSheet("""
-            QListView { background: #f5f5f5; }
-            QScrollBar:vertical {
-                background: transparent;
-                width: 8px;
-                margin: 0px 0px 0px 0px;
-            }
-            QScrollBar::handle:vertical {
-                background: rgba(0,0,0,0.18);
-                min-height: 22px;
-                border-radius: 4px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background: rgba(0,0,0,0.30);
-            }
-            QScrollBar::add-line, QScrollBar::sub-line {
-                height: 0px;
-            }
-            QScrollBar::add-page, QScrollBar::sub-page {
-                background: none;
-            }
-            """
+        self.chat_list.setStyleSheet(
+            "QListView { background: " + get_color('BACKGROUND_PANEL', 'light') + "; }"
+            "QScrollBar:vertical {"
+                "background: transparent;"
+                "width: 8px;"
+                "margin: 0px 0px 0px 0px;"
+            "}"
+            "QScrollBar::handle:vertical {"
+                "background: rgba(0,0,0,0.18);"
+                "min-height: 22px;"
+                "border-radius: 4px;"
+            "}"
+            "QScrollBar::handle:vertical:hover { background: rgba(0,0,0,0.30); }"
+            "QScrollBar::add-line, QScrollBar::sub-line { height: 0px; }"
+            "QScrollBar::add-page, QScrollBar::sub-page { background: none; }"
         )
         
         # 点击聊天项（用于打开已下载的文件等交互）
@@ -574,13 +653,17 @@ class ChatPage(QWidget):
         right_layout.addWidget(self.chat_list, 2)
 
         # [修改] 底部输入容器：移除固定高度，改为自适应
-        input_container = QWidget()
+        self.input_container = QWidget()
         # input_container.setFixedHeight(120) <--- 移除此行
-        input_container.setStyleSheet("background: #ffffff; border-top: 1px solid #dcdcdc;")
-        input_layout = QVBoxLayout(input_container)
+        self.input_container.setStyleSheet("background: " + get_color('INPUT_BG', 'light') + "; border-top: 1px solid " + get_color('BORDER', 'light') + ";")
+        input_layout = QVBoxLayout(self.input_container)
         input_layout.setContentsMargins(10, 5, 10, 5)
         
-        toolbar = QHBoxLayout()
+        # 工具栏容器，允许设置背景以适配深色模式
+        toolbar_container = QWidget()
+        self.toolbar_container = toolbar_container
+        toolbar_container.setStyleSheet("background: " + get_color('BACKGROUND_PANEL', 'light') + "; border: none;")
+        toolbar = QHBoxLayout(toolbar_container)
         toolbar.setSpacing(6)
         toolbar.setContentsMargins(0, 0, 0, 5)
 
@@ -596,13 +679,8 @@ class ChatPage(QWidget):
             # 这会让按钮在水平方向上尽可能平均分配空间，像 legacy 布局一样
             btn.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
             
-            # 移除复杂的背景色 QSS，保持原生/简洁风格
-            # 如果需要稍微大一点的点击区域，可以通过样式微调，但 Legacy 主要是靠原生渲染
-            btn.setStyleSheet("""
-                QToolButton { border: 1px solid transparent; border-radius: 4px; padding: 4px; color: #444; }
-                QToolButton:hover { background-color: #f0f0f0; border: 1px solid #dcdcdc; }
-                QToolButton:pressed { background-color: #e0e0e0; }
-            """)
+            # 仅保留结构性样式，颜色/hover 由主题引擎在 _on_theme_changed 中应用
+            btn.setStyleSheet("QToolButton { border: 1px solid transparent; border-radius: 4px; padding: 4px; }")
             
             if slot: btn.clicked.connect(slot)
             return btn
@@ -621,7 +699,7 @@ class ChatPage(QWidget):
         
         # toolbar.addStretch() <--- Legacy 风格通常填满，如果希望按钮紧凑可保留 stretch
         
-        input_layout.addLayout(toolbar)
+        input_layout.addWidget(toolbar_container)
         
         self.input_edit = QTextEdit()
         self.input_edit.setPlaceholderText(L('input_placeholder'))
@@ -630,31 +708,13 @@ class ChatPage(QWidget):
         self.input_edit.setMinimumHeight(56) 
         self.input_edit.installEventFilter(self)
         # 现代化的细滚动条样式：细长、圆角把手，hover 加深；在不支持样式的平台上视觉上接近隐藏
-        self.input_edit.setStyleSheet("""
-            QTextEdit {
-                background: #ffffff;
-                border: none;
-            }
-            QScrollBar:vertical {
-                background: transparent;
-                width: 8px;
-                margin: 0px 0px 0px 0px;
-            }
-            QScrollBar::handle:vertical {
-                background: rgba(0,0,0,0.18);
-                min-height: 22px;
-                border-radius: 4px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background: rgba(0,0,0,0.30);
-            }
-            QScrollBar::add-line, QScrollBar::sub-line {
-                height: 0px;
-            }
-            QScrollBar::add-page, QScrollBar::sub-page {
-                background: none;
-            }
-            """
+        self.input_edit.setStyleSheet(
+            "QTextEdit { background: " + get_color('INPUT_BG', 'light') + "; border: none; }"
+            "QScrollBar:vertical { background: transparent; width: 8px; margin: 0px 0px 0px 0px; }"
+            "QScrollBar::handle:vertical { background: rgba(0,0,0,0.18); min-height: 22px; border-radius: 4px; }"
+            "QScrollBar::handle:vertical:hover { background: rgba(0,0,0,0.30); }"
+            "QScrollBar::add-line, QScrollBar::sub-line { height: 0px; }"
+            "QScrollBar::add-page, QScrollBar::sub-page { background: none; }"
         )
         
         input_layout.addWidget(self.input_edit)
@@ -669,10 +729,10 @@ class ChatPage(QWidget):
         self.btn_send.setMaximumWidth(120)
         self.btn_send.setFixedHeight(30)
         
-        self.btn_send.setStyleSheet("""
-            QPushButton { background-color: #f5f5f5; border: 1px solid #dcdcdc; border-radius: 4px; color: #666; }
-            QPushButton:hover { background-color: #129611; color: white; border: none; }
-        """)
+        self.btn_send.setStyleSheet(
+            "QPushButton { background-color: " + get_color('BTN_BG', 'light') + "; border: 1px solid " + get_color('BORDER', 'light') + "; border-radius: 4px; color: " + get_color('BTN_TEXT', 'light') + "; }"
+            "QPushButton:hover { background-color: " + get_color('BTN_ACCENT', 'light') + "; color: white; border: none; }"
+        )
         self.btn_send.setCursor(Qt.PointingHandCursor)
         self.btn_send.clicked.connect(self._do_send)
         send_bar.addWidget(self.btn_send)
@@ -680,7 +740,7 @@ class ChatPage(QWidget):
         input_layout.addLayout(send_bar)
         
         # 输入区域（工具栏 + 输入框 + 发送按钮）：设置为占右侧栏的 1/3
-        right_layout.addWidget(input_container, 1)
+        right_layout.addWidget(self.input_container, 1)
         splitter.addWidget(right_panel)
         
         splitter.setStretchFactor(0, 1)
@@ -761,24 +821,61 @@ class ChatPage(QWidget):
         return False
 
     def _set_encrypt_label(self, encrypted: bool):
-        if encrypted:
-            self.lbl_encrypt_status.setText(L('encrypted', '已加密'))
-            self.lbl_encrypt_status.setStyleSheet("color: #1e7e34; background: rgba(30,126,52,0.06); border: 1px solid rgba(30,126,52,0.12); padding:2px 6px; border-radius:4px; font-size:12px;")
-        else:
-            self.lbl_encrypt_status.setText(L('unencrypted', '未加密'))
-            self.lbl_encrypt_status.setStyleSheet("color: #b21b1b; background: rgba(178,27,27,0.04); border: 1px solid rgba(178,27,27,0.12); padding:2px 6px; border-radius:4px; font-size:12px;")
+        theme_code = getattr(self, '_current_theme', 'light')
+        # Use theme tokens specifically for encryption indicator colors
+        try:
+            if encrypted:
+                self.lbl_encrypt_status.setText(L('encrypted', '已加密'))
+                color_hex = get_color('ENC_GREEN', theme_code) or get_color('STATUS_ONLINE', theme_code) or '#1e7e34'
+            else:
+                self.lbl_encrypt_status.setText(L('unencrypted', '未加密'))
+                color_hex = get_color('ENC_RED', theme_code) or get_color('STATUS_BUSY', theme_code) or '#b21b1b'
+
+            r, g, b = _hex_to_rgb(color_hex)
+            # subtle background for light theme, stronger for dark theme
+            if theme_code == 'dark':
+                bg_alpha = 0.16
+                border_alpha = 0.28
+            else:
+                bg_alpha = 0.06
+                border_alpha = 0.12
+
+            bg_css = f'background: rgba({r},{g},{b},{bg_alpha});'
+            border_css = f'border: 1px solid rgba({r},{g},{b},{border_alpha});'
+            self.lbl_encrypt_status.setStyleSheet(f"color: {color_hex}; {bg_css} {border_css} padding:2px 6px; border-radius:4px; font-size:12px;")
+        except Exception:
+            # conservative fallback
+            if encrypted:
+                self.lbl_encrypt_status.setStyleSheet("color: #1e7e34; background: rgba(30,126,52,0.06); border: 1px solid rgba(30,126,52,0.12); padding:2px 6px; border-radius:4px; font-size:12px;")
+                self.lbl_encrypt_status.setText(L('encrypted', '已加密'))
+            else:
+                self.lbl_encrypt_status.setStyleSheet("color: #b21b1b; background: rgba(178,27,27,0.04); border: 1px solid rgba(178,27,27,0.12); padding:2px 6px; border-radius:4px; font-size:12px;")
+                self.lbl_encrypt_status.setText(L('unencrypted', '未加密'))
 
     def _status_to_text_and_color(self, status: str):
+        theme_code = getattr(self, '_current_theme', 'light')
         if not status:
-            return (L('status_offline'), "#777")
+            try:
+                return (L('status_offline'), get_color('SECONDARY_TEXT', theme_code))
+            except Exception:
+                return (L('status_offline'), "#777")
         s = status.lower()
-        if s == 'online':
-            return (L('status_online'), "#2ecc71")
-        if s == 'busy' or s == '忙碌':
-            return (L('status_busy'), "#e74c3c")
-        if s == 'away' or s == '离开':
-            return (L('status_away'), "#f39c12")
-        return (status, "#777")
+        try:
+            if s == 'online':
+                return (L('status_online'), get_color('STATUS_ONLINE', theme_code))
+            if s == 'busy' or s == '忙碌':
+                return (L('status_busy'), get_color('STATUS_BUSY', theme_code))
+            if s == 'away' or s == '离开':
+                return (L('status_away'), get_color('STATUS_AWAY', theme_code))
+            return (status, get_color('SECONDARY_TEXT', theme_code))
+        except Exception:
+            if s == 'online':
+                return (L('status_online'), "#2ecc71")
+            if s == 'busy' or s == '忙碌':
+                return (L('status_busy'), "#e74c3c")
+            if s == 'away' or s == '离开':
+                return (L('status_away'), "#f39c12")
+            return (status, "#777")
 
     def _set_status_label(self, status: str):
         text, color = self._status_to_text_and_color(status)
@@ -942,16 +1039,128 @@ class ChatPage(QWidget):
         try:
             # store current theme for possible later use
             self._current_theme = theme_code
-            # apply minimal visual change: adjust chat list background if style available
+            # expose theme to delegates and list widgets so painting can read it
             try:
-                from gui.styles import BACKGROUND_PANEL
-                bg = BACKGROUND_PANEL
-                # For dark theme prefer a darker background if defined
-                if theme_code == 'dark':
-                    bg = '#2b2b2b'
-                self.chat_list.setStyleSheet(f"QListView {{ background: {bg}; }}")
+                self.user_delegate._theme_code = theme_code
             except Exception:
                 pass
+            try:
+                self.light_delegate._theme_code = theme_code
+            except Exception:
+                pass
+            try:
+                self.chat_delegate._theme_code = theme_code
+            except Exception:
+                pass
+            try:
+                # allow delegates to read theme from option.widget.property('theme') as well
+                self.user_list.setProperty('theme', theme_code)
+            except Exception:
+                pass
+            try:
+                self.chat_list.setProperty('theme', theme_code)
+            except Exception:
+                pass
+            try:
+                self.input_edit.setProperty('theme', theme_code)
+            except Exception:
+                pass
+            # Use centralized style helpers when available
+            try:
+                from gui.styles import get_color, qss_fragment
+                # Apply small qss fragment globally to some containers
+                try:
+                    frag = qss_fragment(theme_code)
+                    # Apply to chat list and input area specifically to avoid overwriting other widgets
+                    self.chat_list.setStyleSheet(f"QListView {{ background: {get_color('BACKGROUND_PANEL', theme_code)}; color: {get_color('PRIMARY_TEXT', theme_code)} }}")
+                except Exception:
+                    pass
+
+                # Left column (search + user list) parent container
+                try:
+                    left_container = self.search_box.parentWidget()
+                    if left_container is not None:
+                        left_container.setStyleSheet(f"background: {get_color('BACKGROUND_PANEL', theme_code)}; color: {get_color('PRIMARY_TEXT', theme_code)};")
+                except Exception:
+                    pass
+
+                # User list
+                try:
+                    self.user_list.setStyleSheet(f"background: transparent; color: {get_color('PRIMARY_TEXT', theme_code)}")
+                except Exception:
+                    pass
+
+                # Search box
+                try:
+                    self.search_box.setStyleSheet(f"background: {get_color('INPUT_BG', theme_code)}; color: {get_color('PRIMARY_TEXT', theme_code)}; border: 1px solid {get_color('BORDER', theme_code)}; border-radius:4px; padding:4px;")
+                except Exception:
+                    pass
+
+                # Buttons in left bar
+                try:
+                    self.btn_settings.setStyleSheet(f"background: transparent; color: {get_color('PRIMARY_TEXT', theme_code)}; border: none; padding:6px;")
+                    self.btn_group.setStyleSheet(f"background: transparent; color: {get_color('PRIMARY_TEXT', theme_code)}; border: none; padding:6px;")
+                except Exception:
+                    pass
+
+                # Toolbar buttons (emoji/screen/quick/file/ocr)
+                try:
+                    self.btn_emoji.setStyleSheet(f"background: transparent; color: {get_color('PRIMARY_TEXT', theme_code)}; border: none; padding:6px;")
+                    self.btn_screen.setStyleSheet(f"background: transparent; color: {get_color('PRIMARY_TEXT', theme_code)}; border: none; padding:6px;")
+                    self.btn_quick.setStyleSheet(f"background: transparent; color: {get_color('PRIMARY_TEXT', theme_code)}; border: none; padding:6px;")
+                    self.btn_file.setStyleSheet(f"background: transparent; color: {get_color('PRIMARY_TEXT', theme_code)}; border: none; padding:6px;")
+                    self.btn_ocr.setStyleSheet(f"background: transparent; color: {get_color('PRIMARY_TEXT', theme_code)}; border: none; padding:6px;")
+                except Exception:
+                    pass
+
+                # Title and status labels (top bar)
+                try:
+                    self.lbl_title.setStyleSheet(f"font-size: 15px; font-weight: 600; color: {get_color('PRIMARY_TEXT', theme_code)};")
+                    # status uses previous logic for colored dot; ensure text color consistent
+                    cur_status_style = f"color: {get_color('SECONDARY_TEXT', theme_code)}; background: rgba(0,0,0,0); border: 1px solid rgba(0,0,0,0); padding:2px 6px; border-radius:4px; font-size:12px;"
+                    self.lbl_status.setStyleSheet(cur_status_style)
+                    # 顶栏背景
+                    try:
+                        if hasattr(self, 'right_top') and self.right_top is not None:
+                            self.right_top.setStyleSheet(f"background: {get_color('BACKGROUND_PANEL', theme_code)};")
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
+
+                # Input area
+                try:
+                    self.input_edit.setStyleSheet(f"background: {get_color('INPUT_BG', theme_code)}; color: {get_color('PRIMARY_TEXT', theme_code)}; border-top: 1px solid {get_color('BORDER', theme_code)};")
+                    # 工具栏容器背景
+                    try:
+                        if hasattr(self, 'toolbar_container') and self.toolbar_container is not None:
+                            self.toolbar_container.setStyleSheet(f"background: {get_color('BACKGROUND_PANEL', theme_code)}; border: none;")
+                    except Exception:
+                        pass
+                    # 输入容器背景（发送按钮下方的区域）
+                    try:
+                        if hasattr(self, 'input_container') and getattr(self, 'input_container', None) is not None:
+                            self.input_container.setStyleSheet(f"background: {get_color('INPUT_BG', theme_code)}; border-top: 1px solid {get_color('BORDER', theme_code)};")
+                    except Exception:
+                        try:
+                            if hasattr(self, 'input_container') and getattr(self, 'input_container', None) is not None:
+                                self.input_container.setStyleSheet(f"background: {get_color('INPUT_BG', 'light')}; border-top: 1px solid {get_color('BORDER', 'light')};")
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+            except Exception:
+                # fallback: keep previous minimal behavior
+                try:
+                    from gui.styles import BACKGROUND_PANEL
+                    bg = BACKGROUND_PANEL
+                    if theme_code == 'dark':
+                        bg = '#2b2b2b'
+                    self.chat_list.setStyleSheet(f"QListView {{ background: {bg}; }}")
+                except Exception:
+                    pass
+
             try:
                 self.bridge.sig_log.emit('INFO', f"Theme applied: {theme_code}")
             except Exception:
@@ -1132,11 +1341,11 @@ class ChatPage(QWidget):
             return
 
         menu = QMenu(self)
-        menu.setStyleSheet("""
-            QMenu { background-color: white; border: 1px solid #ccc; }
-            QMenu::item { padding: 5px 20px; }
-            QMenu::item:selected { background-color: #0078d7; color: white; }
-        """)
+        menu.setStyleSheet(
+            "QMenu { background-color: " + get_color('MENU_BG', 'light') + "; border: 1px solid " + get_color('BORDER', 'light') + "; }"
+            "QMenu::item { padding: 5px 20px; }"
+            "QMenu::item:selected { background-color: " + get_color('ACCENT', 'light') + "; color: " + get_color('ACCENT_TEXT', 'light') + "; }"
+        )
 
         for text in texts:
             # 使用闭包捕获当前的 text

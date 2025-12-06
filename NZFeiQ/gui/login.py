@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit,
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QPixmap
 import os
+from gui.styles import get_color
 
 class LoginPage(QWidget):
     # 登录成功信号
@@ -11,7 +12,25 @@ class LoginPage(QWidget):
     def __init__(self, bridge, parent=None):
         super().__init__(parent)
         self.bridge = bridge
+        # determine initial theme from bridge if available
+        try:
+            self._current_theme = getattr(self.bridge.core, 'theme', 'light')
+        except Exception:
+            self._current_theme = 'light'
+
         self._setup_ui()
+
+        # apply theme immediately
+        try:
+            self._apply_theme(self._current_theme)
+        except Exception:
+            pass
+
+        # subscribe to theme changes
+        try:
+            self.bridge.sig_theme_changed.connect(self._on_theme_changed)
+        except Exception:
+            pass
 
     def _setup_ui(self):
         # 1. 整体布局：居中
@@ -19,25 +38,20 @@ class LoginPage(QWidget):
         main_layout.setAlignment(Qt.AlignCenter)
         
         # 2. 登录卡片容器
-        card = QWidget()
-        card.setFixedWidth(320)
-        # 卡片样式：白底、圆角
-        card.setStyleSheet("""
-            QWidget {
-                background-color: white;
-                border-radius: 10px;
-            }
-        """)
+        self.card = QWidget()
+        self.card.setFixedWidth(320)
+        # 卡片样式将由主题填充
+        self.card.setStyleSheet("")
         
         # 给卡片加一点阴影，更有层次感 (软渲染下可能稍耗资源，不想要可注释掉)
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(15)
         shadow.setColor(Qt.gray)
         shadow.setOffset(0, 0)
-        card.setGraphicsEffect(shadow)
+        self.card.setGraphicsEffect(shadow)
 
         # 3. 卡片内部元素
-        card_layout = QVBoxLayout(card)
+        card_layout = QVBoxLayout(self.card)
         card_layout.setContentsMargins(30, 40, 30, 40)
         card_layout.setSpacing(20)
 
@@ -46,44 +60,29 @@ class LoginPage(QWidget):
             icon_path = os.path.join(os.path.dirname(__file__), "assets", "zfeiq_icon_128x128.ico")
             if os.path.exists(icon_path):
                 pix = QPixmap(icon_path).scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                lbl_logo = QLabel()
-                lbl_logo.setAlignment(Qt.AlignCenter)
-                lbl_logo.setPixmap(pix)
-                card_layout.addWidget(lbl_logo)
+                self.lbl_logo = QLabel()
+                self.lbl_logo.setAlignment(Qt.AlignCenter)
+                self.lbl_logo.setPixmap(pix)
+                card_layout.addWidget(self.lbl_logo)
             else:
-                lbl_title = QLabel("ZFeiQ")
-                lbl_title.setAlignment(Qt.AlignCenter)
-                lbl_title.setStyleSheet("font-size: 28px; font-weight: bold; color: #333; font-family: 'Segoe UI', sans-serif;")
-                card_layout.addWidget(lbl_title)
+                self.lbl_title = QLabel("ZFeiQ")
+                self.lbl_title.setAlignment(Qt.AlignCenter)
+                card_layout.addWidget(self.lbl_title)
         except Exception:
-            lbl_title = QLabel("ZFeiQ")
-            lbl_title.setAlignment(Qt.AlignCenter)
-            lbl_title.setStyleSheet("font-size: 28px; font-weight: bold; color: #333; font-family: 'Segoe UI', sans-serif;")
-            card_layout.addWidget(lbl_title)
+            self.lbl_title = QLabel("ZFeiQ")
+            self.lbl_title.setAlignment(Qt.AlignCenter)
+            card_layout.addWidget(self.lbl_title)
         
-        lbl_sub = QLabel("局域网即时通讯系统")
-        lbl_sub.setAlignment(Qt.AlignCenter)
-        lbl_sub.setStyleSheet("font-size: 14px; color: #888; margin-bottom: 10px;")
-        card_layout.addWidget(lbl_sub)
+        self.lbl_sub = QLabel("局域网即时通讯系统")
+        self.lbl_sub.setAlignment(Qt.AlignCenter)
+        card_layout.addWidget(self.lbl_sub)
 
         # 用户名输入
         self.inp_name = QLineEdit()
         self.inp_name.setPlaceholderText("请输入您的昵称")
         self.inp_name.setFixedHeight(45)
-        # 输入框样式
-        self.inp_name.setStyleSheet("""
-            QLineEdit {
-                border: 1px solid #ddd;
-                border-radius: 5px;
-                padding: 0 10px;
-                font-size: 14px;
-                background: #f9f9f9;
-            }
-            QLineEdit:focus {
-                border: 1px solid #0078d7;
-                background: white;
-            }
-        """)
+        # 样式由主题决定，稍后通过 _apply_theme 设置
+        self.inp_name.setStyleSheet("")
         self.inp_name.returnPressed.connect(self._do_login)
         card_layout.addWidget(self.inp_name)
 
@@ -91,23 +90,58 @@ class LoginPage(QWidget):
         self.btn_login = QPushButton("立即登录")
         self.btn_login.setFixedHeight(45)
         self.btn_login.setCursor(Qt.PointingHandCursor)
-        # 按钮样式：仿微信绿/Win10蓝
-        self.btn_login.setStyleSheet("""
-            QPushButton {
-                background-color: #0078d7;
-                color: white;
-                font-size: 16px;
-                font-weight: bold;
-                border-radius: 5px;
-            }
-            QPushButton:hover { background-color: #0063b1; }
-            QPushButton:pressed { background-color: #004e8c; }
-        """)
+        # 按钮样式由主题驱动
+        self.btn_login.setStyleSheet("")
         self.btn_login.clicked.connect(self._do_login)
         card_layout.addWidget(self.btn_login)
 
         # 将卡片加入主布局
-        main_layout.addWidget(card)
+        main_layout.addWidget(self.card)
+
+    def _on_theme_changed(self, theme_code: str):
+        try:
+            self._current_theme = theme_code
+            self._apply_theme(theme_code)
+        except Exception:
+            pass
+
+    def _apply_theme(self, theme_code: str):
+        """Apply theme colors to login page widgets."""
+        try:
+            bg = get_color('BACKGROUND_PANEL', theme_code) or '#ffffff'
+            card_bg = get_color('MENU_BG', theme_code) or get_color('INPUT_BG', theme_code) or '#ffffff'
+            primary = get_color('PRIMARY_TEXT', theme_code) or '#000000'
+            secondary = get_color('SECONDARY_TEXT', theme_code) or '#666666'
+            border = get_color('BORDER', theme_code) or '#dddddd'
+            btn_bg = get_color('BTN_BG', theme_code) or '#0078d7'
+            btn_text = get_color('BTN_TEXT', theme_code) or '#ffffff'
+
+            # apply background directly to this widget and the card (avoid selector scope issues)
+            self.setStyleSheet(f"background: {bg};")
+            # remove card border; rely on shadow + radius for separation
+            self.card.setStyleSheet(f"background: {card_bg}; border-radius: 10px;")
+            try:
+                self.lbl_title.setStyleSheet(f"font-size: 28px; font-weight: bold; color: {primary};")
+            except Exception:
+                pass
+            try:
+                self.lbl_sub.setStyleSheet(f"font-size: 14px; color: {secondary}; margin-bottom: 10px;")
+            except Exception:
+                pass
+
+            # input box
+            self.inp_name.setStyleSheet(
+                f"QLineEdit {{ border: 1px solid {border}; border-radius: 5px; padding: 0 10px; font-size: 14px; background: {get_color('INPUT_BG', theme_code)}; color: {primary}; }}"
+                f"QLineEdit:focus {{ border: 1px solid {get_color('ACCENT', theme_code)}; background: {get_color('INPUT_BG', theme_code)}; }}"
+            )
+
+            # login button
+            self.btn_login.setStyleSheet(
+                f"QPushButton {{ background-color: {btn_bg}; color: {btn_text}; font-size: 16px; font-weight: bold; border-radius: 5px; }}"
+                f"QPushButton:hover {{ background-color: {get_color('BTN_ACCENT', theme_code)}; }}"
+            )
+        except Exception:
+            pass
 
     def _do_login(self):
         name = self.inp_name.text().strip()

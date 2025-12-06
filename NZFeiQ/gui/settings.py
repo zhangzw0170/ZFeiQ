@@ -26,6 +26,18 @@ class SettingsDialog(QDialog):
         
         self.my_info = self.bridge.get_my_info()
         self._setup_ui()
+        # Listen to theme changes so Settings dialog updates when theme changes elsewhere
+        try:
+            if hasattr(self.bridge, 'sig_theme_changed'):
+                self.bridge.sig_theme_changed.connect(self._on_theme_changed)
+                # Apply initial theme
+                try:
+                    tc = getattr(self.bridge.core, 'theme', 'light')
+                    self._on_theme_changed(tc)
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -54,7 +66,8 @@ class SettingsDialog(QDialog):
         
         self.btn_save = QPushButton(L('btn_save'))
         self.btn_save.setFixedSize(100, 35)
-        self.btn_save.setStyleSheet("background-color: #0078d7; color: white; font-weight: bold; border-radius: 4px;")
+        # initial style will be applied in _on_theme_changed
+        self.btn_save.setStyleSheet("font-weight: bold; border-radius: 4px;")
         self.btn_save.clicked.connect(self._save_and_close)
         
         btn_box.addWidget(self.btn_save)
@@ -92,24 +105,31 @@ class SettingsDialog(QDialog):
 
         # 外观主题
         self.cmb_theme = QComboBox()
-        # 使用 SUPPORTED_THEMES 动态填充（主题名直接使用代码或显示名）
+        # 使用 SUPPORTED_THEMES 动态填充，但显示本地化名称，保存实际主题代码为 item data
         try:
             themes = list(SUPPORTED_THEMES)
-            # 显示友好名：例如 'dark' -> 'dark'（可扩展为人类可读名）
-            self.cmb_theme.addItems([t for t in themes])
-            # 读取已有主题并回显
+            for t in themes:
+                # 本地化显示名使用 lang 键：theme_light / theme_dark
+                label = L(f'theme_{t}') if isinstance(t, str) else str(t)
+                self.cmb_theme.addItem(label, t)
+            # 读取已有主题并回显（查找 data 匹配）
             theme = getattr(self.bridge.core, 'theme', themes[0] if themes else 'light')
-            try:
-                idx = themes.index(theme)
-            except ValueError:
+            # findData 返回 index of item with matching userData
+            idx = self.cmb_theme.findData(theme)
+            if idx is None or idx < 0:
                 idx = 0
             self.cmb_theme.setCurrentIndex(idx)
         except Exception:
-            # 回退到默认两个选项
-            self.cmb_theme.addItems(["light", "dark"])
+            # 回退到默认两个选项（带本地化标签）
+            self.cmb_theme.clear()
+            self.cmb_theme.addItem(L('theme_light'), 'light')
+            self.cmb_theme.addItem(L('theme_dark'), 'dark')
             try:
                 theme = getattr(self.bridge.core, 'theme', 'light')
-                self.cmb_theme.setCurrentIndex(1 if theme == 'dark' else 0)
+                idx = self.cmb_theme.findData(theme)
+                if idx is None or idx < 0:
+                    idx = 0
+                self.cmb_theme.setCurrentIndex(idx)
             except Exception:
                 self.cmb_theme.setCurrentIndex(0)
         fl_ui.addRow(f"{L('lbl_theme')}:", self.cmb_theme)
@@ -322,8 +342,12 @@ class SettingsDialog(QDialog):
         try:
             # theme selected via SUPPORTED_THEMES
             try:
-                themes = list(SUPPORTED_THEMES)
-                theme = themes[self.cmb_theme.currentIndex()]
+                # 读取选中项的 userData（实际主题代码）
+                theme = self.cmb_theme.currentData()
+                if not theme:
+                    # 回退到默认
+                    themes = list(SUPPORTED_THEMES)
+                    theme = themes[self.cmb_theme.currentIndex()] if themes else 'light'
             except Exception:
                 theme = 'light'
             # language code from SUPPORTED_LANGS
@@ -415,3 +439,28 @@ class SettingsDialog(QDialog):
 
         self.bridge.sig_log.emit("INFO", f"设置已保存: {name}")
         self.accept()
+
+    def _on_theme_changed(self, theme_code: str):
+        """Apply minimal theme styles to Settings dialog widgets."""
+        try:
+            from gui.styles import get_color, qss_fragment
+            try:
+                # Apply dialog-wide fragment
+                frag = qss_fragment(theme_code)
+                self.setStyleSheet(frag)
+            except Exception:
+                pass
+            try:
+                btn_bg = get_color('BTN_BG', theme_code)
+                btn_text = get_color('BTN_TEXT', theme_code)
+                self.btn_save.setStyleSheet(f"background-color: {btn_bg}; color: {btn_text}; font-weight: bold; border-radius: 4px;")
+            except Exception:
+                pass
+            try:
+                # Update path labels / other labels colors
+                for lbl in self.findChildren(QLabel):
+                    lbl.setStyleSheet(f"color: {get_color('PRIMARY_TEXT', theme_code)};")
+            except Exception:
+                pass
+        except Exception:
+            pass
