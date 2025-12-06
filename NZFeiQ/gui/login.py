@@ -1,6 +1,8 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit, 
                              QPushButton, QMessageBox, QGraphicsDropShadowEffect)
 from PyQt5.QtCore import pyqtSignal, Qt
+from PyQt5.QtGui import QPixmap
+import os
 
 class LoginPage(QWidget):
     # 登录成功信号
@@ -39,11 +41,25 @@ class LoginPage(QWidget):
         card_layout.setContentsMargins(30, 40, 30, 40)
         card_layout.setSpacing(20)
 
-        # 标题
-        lbl_title = QLabel("ZFeiQ")
-        lbl_title.setAlignment(Qt.AlignCenter)
-        lbl_title.setStyleSheet("font-size: 28px; font-weight: bold; color: #333; font-family: 'Segoe UI', sans-serif;")
-        card_layout.addWidget(lbl_title)
+        # 标题（使用应用图标替代纯文本）
+        try:
+            icon_path = os.path.join(os.path.dirname(__file__), "assets", "zfeiq_icon_128x128.ico")
+            if os.path.exists(icon_path):
+                pix = QPixmap(icon_path).scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                lbl_logo = QLabel()
+                lbl_logo.setAlignment(Qt.AlignCenter)
+                lbl_logo.setPixmap(pix)
+                card_layout.addWidget(lbl_logo)
+            else:
+                lbl_title = QLabel("ZFeiQ")
+                lbl_title.setAlignment(Qt.AlignCenter)
+                lbl_title.setStyleSheet("font-size: 28px; font-weight: bold; color: #333; font-family: 'Segoe UI', sans-serif;")
+                card_layout.addWidget(lbl_title)
+        except Exception:
+            lbl_title = QLabel("ZFeiQ")
+            lbl_title.setAlignment(Qt.AlignCenter)
+            lbl_title.setStyleSheet("font-size: 28px; font-weight: bold; color: #333; font-family: 'Segoe UI', sans-serif;")
+            card_layout.addWidget(lbl_title)
         
         lbl_sub = QLabel("局域网即时通讯系统")
         lbl_sub.setAlignment(Qt.AlignCenter)

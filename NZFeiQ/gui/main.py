@@ -11,12 +11,14 @@ os.environ["QT_LOGGING_RULES"] = "*.debug=false;qt.qpa.*=false"
 
 from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5.QtCore import Qt, QCoreApplication
+from PyQt5.QtGui import QIcon
 
 # 确保能引用到同级模块
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from gui.bridge import Bridge
 from gui.window import MainWindow
+from gui.lang import set_language
 
 def excepthook(exc_type, exc_value, exc_tb):
     """全局异常捕获，弹窗提示，避免直接闪退"""
@@ -36,6 +38,13 @@ def main():
     
     app = QApplication(sys.argv)
     app.setApplicationName("ZFeiQ Reborn")
+    # 设置全局窗口图标（使用 repo 内的 assets）
+    try:
+        icon_path = os.path.join(os.path.dirname(__file__), "assets", "zfeiq_icon_128x128.ico")
+        if os.path.exists(icon_path):
+            app.setWindowIcon(QIcon(icon_path))
+    except Exception:
+        pass
     
     # 3. 全局极简样式 (性能优先，少用渐变和阴影)
     app.setStyleSheet("""
@@ -58,6 +67,13 @@ def main():
     # 4. 启动后台桥梁 (独立线程)
     bridge = Bridge()
     bridge.start()
+
+    # 根据全局配置应用界面语言
+    try:
+        lang = getattr(bridge.core, 'language', 'zhCN')
+        set_language(lang)
+    except Exception:
+        pass
 
     # 5. 启动主窗口
     window = MainWindow(bridge)
