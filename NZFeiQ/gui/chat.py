@@ -3,10 +3,14 @@ import os
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QListView, 
                              QTextEdit, QPushButton, QStyledItemDelegate, 
                              QAbstractItemView, QLabel, QSplitter, QFrame,
-                             QStyle, QFileDialog, QApplication)
+                             QStyle, QFileDialog, QApplication, QMenu, QAction,
+                             QSizePolicy, QToolButton)
 from PyQt5.QtCore import (Qt, QAbstractListModel, QModelIndex, QSize, 
                           QRect, QTimer, pyqtSignal, QEvent)
-from PyQt5.QtGui import QPainter, QColor, QFontMetrics, QBrush, QPen, QFont, QKeyEvent
+import shutil
+import subprocess
+from PyQt5.QtGui import QPainter, QColor, QFontMetrics, QBrush, QPen, QFont, QKeyEvent, QCursor, QDesktopServices
+from PyQt5.QtCore import QUrl
 
 # 常量定义
 MSG_TYPE_TEXT = 'text'
@@ -199,7 +203,7 @@ class ChatDelegate(QStyledItemDelegate):
         if not data: return
 
         painter.save()
-        painter.setRenderHint(QPainter.Antialiasing)
+        # painter.setRenderHint(QPainter.Antialiasing)
         
         # 1. 绘制通用头部 (用户名 + 时间)
         self._paint_header(painter, option.rect, data)
@@ -398,7 +402,7 @@ class ChatPage(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # === 顶部导航栏 ===
+        # === 顶部导航栏 (保持不变) ===
         top_bar = QWidget()
         top_bar.setFixedHeight(50)
         top_bar.setStyleSheet("background-color: #f5f5f5; border-bottom: 1px solid #dcdcdc;")
@@ -424,7 +428,7 @@ class ChatPage(QWidget):
         splitter.setHandleWidth(1)
         splitter.setStyleSheet("QSplitter::handle { background: #dcdcdc; }")
         
-        # --- 左侧：用户列表 ---
+        # --- 左侧：用户列表 (保持不变) ---
         self.user_list = QListView()
         self.user_model = UserListModel()
         self.user_delegate = UserDelegate()
@@ -459,47 +463,51 @@ class ChatPage(QWidget):
         self.chat_list.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.chat_list.setSelectionMode(QAbstractItemView.NoSelection)
         self.chat_list.setStyleSheet("background: #f5f5f5;")
+        # 点击聊天项（用于打开已下载的文件等交互）
+        self.chat_list.clicked.connect(self._on_chat_clicked)
         
-        right_layout.addWidget(self.chat_list, 1)
+        # 聊天消息区域：相对输入区占比为 2
+        right_layout.addWidget(self.chat_list, 2)
 
+        # [修改] 底部输入容器：移除固定高度，改为自适应
         input_container = QWidget()
-        input_container.setFixedHeight(120)
+        # input_container.setFixedHeight(120) <--- 移除此行
         input_container.setStyleSheet("background: #ffffff; border-top: 1px solid #dcdcdc;")
         input_layout = QVBoxLayout(input_container)
         input_layout.setContentsMargins(10, 5, 10, 5)
         
         toolbar = QHBoxLayout()
-        toolbar.setSpacing(8) # 按钮间距
+        toolbar.setSpacing(6)
         toolbar.setContentsMargins(0, 0, 0, 5)
 
-        # 辅助函数：快速创建统一样式的按钮
+        # [修改] 辅助函数：完全模仿 Legacy 的 NavigationButton 风格
         def _create_tool_btn(text, slot=None):
-            btn = QPushButton(text)
-            btn.setFixedSize(85, 32) # 加宽，加高，方便触控或鼠标点击
+            # 使用 QToolButton 代替 QPushButton
+            btn = QToolButton()
+            btn.setText(text)
+            btn.setToolButtonStyle(Qt.ToolButtonTextOnly)
             btn.setCursor(Qt.PointingHandCursor)
+            
+            # 关键：设置 SizePolicy 为 (MinimumExpanding, Preferred)
+            # 这会让按钮在水平方向上尽可能平均分配空间，像 legacy 布局一样
+            btn.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+            
+            # 移除复杂的背景色 QSS，保持原生/简洁风格
+            # 如果需要稍微大一点的点击区域，可以通过样式微调，但 Legacy 主要是靠原生渲染
             btn.setStyleSheet("""
-                QPushButton { 
-                    background-color: #f0f0f0; 
-                    border: 1px solid #dcdcdc; 
-                    border-radius: 4px; 
-                    color: #444; 
-                    font-size: 12px;
-                }
-                QPushButton:hover { 
-                    background-color: #e6e6e6; 
-                    border-color: #bbbbbb;
-                    color: #000;
-                }
-                QPushButton:pressed { background-color: #d0d0d0; }
+                QToolButton { border: 1px solid transparent; border-radius: 4px; padding: 4px; color: #444; }
+                QToolButton:hover { background-color: #f0f0f0; border: 1px solid #dcdcdc; }
+                QToolButton:pressed { background-color: #e0e0e0; }
             """)
+            
             if slot: btn.clicked.connect(slot)
             return btn
 
-        self.btn_emoji = _create_tool_btn("😊 表情", self._on_btn_emoji)
-        self.btn_screen = _create_tool_btn("✂️ 截图", self._on_btn_screen)
-        self.btn_quick = _create_tool_btn("💬 常用语", self._on_btn_quick)
-        self.btn_file = _create_tool_btn("📎 文件", self._send_file_action)
-        self.btn_ocr = _create_tool_btn("🔍 识字", self._on_btn_ocr)
+        self.btn_emoji = _create_tool_btn("表情", self._on_btn_emoji)
+        self.btn_screen = _create_tool_btn("截图", self._on_btn_screen)
+        self.btn_quick = _create_tool_btn("常用语", self._on_btn_quick)
+        self.btn_file = _create_tool_btn("文件", self._send_file_action)
+        self.btn_ocr = _create_tool_btn("识字", self._request_ocr) # 确保连接到正确的 request 函数
         
         toolbar.addWidget(self.btn_emoji)
         toolbar.addWidget(self.btn_screen)
@@ -507,21 +515,56 @@ class ChatPage(QWidget):
         toolbar.addWidget(self.btn_file)
         toolbar.addWidget(self.btn_ocr)
         
-        toolbar.addStretch()
+        # toolbar.addStretch() <--- Legacy 风格通常填满，如果希望按钮紧凑可保留 stretch
+        
         input_layout.addLayout(toolbar)
         
         self.input_edit = QTextEdit()
-        self.input_edit.setPlaceholderText("发送消息... (Enter 发送，Ctrl+Enter 换行)")
+        self.input_edit.setPlaceholderText("发送消息... (Enter 发送，Shift+Enter 换行)")
         self.input_edit.setFrameShape(QFrame.NoFrame)
-        # [关键] 安装事件过滤器
+        # [新增] 设置最小高度，防止压得太扁
+        self.input_edit.setMinimumHeight(56) 
         self.input_edit.installEventFilter(self)
+        # 现代化的细滚动条样式：细长、圆角把手，hover 加深；在不支持样式的平台上视觉上接近隐藏
+        self.input_edit.setStyleSheet("""
+            QTextEdit {
+                background: #ffffff;
+                border: none;
+            }
+            QScrollBar:vertical {
+                background: transparent;
+                width: 8px;
+                margin: 0px 0px 0px 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: rgba(0,0,0,0.18);
+                min-height: 22px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: rgba(0,0,0,0.30);
+            }
+            QScrollBar::add-line, QScrollBar::sub-line {
+                height: 0px;
+            }
+            QScrollBar::add-page, QScrollBar::sub-page {
+                background: none;
+            }
+            """
+        )
         
         input_layout.addWidget(self.input_edit)
         
         send_bar = QHBoxLayout()
         send_bar.addStretch()
+        
         self.btn_send = QPushButton("发送(S)")
-        self.btn_send.setFixedSize(80, 30)
+        # [修改] 发送按钮也改为自适应策略，不仅限固定大小
+        self.btn_send.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+        self.btn_send.setMinimumWidth(80)
+        self.btn_send.setMaximumWidth(120)
+        self.btn_send.setFixedHeight(30)
+        
         self.btn_send.setStyleSheet("""
             QPushButton { background-color: #f5f5f5; border: 1px solid #dcdcdc; border-radius: 4px; color: #666; }
             QPushButton:hover { background-color: #129611; color: white; border: none; }
@@ -529,9 +572,11 @@ class ChatPage(QWidget):
         self.btn_send.setCursor(Qt.PointingHandCursor)
         self.btn_send.clicked.connect(self._do_send)
         send_bar.addWidget(self.btn_send)
+        
         input_layout.addLayout(send_bar)
         
-        right_layout.addWidget(input_container)
+        # 输入区域（工具栏 + 输入框 + 发送按钮）：设置为占右侧栏的 1/3
+        right_layout.addWidget(input_container, 1)
         splitter.addWidget(right_panel)
         
         splitter.setStretchFactor(0, 1)
@@ -539,13 +584,13 @@ class ChatPage(QWidget):
         
         main_layout.addWidget(splitter)
 
-    def eventFilter(self, watched, event):
+    def eventFilter(self, watched, event): # type: ignore
         # 只处理输入框的按键事件
         if watched == self.input_edit and event.type() == QEvent.KeyPress:
             e: QKeyEvent = event
 
             # Shift+Enter → 换行
-            if e.key() in (Qt.Key_Return, Qt.Key_Enter) and (e.modifiers() & Qt.ShiftModifier):
+            if e.key() in (Qt.Key_Return, Qt.Key_Enter) and (e.modifiers() & Qt.ShiftModifier): # type: ignore
                 return False  # 不拦截，让 QTextEdit 默认行为执行（换行）
 
             # Enter → 发送消息
@@ -564,6 +609,9 @@ class ChatPage(QWidget):
         self.bridge.sig_file_done.connect(self.chat_model.update_file_done)
         
         self.bridge.sig_nodes_changed.connect(lambda n: self._refresh_users())
+        
+        # [新增] 连接 OCR 完成信号
+        self.bridge.sig_ocr_done.connect(self._on_ocr_result)
 
     def _refresh_users(self):
         user_list = self.bridge.get_user_list()
@@ -584,6 +632,52 @@ class ChatPage(QWidget):
         else:
             self.lbl_title.setText(f"{name} ({ip})")
 
+    def _on_chat_clicked(self, index: QModelIndex):
+        """Handle clicks on chat items. If the item is a file message and the
+        file has been downloaded (has 'local_path'), open it with the system
+        default application. Otherwise show a short status message."""
+        try:
+            data = self.chat_model.data(index)
+            if not data:
+                return
+            if data.get('type') != MSG_TYPE_FILE:
+                return
+
+            # If download completed and local_path exists, open it
+            local = data.get('local_path')
+            status = data.get('status')
+            if local and os.path.isfile(local):
+                # 首选使用 Qt 的 QDesktopServices 打开；某些 Linux 环境下该调用可能返回 False
+                opened = False
+                try:
+                    opened = QDesktopServices.openUrl(QUrl.fromLocalFile(local))
+                except Exception:
+                    opened = False
+
+                if not opened:
+                    # 回退到系统的 xdg-open（大多数 Linux 桌面环境支持）
+                    xdg = shutil.which('xdg-open')
+                    if xdg:
+                        try:
+                            subprocess.Popen([xdg, local], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            return
+                        except Exception:
+                            pass
+
+                    # 仍然无法打开，给出帮助性提示
+                    self._append_sys_msg('无法检测到可用的打开器。请确保已安装 xdg-utils 或在系统中为该文件类型设置默认应用。')
+                    return
+            else:
+                # Show informative message depending on status
+                if status == 'transferring':
+                    self._append_sys_msg('文件正在传输中，请稍后打开。')
+                elif status == 'waiting':
+                    self._append_sys_msg('文件尚未开始下载，等待接收或手动接受。')
+                else:
+                    self._append_sys_msg('文件尚未下载或路径不可用。')
+        except Exception as e:
+            print(f"[Chat Click Error] {e}")
+
     def _do_send(self):
         text = self.input_edit.toPlainText().strip()
         if not text: return
@@ -597,7 +691,16 @@ class ChatPage(QWidget):
 
     def _send_file_action(self):
         path, _ = QFileDialog.getOpenFileName(self, "选择文件")
-        if path and self.current_target['ip'] != 'all':
+        if not path:
+            return
+
+        # 如果目标为广播(all)，目前不支持广播文件发送；给出提示
+        if self.current_target.get('ip') == 'all':
+            self._append_sys_msg("请选择具体的接收方再发送文件（广播不支持文件发送）")
+            return
+
+        # 向指定目标发送文件
+        if path:
             self.bridge.send_file(self.current_target['ip'], path)
             import os
             # 发送方也显示一个文件气泡 (可选，这里先模拟成已完成状态，因为发送方不需要下载)
@@ -661,23 +764,102 @@ class ChatPage(QWidget):
         self._append_sys_msg("功能开发中：屏幕截图")
 
     def _on_btn_quick(self):
-        # 常用语菜单
-        self._append_sys_msg("功能开发中：常用语")
+        """弹出常用语菜单"""
+        texts = self.bridge.get_quick_texts()
+        if not texts:
+            self._append_sys_msg("暂无常用语配置 (可在 config/quick_texts.txt 编辑)")
+            return
 
-    def _on_btn_ocr(self):
-        # 调用 OCR (选择图片 -> 识别 -> 填入输入框)
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu { background-color: white; border: 1px solid #ccc; }
+            QMenu::item { padding: 5px 20px; }
+            QMenu::item:selected { background-color: #0078d7; color: white; }
+        """)
+
+        for text in texts:
+            # 使用闭包捕获当前的 text
+            action = QAction(text, self)
+            action.triggered.connect(lambda checked, t=text: self._insert_quick_text(t))
+            menu.addAction(action)
+
+        # 在鼠标位置弹出
+        menu.exec_(QCursor.pos())
+
+    def _insert_quick_text(self, text):
+        """将选中的常用语插入输入框"""
+        self.input_edit.insertPlainText(text)
+        self.input_edit.setFocus()
+
+    def _request_ocr(self):
         path, _ = QFileDialog.getOpenFileName(self, "选择图片进行OCR", "", "Images (*.png *.jpg *.bmp)")
         if path:
-            self._append_sys_msg(f"正在识别: {os.path.basename(path)} ...")
-            # 这里的 bridge.run_ocr 需要自行实现回调或信号来获取结果
-            # 暂时演示：
-            self.bridge.run_ocr(path) 
+            # 记录开始时间以便在回调时计算耗时
+            try:
+                self._ocr_start = datetime.datetime.now()
+            except Exception:
+                self._ocr_start = None
 
+            self._append_sys_msg(f"正在识别: {os.path.basename(path)} ...")
+            # 异步调用，结果将通过 sig_ocr_done 返回
+            self.bridge.run_ocr(path)
+
+    def _on_ocr_result(self, text, engine_type=None, elapsed=None):
+        """OCR 识别完成回调
+
+        Parameters passed from Bridge: (text, engine_type, elapsed)
+        """
+        if not text:
+            self._append_sys_msg("OCR 未识别到文字。")
+            return
+            
+        if text.startswith("Error") or text.startswith("OCR Error"):
+            self._append_sys_msg(f"OCR 失败: {text}")
+        else:
+            # 成功：直接回填到输入框，方便用户编辑发送
+            # 如果输入框已有内容，先换行
+            current_content = self.input_edit.toPlainText()
+            if current_content and not current_content.endswith('\n'):
+                self.input_edit.insertPlainText('\n')
+            
+            self.input_edit.insertPlainText(text)
+            # Prefer engine-provided engine_type and elapsed (from core), fallback to local start time
+            # Determine engine tag (CPU or NPU or Unknown)
+            eng = engine_type or getattr(self, '_ocr_engine_type', None) or 'Unknown'
+            if isinstance(eng, str) and 'NPU' in eng.upper():
+                eng_tag = 'NPU'
+            elif isinstance(eng, str) and 'CPU' in eng.upper():
+                eng_tag = 'CPU'
+            else:
+                eng_tag = eng
+
+            # elapsed priority: parameter > recorded start time > unknown
+            real_elapsed = None
+            try:
+                if isinstance(elapsed, (int, float)) and elapsed > 0:
+                    real_elapsed = float(elapsed)
+                else:
+                    start = getattr(self, '_ocr_start', None)
+                    if start:
+                        real_elapsed = (datetime.datetime.now() - start).total_seconds()
+            except Exception:
+                real_elapsed = None
+
+            if real_elapsed is None:
+                self._append_sys_msg(f"OCR 识别成功 ({eng_tag})，时间：未知")
+            else:
+                self._append_sys_msg(f"OCR 识别成功 ({eng_tag})，时间： {real_elapsed:.2f} 秒")
+            self.input_edit.setFocus()
+    
     def _append_sys_msg(self, text):
-        """在聊天框临时插入一条系统提示（仅自己可见，不通过网络）"""
-        msg_data = {
-            'type': 'text', 'user': '系统', 'text': text,
-            'is_me': False, 'time': datetime.datetime.now().strftime("%H:%M")
-        }
-        self.chat_model.add_message(msg_data)
-        self.chat_list.scrollToBottom()
+        """通过主窗口的状态栏显示提示信息"""
+        # self.window() 获取当前控件所在的顶级窗口 (即 MainWindow)
+        main_win = self.window()
+        
+        # 检查 main_win 是否有 statusBar 方法 (防御性编程)
+        if main_win and hasattr(main_win, "statusBar"):
+            # showMessage(text, timeout_ms): 显示文本，3000ms 后自动清除/恢复
+            main_win.statusBar().showMessage(text, 3000) # type: ignore
+        else:
+            # 如果没找到状态栏 (比如独立测试时)，退化为控制台打印
+            print(f"[System]: {text}")

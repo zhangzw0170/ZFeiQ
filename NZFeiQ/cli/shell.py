@@ -124,15 +124,22 @@ class ZFeiQShell:
         elif ev.type == EV_OCR_DONE:
             txt = ev.data['text']
             path = ev.data['image_path']
-            msg = f"OCR Result ({os.path.basename(path)}):\n{txt}"
+            header = "========== OCR Result =========="
+            # Header: bright green (same as username color)
             if _HAS_PT and HTML:
                 try:
-                    safe = html.escape(msg)
+                    _print(HTML(f"<user>{header}</user>"))
+                    # Escape the body to avoid HTML parse issues, but keep original formatting
+                    safe = html.escape(txt)
+                    # Print body as plain info block
                     _print(HTML(f"<info>{safe}</info>"))
                 except Exception:
-                    print(msg)
+                    print(header)
+                    print(txt)
             else:
-                print(msg)
+                # ANSI bright green for header
+                print(f"\033[1;32m{header}\033[0m")
+                print(txt)
 
         # [新增] 处理节点更新事件，输出日志供测试脚本捕获 (Step 1 修复)
         elif ev.type == EV_NODE_UPD:
