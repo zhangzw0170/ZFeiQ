@@ -84,3 +84,22 @@ python3 NZFeiQ/cli/main.py
 ---
 
 NZFeiQ Team | 2025
+
+## Release: Alpha 6.1 (2025-12-07)
+
+本次小版本为 Alpha 6.1，主要将 core 层的表情（emote）与截图功能接入 GUI，并针对嵌入式目标（RK3566 / RK3588）做了若干性能与兼容性优化。
+
+主要变更要点：
+- 集成表情（emote）到 GUI：采用 Model/View（`QAbstractListModel`）+ `QStyledItemDelegate` 渲染，使用 LRU 缓存与按需缩放加载以减少内存峰值。
+- 新增表情管理对话（UI 在表情弹层内有齿轮入口），用户自定义表情请放入 `common/emotes/`。
+- 保留 legacy `emoji` 模块以保证向后兼容；新 UI 优先读取 `common/emotes` 与仓库内的 `resource/NotoColorEmoji.ttf`（存在时用于更好渲染）。
+- 截图集成：截图由 GUI 调用后默认保存为本地文件（`common/downloads/` 目录或平台默认下载目录），并作为本地文件消息插入聊天，默认不自动发送以避免误发。
+- 主题与样式修正：聊天气泡改为使用主题 token（`gui/styles.get_color`），快速文本菜单主题化，尽力在程序启动时禁用 Qt 动画（best-effort）。
+- 设置页优化：将“重生成密钥”按钮略微加宽，并在密钥重生成完成后刷新指纹显示（建议后续把密钥重生放到 Bridge 的异步任务以避免 UI 阻塞）。
+
+如何验证（简短）：
+- 启动 GUI： `python3 NZFeiQ/gui/main.py`，打开聊天窗口，点击表情按钮应弹出表情面板并锚定到按钮；点击齿轮进入表情管理对话，可向 `common/emotes` 添加图片并刷新面板。
+- 截图：在聊天界面触发截图（或通过界面按钮），截图会保存到 `common/downloads/screenshots/`（或项目默认下载目录），并以“本地文件”消息显示在会话内。
+- 密钥重生成：在设置页面点击“重生成密钥”，等待完成后页面上的指纹字符串应立即刷新显示新指纹。
+
+更多详情请查看仓库的 `TEST.md` 中新增的测试步骤（包含表情与截图相关的手动验证）。
