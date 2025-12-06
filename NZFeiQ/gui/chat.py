@@ -1,12 +1,12 @@
 import datetime
 import os
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QListView, 
-                             QTextEdit, QPushButton, QStyledItemDelegate, 
+                             QListWidget, QListWidgetItem, QTextEdit, QPushButton, QStyledItemDelegate, 
                              QAbstractItemView, QLabel, QSplitter, QFrame,
                              QStyle, QFileDialog, QApplication, QMenu, QAction,
-                             QSizePolicy, QToolButton, QLineEdit)
+                             QSizePolicy, QToolButton, QLineEdit, QWidgetAction)
 from PyQt5.QtCore import (Qt, QAbstractListModel, QModelIndex, QSize, 
-                          QRect, QTimer, pyqtSignal, QEvent)
+                          QRect, QTimer, pyqtSignal, QEvent, QPoint)
 import shutil
 import subprocess
 from PyQt5.QtGui import QPainter, QColor, QFontMetrics, QBrush, QPen, QFont, QKeyEvent, QCursor, QDesktopServices
@@ -64,6 +64,10 @@ class UserListModel(QAbstractListModel):
         self.endResetModel()
 
 class UserDelegate(QStyledItemDelegate):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._theme_code = 'light'
+
     def sizeHint(self, option, index):
         return QSize(option.rect.width(), 60)
 
@@ -168,6 +172,10 @@ class UserDelegate(QStyledItemDelegate):
 
 class LightUserDelegate(QStyledItemDelegate):
     """轻量级用户委托：用于搜索结果显示，只绘制一行简洁信息以减小渲染成本。"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._theme_code = 'light'
+
     def sizeHint(self, option, index):
         return QSize(option.rect.width(), 28)
 
@@ -262,6 +270,7 @@ class ChatDelegate(QStyledItemDelegate):
         self.padding = 10
         self.bubble_padding = 12
         self.max_width = 450
+        self._theme_code = 'light'
         
     def sizeHint(self, option, index):
         data = index.data(Qt.DisplayRole)
@@ -345,23 +354,30 @@ class ChatDelegate(QStyledItemDelegate):
         bubble_h = text_rect.height() + (self.bubble_padding * 2)
         bubble_y = rect.top() + 30 
         
+        # Determine theme-aware colors using get_color
+        try:
+            theme_code = getattr(self, '_theme_code', None)
+            if not theme_code:
+                theme_code = option.widget.property('theme') if option and option.widget is not None else 'light'
+        except Exception:
+            theme_code = 'light'
+
         if encrypted:
             if is_me:
                 bubble_x = rect.right() - bubble_w - 15
-                bg_color = QColor(CHAT_COLOR_ME_ENC)
-                border_color = QColor(CHAT_COLOR_ME_ENC)
+                bg_color = QColor(get_color('CHAT_COLOR_ME_ENC', theme_code))
+                border_color = QColor(get_color('CHAT_COLOR_ME_ENC', theme_code))
             else:
                 bubble_x = rect.left() + 15
-                bg_color = QColor(CHAT_COLOR_RX_ENC)
-                border_color = QColor(CHAT_COLOR_RX_ENC)
+                bg_color = QColor(get_color('CHAT_COLOR_RX_ENC', theme_code))
+                border_color = QColor(get_color('CHAT_COLOR_RX_ENC', theme_code))
         else:
-            # 未加密消息统一白底
             if is_me:
                 bubble_x = rect.right() - bubble_w - 15
             else:
                 bubble_x = rect.left() + 15
-            bg_color = QColor(CHAT_COLOR_UNENC_BG)
-            border_color = QColor(CHAT_COLOR_UNENC_BORDER)
+            bg_color = QColor(get_color('CHAT_COLOR_UNENC_BG', theme_code))
+            border_color = QColor(get_color('CHAT_COLOR_UNENC_BORDER', theme_code))
 
         bubble_rect = QRect(bubble_x, bubble_y, bubble_w, bubble_h)
 
@@ -392,9 +408,11 @@ class ChatDelegate(QStyledItemDelegate):
         
         # file bubble background/border should follow unencrypted chat bubble colors
         try:
+            # attempt to pick colors from theme
+            theme_code = getattr(self, '_theme_code', 'light')
             bubble_x = rect.right() - bubble_w - 15 if is_me else rect.left() + 15
-            bg_color = QColor(CHAT_COLOR_UNENC_BG)
-            border_color = QColor(CHAT_COLOR_UNENC_BORDER)
+            bg_color = QColor(get_color('CHAT_COLOR_UNENC_BG', theme_code))
+            border_color = QColor(get_color('CHAT_COLOR_UNENC_BORDER', theme_code))
         except Exception:
             if is_me:
                 bubble_x = rect.right() - bubble_w - 15
@@ -490,6 +508,12 @@ class ChatDelegate(QStyledItemDelegate):
         elif status == 'transferring':
             curr_str = self._fmt_size(current_bytes)
             status_text = f"正在下载... {curr_str} / {size_str}"
+        elif status == 'local':
+            # 本地已保存但未发送：显示本地标识
+            try:
+                status_text = L('file_local')
+            except Exception:
+                status_text = "本地文件"
         else:
             status_text = f"等待中... ({size_str})"
             
@@ -790,6 +814,13 @@ class ChatPage(QWidget):
         
         # [新增] 连接 OCR 完成信号
         self.bridge.sig_ocr_done.connect(self._on_ocr_result)
+
+        # 截图完成/失败信号
+        try:
+            self.bridge.sig_screenshot_done.connect(self._on_screenshot_done)
+            self.bridge.sig_screenshot_failed.connect(self._on_screenshot_failed)
+        except Exception:
+            pass
 
         # 初始化时保持完整委托
         self._using_light_delegate = False
@@ -1327,11 +1358,75 @@ class ChatPage(QWidget):
 
     # --- 工具栏槽函数 ---
     def _on_btn_emoji(self):
-        self._append_sys_msg(L('emoji_placeholder'))
+        # 最省资源的实现：使用 QListWidget 的 IconMode（item 为 emoji 文本，大字号）
+        # Use high-performance Model/View implementation with LRU caching
+        from gui.emote_widget import build_emote_list, show_emote_popup
+
+        default_unicode = [
+            "😀","😁","😂","🤣","😊","😍","😘","😜","😎","👍",
+            "🎉","❤️","😅","😉","🤩","🤔","😐","🙄","😴","🤯"
+        ]
+        custom_dir = os.path.join("common", "emotes")
+        emoji_data = build_emote_list(default_unicode, custom_dir if os.path.isdir(custom_dir) else "", include_manager=True)
+
+        # import manager dialog for gear action
+        from gui.emote_widget import EmotesManagerDialog
+
+        def _on_select(data):
+            # If data is a path -> attempt to send file to current target (if non-broadcast)
+            try:
+                # special manager marker
+                if data == "__EMOTES_MANAGER__":
+                    try:
+                        dlg = EmotesManagerDialog(self, custom_dir)
+                        was = dlg.exec_()
+                        if getattr(dlg, 'modified', False):
+                            # if modified, offer the picker again with updated list
+                            new_list = build_emote_list(default_unicode, custom_dir if os.path.isdir(custom_dir) else "", include_manager=True)
+                            show_emote_popup(self, new_list, _on_select, icon_size=36, cols=8, rows=4, anchor_widget=self.btn_emoji)
+                    except Exception:
+                        pass
+                    return
+
+                if isinstance(data, str) and os.path.exists(data):
+                    target_ip = self.current_target.get('ip') if self.current_target else 'all'
+                    if target_ip and target_ip != 'all':
+                        try:
+                            self.bridge.send_file(target_ip, data)
+                        except Exception:
+                            self._append_sys_msg(L('file_unavailable'))
+                    else:
+                        self._append_sys_msg(L('send_file_prompt'))
+                else:
+                    # Unicode emote -> insert into input
+                    self._insert_emote(str(data))
+            except Exception:
+                pass
+
+        show_emote_popup(self, emoji_data, _on_select, icon_size=36, cols=8, rows=4, anchor_widget=self.btn_emoji)
+
+    def _insert_emote(self, emoji: str):
+        try:
+            self.input_edit.insertPlainText(emoji)
+            self.input_edit.setFocus()
+        except Exception:
+            pass
 
     def _on_btn_screen(self):
         # 截图逻辑通常涉及: 隐藏主窗口 -> 截取全屏 -> 弹出裁剪框 -> 恢复窗口
+        # 启动异步截图；若当前目标不是广播则自动发送截图到目标
+        try:
+            target_ip = self.current_target.get('ip') if self.current_target else 'all'
+        except Exception:
+            target_ip = 'all'
+
+        # 反馈给用户并调用 bridge 的异步截图方法（线程轻量）
         self._append_sys_msg(L('screen_placeholder'))
+        try:
+            self.bridge.capture_screen(send_target=(target_ip if target_ip != 'all' else ''))
+        except Exception:
+            # 回退行为：提示失败
+            self._append_sys_msg(L('screen_placeholder'))
 
     def _on_btn_quick(self):
         """弹出常用语菜单"""
@@ -1339,12 +1434,23 @@ class ChatPage(QWidget):
         if not texts:
             self._append_sys_msg(L('no_quick_texts'))
             return
+        # Build theme-aware menu styling
+        try:
+            theme_code = getattr(self, '_current_theme', 'light') or 'light'
+        except Exception:
+            theme_code = 'light'
 
         menu = QMenu(self)
+        # unify font and appearance with input area
+        try:
+            menu.setFont(self.input_edit.font())
+        except Exception:
+            pass
+
         menu.setStyleSheet(
-            "QMenu { background-color: " + get_color('MENU_BG', 'light') + "; border: 1px solid " + get_color('BORDER', 'light') + "; }"
-            "QMenu::item { padding: 5px 20px; }"
-            "QMenu::item:selected { background-color: " + get_color('ACCENT', 'light') + "; color: " + get_color('ACCENT_TEXT', 'light') + "; }"
+            "QMenu { background-color: " + get_color('MENU_BG', theme_code) + "; border: 1px solid " + get_color('BORDER', theme_code) + "; }"
+            "QMenu::item { padding: 6px 18px; color: " + get_color('PRIMARY_TEXT', theme_code) + "; }"
+            "QMenu::item:selected { background-color: " + get_color('ACCENT', theme_code) + "; color: " + get_color('ACCENT_TEXT', theme_code) + "; }"
         )
 
         for text in texts:
@@ -1353,8 +1459,12 @@ class ChatPage(QWidget):
             action.triggered.connect(lambda checked, t=text: self._insert_quick_text(t))
             menu.addAction(action)
 
-        # 在鼠标位置弹出
-        menu.exec_(QCursor.pos())
+        # Anchor the quick-menu to the quick button bottom-left for consistency
+        try:
+            gp = self.btn_quick.mapToGlobal(QPoint(0, self.btn_quick.height()))
+            menu.exec_(gp)
+        except Exception:
+            menu.exec_(QCursor.pos())
 
     def _insert_quick_text(self, text):
         """将选中的常用语插入输入框"""
@@ -1420,6 +1530,38 @@ class ChatPage(QWidget):
             else:
                 self._append_sys_msg(L('ocr_success').format(engine=eng_tag, sec=f"{real_elapsed:.2f}"))
             self.input_edit.setFocus()
+
+    def _on_screenshot_done(self, path: str, sent_target: str):
+        """截图保存成功后的回调。若已自动发送到目标，则同时在本地聊天中添加已发送的文件气泡。"""
+        try:
+            # 不自动发送：在聊天框中添加一个本地文件卡片（status='local'）以便用户查看/手动发送
+            filename = os.path.basename(path)
+            size = os.path.getsize(path) if os.path.isfile(path) else 0
+            msg_data = {
+                'type': MSG_TYPE_FILE,
+                'user': '我',
+                'filename': filename,
+                'total': size,
+                'current': 0,
+                'status': 'local', # 本地已保存，未发送
+                'is_me': True,
+                'time': datetime.datetime.now().strftime("%H:%M"),
+                'local_path': path
+            }
+            self.chat_model.add_message(msg_data)
+            self.chat_list.scrollToBottom()
+            self._append_sys_msg(L('screen_saved').format(path=path))
+        except Exception:
+            try:
+                self._append_sys_msg(L('screen_saved').format(path=path))
+            except Exception:
+                print(f"[Screenshot] saved: {path}")
+
+    def _on_screenshot_failed(self, err_msg: str):
+        try:
+            self._append_sys_msg(L('screen_failed').format(err=err_msg))
+        except Exception:
+            print(f"[Screenshot Failed] {err_msg}")
     
     def _append_sys_msg(self, text):
         """通过主窗口的状态栏显示提示信息"""

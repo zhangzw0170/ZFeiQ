@@ -1,6 +1,7 @@
 import sys
 import os
 import time
+import threading
 from PyQt5.QtCore import QThread, pyqtSignal
 
 # 确保能导入 core 模块 (假设 gui 目录在 NZFeiQ/gui)
@@ -51,6 +52,11 @@ class Bridge(QThread):
     # OCR 识别完成信号 (text, engine_type, elapsed_seconds)
     sig_ocr_done = pyqtSignal(str, str, float)
 
+    # Screenshot done: (path, send_target)
+    sig_screenshot_done = pyqtSignal(str, str)
+    # Screenshot failed: (error_msg)
+    sig_screenshot_failed = pyqtSignal(str)
+
     def __init__(self, port=2425, bind_ip=None):
         super().__init__()
         # 初始化 Core
@@ -74,6 +80,36 @@ class Bridge(QThread):
                 
         except Exception as e:
             self.sig_log.emit("ERROR", f"Core 异常退出: {e}")
+
+    def capture_screen(self, send_target: str = ""):
+        """
+        异步触发核心截图命令，完成后通过信号通知 GUI。
+
+        send_target: 可选的目标 IP（为空或 'all' 表示不发送）。
+        """
+        def _worker(target_ip: str):
+            try:
+                # Only capture and return path; do NOT auto-send (BC: user requested save-then-ask)
+                path = self.core.capture_screen()
+                if path:
+                    # Emit screenshot done with no automatic send target
+                    try:
+                        self.sig_screenshot_done.emit(path, '')
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        self.sig_screenshot_failed.emit('Screenshot failed')
+                    except Exception:
+                        pass
+            except Exception as e:
+                try:
+                    self.sig_screenshot_failed.emit(str(e))
+                except Exception:
+                    pass
+
+        t = threading.Thread(target=_worker, args=(send_target or '',), daemon=True)
+        t.start()
 
     def stop(self):
         """优雅关闭"""
@@ -145,9 +181,34 @@ class Bridge(QThread):
 
             # 日志类事件
             elif evt_type == EV_LOG_INFO:
-                self.sig_log.emit("INFO", data['msg'])
+                msg = data.get('msg', '')
+                self.sig_log.emit("INFO", msg)
+                # Back-compat: some codepaths (CLI/legacy) print "Screenshot saved: {path}" as log
+                try:
+                    if isinstance(msg, str) and "Screenshot saved" in msg:
+                        # Try to extract path
+                        parts = msg.split("Screenshot saved:")
+                        path = parts[-1].strip() if len(parts) > 1 else ''
+                        if path:
+                            # Emit screenshot done for backward compatibility (no send target)
+                            try:
+                                self.sig_screenshot_done.emit(path, '')
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
             elif evt_type == EV_LOG_ERR:
-                self.sig_log.emit("ERROR", data['msg'])
+                msg = data.get('msg', '')
+                self.sig_log.emit("ERROR", msg)
+                # Back-compat: map log error containing screenshot failure to screenshot_failed
+                try:
+                    if isinstance(msg, str) and ("Screenshot failed" in msg or "Screenshot error" in msg):
+                        try:
+                            self.sig_screenshot_failed.emit(msg)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
             elif evt_type == EV_LOG_WARN:
                 self.sig_log.emit("WARN", data['msg'])
 

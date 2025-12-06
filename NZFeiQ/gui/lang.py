@@ -81,6 +81,9 @@ STRINGS = {
         'group_mgr_placeholder': '组管理功能尚未实现（占位）。',
         'emoji_placeholder': '功能开发中：表情选择',
         'screen_placeholder': '功能开发中：屏幕截图',
+        'screen_saved': '截图已保存: {path}',
+        'screen_saved_and_sent': '截图已保存并已发送: {path}',
+        'screen_failed': '截图失败: {err}',
         'no_quick_texts': '暂无常用语配置 (可在 config/quick_texts.txt 编辑)',
         'ocr_select': '选择图片进行OCR',
         'ocr_in_progress': '正在识别: {name} ...',
@@ -92,6 +95,18 @@ STRINGS = {
         'file_transferring': '文件正在传输中，请稍后打开。',
         'file_waiting': '文件尚未开始下载，等待接收或手动接受。',
         'select_file': '选择文件'
+        ,
+        'file_local': '本地文件'
+        ,
+        'emotes_manager_title': '表情包管理',
+        'emotes_dir_label': '表情目录: {dir}',
+        'emotes_select_images': '选择要添加的图片',
+        'btn_add': '添加',
+        'btn_remove': '删除',
+        'btn_close': '关闭',
+        'emotes_add_failed': '添加失败: {file} ({err})',
+        'emotes_remove_failed': '删除失败: {file} ({err})',
+        'emotes_confirm_remove': '删除 {n} 个选中的表情？'
     },
     'enUS': {
         'settings_title': 'ZFeiQ Settings',
@@ -161,6 +176,9 @@ STRINGS = {
         'group_mgr_placeholder': 'Group manager not implemented (placeholder).',
         'emoji_placeholder': 'Feature in development: Emoji selector',
         'screen_placeholder': 'Feature in development: Screenshot',
+        'screen_saved': 'Screenshot saved: {path}',
+        'screen_saved_and_sent': 'Screenshot saved and sent: {path}',
+        'screen_failed': 'Screenshot failed: {err}',
         'no_quick_texts': 'No quick texts configured (edit config/quick_texts.txt)',
         'ocr_select': 'Select image for OCR',
         'ocr_in_progress': 'Recognizing: {name} ...',
@@ -172,6 +190,18 @@ STRINGS = {
         'file_transferring': 'File is transferring, please open later.',
         'file_waiting': 'File not started yet, waiting to receive or accept.',
         'select_file': 'Select File'
+        ,
+        'file_local': 'Local file'
+        ,
+        'emotes_manager_title': 'Emotes Manager',
+        'emotes_dir_label': 'Emotes directory: {dir}',
+        'emotes_select_images': 'Select images to add',
+        'btn_add': 'Add',
+        'btn_remove': 'Remove',
+        'btn_close': 'Close',
+        'emotes_add_failed': 'Failed to add {file}: {err}',
+        'emotes_remove_failed': 'Failed to remove {file}: {err}',
+        'emotes_confirm_remove': 'Delete {n} selected files from custom emotes?'
     },
     'frFR': {
         'settings_title': 'Paramètres ZFeiQ',
@@ -241,6 +271,9 @@ STRINGS = {
         'group_mgr_placeholder': "Gestion de groupe non implémentée (bouchon).",
         'emoji_placeholder': 'Fonction en cours : Sélecteur émoji',
         'screen_placeholder': 'Fonction en cours : Capture écran',
+        'screen_saved': 'Capture enregistrée : {path}',
+        'screen_saved_and_sent': 'Capture enregistrée et envoyée : {path}',
+        'screen_failed': 'Échec de la capture : {err}',
         'no_quick_texts': 'Aucune phrase définie (éditer config/quick_texts.txt)',
         'ocr_select': "Sélectionner une image pour l'OCR",
         'ocr_in_progress': 'Reconnaissance: {name} ...',
@@ -252,6 +285,18 @@ STRINGS = {
         'file_transferring': 'Le fichier est en cours de transfert, ouvrez-le plus tard.',
         'file_waiting': "Le fichier n'a pas encore démarré, en attente de réception ou d'acceptation.",
         'select_file': 'Sélectionner un fichier'
+        ,
+        'file_local': 'Fichier local'
+        ,
+        'emotes_manager_title': 'Gestion des émoticônes',
+        'emotes_dir_label': 'Répertoire des émoticônes: {dir}',
+        'emotes_select_images': "Sélectionner des images à ajouter",
+        'btn_add': 'Ajouter',
+        'btn_remove': 'Supprimer',
+        'btn_close': 'Fermer',
+        'emotes_add_failed': "Échec de l'ajout: {file} ({err})",
+        'emotes_remove_failed': "Échec de la suppression: {file} ({err})",
+        'emotes_confirm_remove': 'Supprimer {n} fichiers sélectionnés ?'
     },
     'esES': {
         'settings_title': 'Ajustes ZFeiQ',
@@ -321,6 +366,9 @@ STRINGS = {
         'group_mgr_placeholder': 'Gestor de grupos no implementado (placeholder).',
         'emoji_placeholder': 'Función en desarrollo: Selector de emojis',
         'screen_placeholder': 'Función en desarrollo: Captura de pantalla',
+        'screen_saved': 'Captura guardada: {path}',
+        'screen_saved_and_sent': 'Captura guardada y enviada: {path}',
+        'screen_failed': 'Error de captura: {err}',
         'no_quick_texts': 'No hay frases configuradas (editar config/quick_texts.txt)',
         'ocr_select': 'Seleccionar imagen para OCR',
         'ocr_in_progress': 'Reconociendo: {name} ...',
@@ -332,6 +380,18 @@ STRINGS = {
         'file_transferring': 'El archivo se está transfiriendo, ábrelo más tarde.',
         'file_waiting': 'El archivo aún no ha comenzado, esperando recibir o aceptar.',
         'select_file': 'Seleccionar archivo'
+        ,
+        'file_local': 'Archivo local'
+        ,
+        'emotes_manager_title': 'Administrador de Emotes',
+        'emotes_dir_label': 'Directorio de emotes: {dir}',
+        'emotes_select_images': 'Seleccionar imágenes para agregar',
+        'btn_add': 'Agregar',
+        'btn_remove': 'Eliminar',
+        'btn_close': 'Cerrar',
+        'emotes_add_failed': 'Error al agregar {file}: {err}',
+        'emotes_remove_failed': 'Error al eliminar {file}: {err}',
+        'emotes_confirm_remove': '¿Eliminar {n} archivos seleccionados?'
     }
 }
 
