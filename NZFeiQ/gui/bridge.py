@@ -7,6 +7,7 @@ from PyQt5.QtCore import QThread, pyqtSignal
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from core.engine import ZFeiQCore
+from core.session import SessionState
 from core.events import (
     EV_MSG_RECV, EV_MSG_SENT, EV_NODE_UPD, 
     EV_FILE_OFFER, EV_FILE_PROG, EV_FILE_DONE, EV_FILE_ERR,
@@ -27,6 +28,10 @@ class Bridge(QThread):
     
     # 节点变动: (在线人数)
     sig_nodes_changed = pyqtSignal(int)
+    # 语言变更: (lang_code)
+    sig_lang_changed = pyqtSignal(str)
+    # 主题变更: (theme_code)
+    sig_theme_changed = pyqtSignal(str)
     
     # 文件要约: (offer_id, sender_name, filename, size)
     sig_file_offer = pyqtSignal(str, str, str, int)
@@ -89,7 +94,13 @@ class Bridge(QThread):
         try:
             if evt_type == EV_MSG_RECV:
                 # 收到消息
-                self.sig_msg.emit(data.get('sender', '?'), data['ip'], data['text'], False, False)
+                # 尝试判断该消息是否通过已建立的加密会话到达
+                try:
+                    sess = self.core._get_session(data['ip'])
+                    is_enc = (sess is not None and getattr(sess, 'state', None) == SessionState.ESTABLISHED)
+                except Exception:
+                    is_enc = False
+                self.sig_msg.emit(data.get('sender', '?'), data['ip'], data['text'], False, bool(is_enc))
                 
             elif evt_type == EV_MSG_SENT:
                 # 自己发送的消息 (Core 发送成功后才通知，比乐观更新更可靠)
@@ -207,3 +218,17 @@ class Bridge(QThread):
     def get_quick_texts(self):
         """获取常用语列表"""
         return self.core.get_quick_texts()
+
+    # --- 额外的查询接口，供 GUI 主动查询会话/加密状态（向后兼容 chat.py 的防御性调用） ---
+    def is_encrypted(self, ip: str) -> bool:
+        try:
+            sess = self.core._get_session(ip)
+            return getattr(sess, 'state', None) == SessionState.ESTABLISHED
+        except Exception:
+            return False
+
+    def has_session(self, ip: str) -> bool:
+        try:
+            return ip in getattr(self.core, 'sessions', {})
+        except Exception:
+            return False

@@ -25,6 +25,8 @@ class Session:
         self._log_func = debug_logger
         
         self.state = SessionState.NONE
+        # 记录对端公钥指纹（或摘要），用于检测密钥变化
+        self.peer_fp: Optional[str] = None
         
         # 密钥材料
         self.key: Optional[bytes] = None      # 32字节 ChaCha20 Key

@@ -4,13 +4,15 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QListView,
                              QTextEdit, QPushButton, QStyledItemDelegate, 
                              QAbstractItemView, QLabel, QSplitter, QFrame,
                              QStyle, QFileDialog, QApplication, QMenu, QAction,
-                             QSizePolicy, QToolButton)
+                             QSizePolicy, QToolButton, QLineEdit)
 from PyQt5.QtCore import (Qt, QAbstractListModel, QModelIndex, QSize, 
                           QRect, QTimer, pyqtSignal, QEvent)
 import shutil
 import subprocess
 from PyQt5.QtGui import QPainter, QColor, QFontMetrics, QBrush, QPen, QFont, QKeyEvent, QCursor, QDesktopServices
 from PyQt5.QtCore import QUrl
+from gui.lang import L
+from gui.styles import CHAT_COLOR_ME_ENC, CHAT_COLOR_RX_ENC, CHAT_COLOR_UNENC_BG, CHAT_COLOR_UNENC_BORDER
 
 # 常量定义
 MSG_TYPE_TEXT = 'text'
@@ -24,7 +26,7 @@ class UserListModel(QAbstractListModel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.users = [{
-            'type': 'all', 'name': '所有人 (广播)', 'ip': 'all', 
+            'type': 'all', 'name': L('broadcast_hall'), 'ip': 'all', 
             'host': '', 'status': 'online'
         }]
 
@@ -40,7 +42,7 @@ class UserListModel(QAbstractListModel):
     def update_data(self, new_list):
         self.beginResetModel()
         self.users = [{
-            'type': 'all', 'name': '所有人 (广播)', 'ip': 'all', 
+            'type': 'all', 'name': L('broadcast_hall'), 'ip': 'all', 
             'host': '', 'status': 'online'
         }] + new_list
         self.endResetModel()
@@ -117,6 +119,28 @@ class UserDelegate(QStyledItemDelegate):
         painter.setBrush(QBrush(status_color))
         painter.drawEllipse(s_rect)
 
+        painter.restore()
+
+
+class LightUserDelegate(QStyledItemDelegate):
+    """轻量级用户委托：用于搜索结果显示，只绘制一行简洁信息以减小渲染成本。"""
+    def sizeHint(self, option, index):
+        return QSize(option.rect.width(), 28)
+
+    def paint(self, painter, option, index):
+        data = index.data(Qt.DisplayRole)
+        if not data: return
+        painter.save()
+        rect = option.rect
+        if (option.state & QStyle.State_Selected) != 0:
+            painter.fillRect(rect, QColor("#e6e6e6"))
+        name = data.get('name', '')
+        ip = data.get('ip', '')
+        painter.setPen(QColor("#333"))
+        font = painter.font()
+        font.setPointSize(10)
+        painter.setFont(font)
+        painter.drawText(rect.adjusted(8, 0, -8, 0), int(Qt.AlignLeft | Qt.AlignVCenter), f"{name}    {ip}")
         painter.restore()
 
 # ==========================================
@@ -239,6 +263,7 @@ class ChatDelegate(QStyledItemDelegate):
 
     def _paint_text_bubble(self, painter, rect, data, option):
         is_me = data['is_me']
+        encrypted = bool(data.get('encrypted', False))
         text = data['text']
         
         # 计算气泡大小
@@ -252,14 +277,23 @@ class ChatDelegate(QStyledItemDelegate):
         bubble_h = text_rect.height() + (self.bubble_padding * 2)
         bubble_y = rect.top() + 30 
         
-        if is_me:
-            bubble_x = rect.right() - bubble_w - 15
-            bg_color = QColor("#95EC69") 
-            border_color = QColor("#85D659")
+        if encrypted:
+            if is_me:
+                bubble_x = rect.right() - bubble_w - 15
+                bg_color = QColor(CHAT_COLOR_ME_ENC)
+                border_color = QColor(CHAT_COLOR_ME_ENC)
+            else:
+                bubble_x = rect.left() + 15
+                bg_color = QColor(CHAT_COLOR_RX_ENC)
+                border_color = QColor(CHAT_COLOR_RX_ENC)
         else:
-            bubble_x = rect.left() + 15
-            bg_color = QColor("#FFFFFF")
-            border_color = QColor("#E0E0E0")
+            # 未加密消息统一白底
+            if is_me:
+                bubble_x = rect.right() - bubble_w - 15
+            else:
+                bubble_x = rect.left() + 15
+            bg_color = QColor(CHAT_COLOR_UNENC_BG)
+            border_color = QColor(CHAT_COLOR_UNENC_BORDER)
 
         bubble_rect = QRect(bubble_x, bubble_y, bubble_w, bubble_h)
 
@@ -402,36 +436,23 @@ class ChatPage(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # === 顶部导航栏 (保持不变) ===
-        top_bar = QWidget()
-        top_bar.setFixedHeight(50)
-        top_bar.setStyleSheet("background-color: #f5f5f5; border-bottom: 1px solid #dcdcdc;")
-        top_layout = QHBoxLayout(top_bar)
-        top_layout.setContentsMargins(15, 0, 15, 0)
-        
-        self.lbl_title = QLabel("群聊大厅 (广播)")
-        self.lbl_title.setStyleSheet("font-size: 16px; font-weight: 600; color: #333;")
-        top_layout.addWidget(self.lbl_title)
-        
-        top_layout.addStretch()
-        
-        self.btn_settings = QPushButton("⚙️ 设置")
-        self.btn_settings.setFixedSize(80, 30)
-        self.btn_settings.setCursor(Qt.PointingHandCursor)
-        self.btn_settings.clicked.connect(self._open_settings)
-        top_layout.addWidget(self.btn_settings)
-        
-        main_layout.addWidget(top_bar)
-
         # === 核心区域 ===
         splitter = QSplitter(Qt.Horizontal)
         splitter.setHandleWidth(1)
         splitter.setStyleSheet("QSplitter::handle { background: #dcdcdc; }")
         
         # --- 左侧：用户列表 (保持不变) ---
+        # 搜索框（轻量级匹配用户 / IP / 组）
+        self.search_box = QLineEdit()
+        self.search_box.setPlaceholderText(L('search_placeholder'))
+        self.search_box.setFixedHeight(30)
+        self.search_box.setClearButtonEnabled(True)
+        self.search_box.textChanged.connect(self._on_search_text)
+
         self.user_list = QListView()
         self.user_model = UserListModel()
         self.user_delegate = UserDelegate()
+        self.light_delegate = LightUserDelegate()
         self.user_list.setModel(self.user_model)
         self.user_list.setItemDelegate(self.user_delegate)
         self.user_list.setFrameShape(QFrame.NoFrame)
@@ -440,9 +461,50 @@ class ChatPage(QWidget):
         self.user_list.clicked.connect(self._on_user_clicked)
         
         left_panel = QWidget()
+        # 左侧面板使用与消息区相近的背景，避免白色块视觉不协调
+        left_panel.setStyleSheet("background: #f5f5f5;")
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0,0,0,0)
+        left_layout.addWidget(self.search_box)
+        # 用户列表背景设为透明，让面板背景承接，避免突兀的白色块
+        self.user_list.setStyleSheet("background: transparent;")
         left_layout.addWidget(self.user_list)
+        left_layout.addStretch()
+
+        # 左下角：设置 & 组管理
+        left_bottom = QWidget()
+        left_bottom.setStyleSheet("background: transparent;")
+        lb_layout = QHBoxLayout(left_bottom)
+        lb_layout.setContentsMargins(8,8,8,8)
+        lb_layout.setSpacing(8)
+        # 使用 QToolButton 保持与上方工具栏一致的风格
+        self.btn_settings = QToolButton()
+        self.btn_settings.setText(L('btn_settings'))
+        self.btn_settings.setCursor(Qt.PointingHandCursor)
+        self.btn_settings.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        self.btn_settings.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+        self.btn_settings.setStyleSheet("""
+            QToolButton { border: 1px solid transparent; border-radius: 4px; padding: 4px; color: #444; }
+            QToolButton:hover { background-color: #f0f0f0; border: 1px solid #dcdcdc; }
+            QToolButton:pressed { background-color: #e0e0e0; }
+        """)
+        self.btn_settings.clicked.connect(self._open_settings)
+
+        self.btn_group = QToolButton()
+        self.btn_group.setText(L('btn_group'))
+        self.btn_group.setCursor(Qt.PointingHandCursor)
+        self.btn_group.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        self.btn_group.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+        self.btn_group.setStyleSheet("""
+            QToolButton { border: 1px solid transparent; border-radius: 4px; padding: 4px; color: #444; }
+            QToolButton:hover { background-color: #f0f0f0; border: 1px solid #dcdcdc; }
+            QToolButton:pressed { background-color: #e0e0e0; }
+        """)
+        self.btn_group.clicked.connect(self._open_group_manager)
+
+        lb_layout.addWidget(self.btn_group)
+        lb_layout.addWidget(self.btn_settings)
+        left_layout.addWidget(left_bottom)
         left_panel.setMinimumWidth(200)
         left_panel.setMaximumWidth(350)
         
@@ -454,6 +516,24 @@ class ChatPage(QWidget):
         right_layout.setContentsMargins(0,0,0,0)
         right_layout.setSpacing(0)
 
+        # 右上：用户信息（当前选中目标）
+        right_top = QWidget()
+        right_top.setFixedHeight(48)
+        rt_layout = QHBoxLayout(right_top)
+        rt_layout.setContentsMargins(12, 6, 12, 6)
+        self.lbl_title = QLabel(L('broadcast_hall'))
+        self.lbl_title.setStyleSheet("font-size: 15px; font-weight: 600; color: #333;")
+        rt_layout.addWidget(self.lbl_title)
+        # 会话加密状态显示：右侧显示（绿色=已加密，红色=未加密）
+        self.lbl_status = QLabel("")
+        self.lbl_status.setStyleSheet("font-size:12px; padding:2px 6px; border-radius:4px;")
+        self.lbl_encrypt_status = QLabel("")
+        self.lbl_encrypt_status.setStyleSheet("font-size:12px; padding:2px 6px; border-radius:4px;")
+        rt_layout.addStretch()
+        rt_layout.addWidget(self.lbl_status)
+        rt_layout.addWidget(self.lbl_encrypt_status)
+        right_layout.addWidget(right_top)
+
         self.chat_list = QListView()
         self.chat_model = ChatModel()
         self.chat_delegate = ChatDelegate()
@@ -462,7 +542,31 @@ class ChatPage(QWidget):
         self.chat_list.setFrameShape(QFrame.NoFrame)
         self.chat_list.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.chat_list.setSelectionMode(QAbstractItemView.NoSelection)
-        self.chat_list.setStyleSheet("background: #f5f5f5;")
+        # 现代化的细滚动条样式，与发送框一致：细长、圆角把手，hover 加深；在不支持样式的平台上视觉上接近隐藏
+        self.chat_list.setStyleSheet("""
+            QListView { background: #f5f5f5; }
+            QScrollBar:vertical {
+                background: transparent;
+                width: 8px;
+                margin: 0px 0px 0px 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: rgba(0,0,0,0.18);
+                min-height: 22px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: rgba(0,0,0,0.30);
+            }
+            QScrollBar::add-line, QScrollBar::sub-line {
+                height: 0px;
+            }
+            QScrollBar::add-page, QScrollBar::sub-page {
+                background: none;
+            }
+            """
+        )
+        
         # 点击聊天项（用于打开已下载的文件等交互）
         self.chat_list.clicked.connect(self._on_chat_clicked)
         
@@ -503,11 +607,11 @@ class ChatPage(QWidget):
             if slot: btn.clicked.connect(slot)
             return btn
 
-        self.btn_emoji = _create_tool_btn("表情", self._on_btn_emoji)
-        self.btn_screen = _create_tool_btn("截图", self._on_btn_screen)
-        self.btn_quick = _create_tool_btn("常用语", self._on_btn_quick)
-        self.btn_file = _create_tool_btn("文件", self._send_file_action)
-        self.btn_ocr = _create_tool_btn("识字", self._request_ocr) # 确保连接到正确的 request 函数
+        self.btn_emoji = _create_tool_btn(L('btn_emoji'), self._on_btn_emoji)
+        self.btn_screen = _create_tool_btn(L('btn_screen'), self._on_btn_screen)
+        self.btn_quick = _create_tool_btn(L('btn_quick'), self._on_btn_quick)
+        self.btn_file = _create_tool_btn(L('btn_file'), self._send_file_action)
+        self.btn_ocr = _create_tool_btn(L('btn_ocr'), self._request_ocr) # 确保连接到正确的 request 函数
         
         toolbar.addWidget(self.btn_emoji)
         toolbar.addWidget(self.btn_screen)
@@ -520,7 +624,7 @@ class ChatPage(QWidget):
         input_layout.addLayout(toolbar)
         
         self.input_edit = QTextEdit()
-        self.input_edit.setPlaceholderText("发送消息... (Enter 发送，Shift+Enter 换行)")
+        self.input_edit.setPlaceholderText(L('input_placeholder'))
         self.input_edit.setFrameShape(QFrame.NoFrame)
         # [新增] 设置最小高度，防止压得太扁
         self.input_edit.setMinimumHeight(56) 
@@ -558,7 +662,7 @@ class ChatPage(QWidget):
         send_bar = QHBoxLayout()
         send_bar.addStretch()
         
-        self.btn_send = QPushButton("发送(S)")
+        self.btn_send = QPushButton(L('send_button'))
         # [修改] 发送按钮也改为自适应策略，不仅限固定大小
         self.btn_send.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
         self.btn_send.setMinimumWidth(80)
@@ -609,13 +713,251 @@ class ChatPage(QWidget):
         self.bridge.sig_file_done.connect(self.chat_model.update_file_done)
         
         self.bridge.sig_nodes_changed.connect(lambda n: self._refresh_users())
+        # 语言变更：立即更新界面可见文本
+        try:
+            self.bridge.sig_lang_changed.connect(self._on_language_changed)
+        except Exception:
+            pass
+        try:
+            self.bridge.sig_theme_changed.connect(self._on_theme_changed)
+        except Exception:
+            pass
+        # 加密状态变更及时反映到 UI
+        try:
+            self.bridge.sig_enc_state.connect(self._on_enc_state)
+        except Exception:
+            pass
         
         # [新增] 连接 OCR 完成信号
         self.bridge.sig_ocr_done.connect(self._on_ocr_result)
 
+        # 初始化时保持完整委托
+        self._using_light_delegate = False
+
+    def _on_search_text(self, text: str):
+        """搜索框回调：接收文本后触发用户列表刷新（轻量级匹配）。"""
+        # 直接调用刷新（可以在未来加入防抖）
+        try:
+            self._refresh_users()
+        except Exception:
+            pass
+
+    def _is_encrypted_with(self, target_ip: str) -> bool:
+        """尝试从 bridge 查询与 target_ip 的会话是否已建立加密通道。
+        如果 bridge 未提供相关接口，则返回 False（保守不显示已加密）。"""
+        try:
+            fn = getattr(self.bridge, 'is_encrypted', None)
+            if callable(fn):
+                return bool(fn(target_ip))
+        except Exception:
+            pass
+        # 备用尝试：bridge 可能暴露 session/registry，尝试常见属性名（防御性）
+        try:
+            fn2 = getattr(self.bridge, 'has_session', None)
+            if callable(fn2):
+                return bool(fn2(target_ip))
+        except Exception:
+            pass
+        return False
+
+    def _set_encrypt_label(self, encrypted: bool):
+        if encrypted:
+            self.lbl_encrypt_status.setText(L('encrypted', '已加密'))
+            self.lbl_encrypt_status.setStyleSheet("color: #1e7e34; background: rgba(30,126,52,0.06); border: 1px solid rgba(30,126,52,0.12); padding:2px 6px; border-radius:4px; font-size:12px;")
+        else:
+            self.lbl_encrypt_status.setText(L('unencrypted', '未加密'))
+            self.lbl_encrypt_status.setStyleSheet("color: #b21b1b; background: rgba(178,27,27,0.04); border: 1px solid rgba(178,27,27,0.12); padding:2px 6px; border-radius:4px; font-size:12px;")
+
+    def _status_to_text_and_color(self, status: str):
+        if not status:
+            return (L('status_offline'), "#777")
+        s = status.lower()
+        if s == 'online':
+            return (L('status_online'), "#2ecc71")
+        if s == 'busy' or s == '忙碌':
+            return (L('status_busy'), "#e74c3c")
+        if s == 'away' or s == '离开':
+            return (L('status_away'), "#f39c12")
+        return (status, "#777")
+
+    def _set_status_label(self, status: str):
+        text, color = self._status_to_text_and_color(status)
+        self.lbl_status.setText(text)
+        # 边框与轻背景以提高可读性
+        self.lbl_status.setStyleSheet(f"color: {color}; background: rgba(0,0,0,0); border: 1px solid rgba(0,0,0,0); padding:2px 6px; border-radius:4px; font-size:12px;")
+
     def _refresh_users(self):
         user_list = self.bridge.get_user_list()
-        self.user_model.update_data(user_list)
+        # 如果 search box 有内容，优先进行轻量级匹配并使用轻量委托
+        q = self.search_box.text().strip()
+        if q:
+            ql = q.lower()
+            filtered = []
+            for u in user_list:
+                name = (u.get('name') or '').lower()
+                ip = (u.get('ip') or '').lower()
+                typ = (u.get('type') or '').lower()
+                if ql in name or ql in ip or ql in typ:
+                    # 轻量对象，减少复杂字段
+                    filtered.append({'type': u.get('type'), 'name': u.get('name'), 'ip': u.get('ip'), 'status': u.get('status','offline')})
+            self.user_model.update_data(filtered)
+            # 切换到轻量委托
+            if not self._using_light_delegate:
+                self.user_list.setItemDelegate(self.light_delegate)
+                self._using_light_delegate = True
+            # 如果当前目标在过滤结果中，更新 current_target 的 status
+            try:
+                cur_ip = self.current_target.get('ip') if self.current_target else None
+                if cur_ip and cur_ip != 'all':
+                    for u in filtered:
+                        if u.get('ip') == cur_ip:
+                            # 同步最新状态
+                            self.current_target.update(u)
+                            self._set_status_label(u.get('status'))
+                            break
+            except Exception:
+                pass
+        else:
+            # 恢复完整用户列表与委托
+            # 在更新前，确保当前聊天目标不会被意外移除：
+            new_list = list(user_list)
+            cur_ip = None
+            try:
+                cur_ip = self.current_target.get('ip')
+            except Exception:
+                cur_ip = None
+
+            if cur_ip and cur_ip != 'all':
+                # 优先尝试用最新的列表条目覆盖 current_target，保证 status 等字段是最新的
+                matched = None
+                for u in new_list:
+                    if u.get('ip') == cur_ip:
+                        matched = u
+                        break
+                if matched:
+                    # 使用最新对象更新 current_target 的字段
+                    try:
+                        # 保证保留 type/name/ip 等字段
+                        self.current_target.update(matched)
+                    except Exception:
+                        self.current_target = matched
+                else:
+                    # 把当前目标保留到列表顶部（紧接广播后）
+                    new_list.insert(0, self.current_target)
+
+            self.user_model.update_data(new_list)
+            if self._using_light_delegate:
+                self.user_list.setItemDelegate(self.user_delegate)
+                self._using_light_delegate = False
+
+        # 更新加密状态显示（主动查询 + 事件驱动会通过 sig_enc_state 触发）
+        try:
+            target_ip = (self.current_target.get('ip') if self.current_target else 'all') or 'all'
+            enc = False if (not target_ip or target_ip == 'all') else self._is_encrypted_with(target_ip)
+            self._set_encrypt_label(enc)
+            # 同步当前目标的在线状态到右上显示
+            try:
+                stat = (self.current_target.get('status') if self.current_target else '') or ''
+                self._set_status_label(stat)
+            except Exception:
+                self._set_status_label('')
+        except Exception:
+            self._set_encrypt_label(False)
+
+    def _on_enc_state(self, peer_ip: str, state: str):
+        """Bridge 发来的加密状态变化通知，若与当前目标匹配则立即更新 UI。"""
+        try:
+            if not self.current_target:
+                return
+            cur_ip = self.current_target.get('ip')
+            if cur_ip and cur_ip == peer_ip:
+                # 简单逻辑：当握手建立时，将加密标签设为 True
+                if isinstance(state, str) and state.upper() in ("ESTABLISHED", "1"):
+                    self._set_encrypt_label(True)
+                else:
+                    # 其它状态认为未加密
+                    self._set_encrypt_label(False)
+                    # 如果是 RESET，提示状态栏
+                    try:
+                        if isinstance(state, str) and state.upper() == "RESET":
+                            # 底栏提示：加密已重置
+                            from gui.lang import L
+                            self._append_sys_msg(L('enc_reset', '加密已重置，正在重新握手...'))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    def _on_language_changed(self, lang_code: str):
+        """当语言更改时刷新聊天相关的可见文本。"""
+        try:
+            # 更新按钮/占位文本
+            self.btn_emoji.setText(L('btn_emoji'))
+            self.btn_screen.setText(L('btn_screen'))
+            self.btn_quick.setText(L('btn_quick'))
+            self.btn_file.setText(L('btn_file'))
+            self.btn_ocr.setText(L('btn_ocr'))
+            try:
+                self.btn_settings.setText(L('btn_settings'))
+            except Exception:
+                pass
+            try:
+                self.btn_group.setText(L('btn_group'))
+            except Exception:
+                pass
+            try:
+                self.input_edit.setPlaceholderText(L('input_placeholder'))
+            except Exception:
+                pass
+            try:
+                # 发送按钮可能是一个普通按钮或 ToolButton
+                if hasattr(self, 'btn_send'):
+                    self.btn_send.setText(L('send_button'))
+            except Exception:
+                pass
+            # 更新当前标题（广播/群组/用户）
+            try:
+                if not self.current_target or self.current_target.get('type') == 'all':
+                    self.lbl_title.setText(L('broadcast_hall'))
+                elif self.current_target.get('type') == 'group':
+                    name = self.current_target.get('name')
+                    self.lbl_title.setText(f"{L('group_prefix')}{name}")
+                else:
+                    name = self.current_target.get('name')
+                    ip = self.current_target.get('ip')
+                    self.lbl_title.setText(f"{name} ({ip})")
+            except Exception:
+                try:
+                    self.lbl_title.setText(L('broadcast_hall'))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def _on_theme_changed(self, theme_code: str):
+        """Apply simple theme adjustments when theme changes. This is a lightweight
+        handler: it updates some widgets' background and logs the change. A
+        full theme engine should apply QPalette/QSS across the app.
+        """
+        try:
+            # store current theme for possible later use
+            self._current_theme = theme_code
+            # apply minimal visual change: adjust chat list background if style available
+            try:
+                from gui.styles import BACKGROUND_PANEL
+                bg = BACKGROUND_PANEL
+                # For dark theme prefer a darker background if defined
+                if theme_code == 'dark':
+                    bg = '#2b2b2b'
+                self.chat_list.setStyleSheet(f"QListView {{ background: {bg}; }}")
+            except Exception:
+                pass
+            try:
+                self.bridge.sig_log.emit('INFO', f"Theme applied: {theme_code}")
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     def _on_user_clicked(self, index):
         data = self.user_model.data(index)
@@ -626,11 +968,24 @@ class ChatPage(QWidget):
         name = data.get('name')
         ip = data.get('ip')
         if data.get('type') == 'all':
-            self.lbl_title.setText("群聊大厅 (广播)")
+            self.lbl_title.setText(L('broadcast_hall'))
         elif data.get('type') == 'group':
-            self.lbl_title.setText(f"群组: {name}")
+            # use localized group prefix
+            self.lbl_title.setText(f"{L('group_prefix')}{name}")
         else:
             self.lbl_title.setText(f"{name} ({ip})")
+        # 选择用户时更新加密状态
+        try:
+            enc = False if (not ip or ip == 'all') else self._is_encrypted_with(ip)
+            self._set_encrypt_label(enc)
+            # update status label when user selected
+            try:
+                self._set_status_label(data.get('status') or '')
+            except Exception:
+                self._set_status_label('')
+        except Exception:
+            self._set_encrypt_label(False)
+            self._set_status_label('')
 
     def _on_chat_clicked(self, index: QModelIndex):
         """Handle clicks on chat items. If the item is a file message and the
@@ -665,16 +1020,16 @@ class ChatPage(QWidget):
                             pass
 
                     # 仍然无法打开，给出帮助性提示
-                    self._append_sys_msg('无法检测到可用的打开器。请确保已安装 xdg-utils 或在系统中为该文件类型设置默认应用。')
+                    self._append_sys_msg(L('detect_launcher_fail'))
                     return
             else:
                 # Show informative message depending on status
                 if status == 'transferring':
-                    self._append_sys_msg('文件正在传输中，请稍后打开。')
+                    self._append_sys_msg(L('file_transferring'))
                 elif status == 'waiting':
-                    self._append_sys_msg('文件尚未开始下载，等待接收或手动接受。')
+                    self._append_sys_msg(L('file_waiting'))
                 else:
-                    self._append_sys_msg('文件尚未下载或路径不可用。')
+                    self._append_sys_msg(L('file_unavailable'))
         except Exception as e:
             print(f"[Chat Click Error] {e}")
 
@@ -690,13 +1045,13 @@ class ChatPage(QWidget):
         self.input_edit.clear()
 
     def _send_file_action(self):
-        path, _ = QFileDialog.getOpenFileName(self, "选择文件")
+        path, _ = QFileDialog.getOpenFileName(self, L('select_file'))
         if not path:
             return
 
         # 如果目标为广播(all)，目前不支持广播文件发送；给出提示
         if self.current_target.get('ip') == 'all':
-            self._append_sys_msg("请选择具体的接收方再发送文件（广播不支持文件发送）")
+            self._append_sys_msg(L('send_file_prompt'))
             return
 
         # 向指定目标发送文件
@@ -725,6 +1080,7 @@ class ChatPage(QWidget):
             'user': name,
             'text': text,
             'is_me': is_me,
+            'encrypted': bool(is_enc),
             'time': datetime.datetime.now().strftime("%H:%M")
         }
         self.chat_model.add_message(msg_data)
@@ -755,19 +1111,24 @@ class ChatPage(QWidget):
         dlg.exec_()
         self._refresh_users()
 
+    def _open_group_manager(self):
+        """占位：组管理界面（待实现）"""
+        # 目前作为占位函数，避免 UI 按钮失效
+        self._append_sys_msg(L('group_mgr_placeholder'))
+
     # --- 工具栏槽函数 ---
     def _on_btn_emoji(self):
-        self._append_sys_msg("功能开发中：表情选择")
+        self._append_sys_msg(L('emoji_placeholder'))
 
     def _on_btn_screen(self):
         # 截图逻辑通常涉及: 隐藏主窗口 -> 截取全屏 -> 弹出裁剪框 -> 恢复窗口
-        self._append_sys_msg("功能开发中：屏幕截图")
+        self._append_sys_msg(L('screen_placeholder'))
 
     def _on_btn_quick(self):
         """弹出常用语菜单"""
         texts = self.bridge.get_quick_texts()
         if not texts:
-            self._append_sys_msg("暂无常用语配置 (可在 config/quick_texts.txt 编辑)")
+            self._append_sys_msg(L('no_quick_texts'))
             return
 
         menu = QMenu(self)
@@ -792,7 +1153,7 @@ class ChatPage(QWidget):
         self.input_edit.setFocus()
 
     def _request_ocr(self):
-        path, _ = QFileDialog.getOpenFileName(self, "选择图片进行OCR", "", "Images (*.png *.jpg *.bmp)")
+        path, _ = QFileDialog.getOpenFileName(self, L('ocr_select'), "", "Images (*.png *.jpg *.bmp)")
         if path:
             # 记录开始时间以便在回调时计算耗时
             try:
@@ -800,7 +1161,7 @@ class ChatPage(QWidget):
             except Exception:
                 self._ocr_start = None
 
-            self._append_sys_msg(f"正在识别: {os.path.basename(path)} ...")
+            self._append_sys_msg(L('ocr_in_progress').format(name=os.path.basename(path)))
             # 异步调用，结果将通过 sig_ocr_done 返回
             self.bridge.run_ocr(path)
 
@@ -810,11 +1171,11 @@ class ChatPage(QWidget):
         Parameters passed from Bridge: (text, engine_type, elapsed)
         """
         if not text:
-            self._append_sys_msg("OCR 未识别到文字。")
+            self._append_sys_msg(L('ocr_no_text'))
             return
             
         if text.startswith("Error") or text.startswith("OCR Error"):
-            self._append_sys_msg(f"OCR 失败: {text}")
+            self._append_sys_msg(L('ocr_fail').format(err=text))
         else:
             # 成功：直接回填到输入框，方便用户编辑发送
             # 如果输入框已有内容，先换行
@@ -846,9 +1207,9 @@ class ChatPage(QWidget):
                 real_elapsed = None
 
             if real_elapsed is None:
-                self._append_sys_msg(f"OCR 识别成功 ({eng_tag})，时间：未知")
+                self._append_sys_msg(L('ocr_success_unknown').format(engine=eng_tag))
             else:
-                self._append_sys_msg(f"OCR 识别成功 ({eng_tag})，时间： {real_elapsed:.2f} 秒")
+                self._append_sys_msg(L('ocr_success').format(engine=eng_tag, sec=f"{real_elapsed:.2f}"))
             self.input_edit.setFocus()
     
     def _append_sys_msg(self, text):

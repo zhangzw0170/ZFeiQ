@@ -1,11 +1,21 @@
 from PyQt5.QtWidgets import QMainWindow, QStackedWidget, QMessageBox
+from PyQt5.QtGui import QIcon
+import os
 from gui.login import LoginPage  # 下一步我们会写这个
+from gui.lang import L
 
 class MainWindow(QMainWindow):
     def __init__(self, bridge):
         super().__init__()
         self.bridge = bridge
         self.setWindowTitle("ZFeiQ")
+        # 尝试设置窗口图标
+        try:
+            icon_path = os.path.join(os.path.dirname(__file__), "assets", "zfeiq_icon_128x128.ico")
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+        except Exception:
+            pass
         
         # 适配 7寸屏 (1024x600) 或更小分辨率
         self.resize(800, 500)
@@ -15,7 +25,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.stack)
 
         # 状态栏
-        self.statusBar().showMessage("就绪")
+        self.statusBar().showMessage(L('ready'))
         self.statusBar().setStyleSheet(
             "QStatusBar { color: #666; background: #f0f0f0; border-top: 1px solid #ccc; }"
         )

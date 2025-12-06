@@ -431,6 +431,10 @@ class ZFeiQCore:
                     self.status = d.get('status', 'online')
                     self.encrypt_mode = d.get('encrypt_mode', 'on')
                     self.download_dir = d.get('download_dir', self.download_dir)
+                    # 新增：编码/语言/主题（可选项）
+                    self.encoding = d.get('encoding', self.encoding)
+                    setattr(self, 'language', d.get('language', getattr(self, 'language', 'zhCN')))
+                    setattr(self, 'theme', d.get('theme', getattr(self, 'theme', 'light')))
         except: pass
 
     def _load_groups(self):
@@ -443,7 +447,16 @@ class ZFeiQCore:
     def _save_config(self):
         try:
             self._ensure_dir(CONFIG_DIR)
-            d = {'username': self.username, 'status': self.status, 'encrypt_mode': self.encrypt_mode, 'download_dir': self.download_dir}
+            d = {
+                'username': self.username,
+                'status': self.status,
+                'encrypt_mode': self.encrypt_mode,
+                'download_dir': self.download_dir,
+                # 新增：编码/语言/主题（可选项）
+                'encoding': getattr(self, 'encoding', 'utf-8'),
+                'language': getattr(self, 'language', 'zhCN'),
+                'theme': getattr(self, 'theme', 'light'),
+            }
             with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
                 json.dump(d, f, indent=2)
         except: pass
@@ -473,6 +486,33 @@ class ZFeiQCore:
             )
         except Exception as e:
             self._emit(EV_LOG_ERR, msg=f"Identity Init Failed: {e}")
+
+    def regenerate_identity(self):
+        """Regenerate X25519 identity keypair, update fingerprint, and persist.
+        Will reset sessions and trigger re-handshake on next presence/traffic.
+        """
+        priv_path = os.path.join(KEYS_DIR, "identity.bin")
+        try:
+            self._ensure_dir(KEYS_DIR)
+            self._emit(EV_LOG_INFO, msg="Regenerating X25519 Identity Key...")
+            self.identity_priv, _ = generate_x25519_keypair()
+            with open(priv_path, "wb") as f:
+                f.write(dump_x25519_private_key(self.identity_priv))
+            from cryptography.hazmat.primitives import serialization
+            self.identity_pub_bytes = self.identity_priv.public_key().public_bytes(
+                encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
+            )
+            # Reset all sessions so peers will re-handshake
+            try:
+                for ip, sess in list(self.sessions.items()):
+                    sess.reset()
+                    self._emit(EV_ENC_STATE, peer=ip, state="RESET")
+            except Exception:
+                pass
+            # Broadcast presence to announce new fingerprint
+            self._broadcast_presence()
+        except Exception as e:
+            self._emit(EV_LOG_ERR, msg=f"Identity Regen Failed: {e}")
 
     def _build_ext(self):
         caps = ["cap=ack"]
@@ -517,6 +557,26 @@ class ZFeiQCore:
                 if self.username and base == IPMSG_BR_ENTRY:
                     self.transport.send_unicast(src_ip, self._build_packet(IPMSG_ANSENTRY, self._build_ext()))
                 self._emit(EV_NODE_UPD)
+                # 检测对端密钥指纹变化（fp=...），如变化则重置会话并重新握手
+                try:
+                    fp = None
+                    if ext:
+                        for part in (ext or '').split('\0'):
+                            if part and 'fp=' in part:
+                                # 提取 fp= 的值（cap=enc;fp=xxxx 或单独字段）
+                                for kv in part.split(';'):
+                                    if kv.startswith('fp='):
+                                        fp = kv[3:]
+                                        break
+                    sess = self._get_session(src_ip)
+                    if fp and sess.peer_fp and fp != sess.peer_fp:
+                        # 对端更换密钥，重置本地加密状态并重新握手
+                        sess.reset()
+                        self._emit(EV_ENC_STATE, peer=src_ip, state="RESET")
+                    if fp and not sess.peer_fp:
+                        sess.peer_fp = fp
+                except Exception:
+                    pass
                 if self.encrypt_mode != "off" and self._get_session(src_ip).state == SessionState.NONE:
                     self._start_handshake(src_ip)
             elif base == IPMSG_BR_EXIT:
