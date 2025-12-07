@@ -76,9 +76,9 @@ class EmojiDelegate(QStyledItemDelegate):
         painter.save()
         # hover / selected backgrounds
         try:
-            if option.state & QStyle.State_Selected:
+            if (option.state & QStyle.State_Selected) != 0:
                 painter.fillRect(rect, QColor("#e6f7ff"))
-            elif option.state & QStyle.State_MouseOver:
+            elif (option.state & QStyle.State_MouseOver) != 0:
                 painter.fillRect(rect, QColor("#f5f5f5"))
         except Exception:
             pass
@@ -178,10 +178,18 @@ def show_emoji_popup(parent, emoji_list: List[str], on_select, icon_size=48, col
     try:
         popup.exec_(QCursor.pos())
     except Exception:
-        popup.exec_()
+        # Fallbacks: try exec_ without explicit position, then non-blocking popup
+        try:
+            popup.exec_()
+        except Exception:
+            try:
+                popup.popup(QCursor.pos())
+            except Exception:
+                # Give up silently; UI will continue running
+                pass
 
 
-def build_emoji_list(default_unicode: List[str], custom_dir: str = None, include_manager: bool = False) -> List[str]:
+def build_emoji_list(default_unicode: List[str], custom_dir: str = "", include_manager: bool = False) -> List[str]:
     """Return combined emoji list (unicode first, then image paths from custom_dir).
 
     If include_manager is True, append a special marker string at the end which
