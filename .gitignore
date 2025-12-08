@@ -2,6 +2,7 @@
 common/*
 PPOCRv4/*
 RKNN-dependence/*
+legacy_ZFeiQ/ZFeiQ_Original/commons/*
 
 ### Python.gitignore
 
