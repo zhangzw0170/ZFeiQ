@@ -556,6 +556,30 @@ class ChatPage(QtWidgets.QWidget):
             self._append_log(key, f"sys {text}")
             return
 
+        # 加密/握手原始帧抑制：不展示密文原文
+        raw = (text or "").strip()
+        if (
+            raw.startswith("ENC ") or raw.startswith("ENC2 ") or
+            raw.startswith("ENC;") or raw.startswith("ENC2;") or raw.startswith("ENCREADY;") or
+            raw.startswith("KX1 ") or raw.startswith("KX2 ") or
+            raw.startswith("KX1;") or raw.startswith("KX2;")
+        ):
+            display = self._translations.get('cipher_not_shown', '加密消息解密失败')
+            bubble_bg = "#FFFFFF"
+            html_bubble = (
+                "<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse; margin:2px 0;'>"
+                "<tr><td align='left' style='border:none;'>"
+                f"<span style='display:inline-block; max-width:70%; background:{bubble_bg}; color:#111; padding:6px 10px;"
+                " border-radius:10px; border:1px solid #e6e6e6;'>"
+                f"<b>{escape(sender)}</b> @ {escape(ip)}<br/>{escape(display)}"
+                "</span>"
+                "</td></tr></table>"
+            )
+            self._view_all.append(html_bubble)
+            self._ensure_view(key, label).append(html_bubble)
+            self._append_log(key, f"<< {sender}@{ip}: [cipher suppressed]")
+            return
+
         bubble_bg = "#FFFFFF"
         # 使用 table 100% 宽度 + 单元格对齐，避免不同平台对 div/p align 解释不一致
         html_bubble = (

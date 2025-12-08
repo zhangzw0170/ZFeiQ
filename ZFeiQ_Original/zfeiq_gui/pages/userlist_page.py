@@ -129,7 +129,8 @@ class UserListPage(QtWidgets.QWidget):
             self.list.addItem(item)
         self._apply_filter()
         try:
-            self.lbl_count.setText(self._info_templates.get("nodes", "在线节点: {count}").format(count=len(nodes)))
+            online_only = [n for n in nodes if getattr(n, "status", "online") == "online" and getattr(n, "ip", "") != (self._info_cache.get("local_ip") or "")]
+            self.lbl_count.setText(self._info_templates.get("nodes", "在线节点: {count}").format(count=len(online_only)))
         except Exception:
             pass
 

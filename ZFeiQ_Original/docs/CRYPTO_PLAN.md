@@ -38,8 +38,8 @@ crypto.py:
 增加 HKDF 辅助（优先用 cryptography.hazmat.primitives.kdf.hkdf.HKDF，回退 Crypto.Protocol.KDF.HKDF 或基于 hashlib 的简版 HKDF）。
 cli.py:
 新增 self._sessions[ip] = {key: bytes, sid: bytes, send_ctr: int, last_ts: float} 与简单过期策略（如 30 分钟或 N 次消息）。
-BR_ENTRY/ANSENTRY 后：若 encrypt_mode in (on, strict) 且已知对端公钥但无会话，发送 KX1；收到 KX1 时回 KX2；收到 KX2 完成派生与建会话。
-发送消息：优先走 ENC2（会话密钥）；否则回退现有 ENC（RSA 包裹）。
+BR_ENTRY/ANSENTRY 后：若 encrypt_mode in (on, strict) 且已知对端公钥但无会话，发送 KX1；收到 KX1 时回 KX2；收到 KX2 完成派生后再交换 ENCREADY 确认帧，双向确认后才允许 ENC 流量。
+发送消息：优先走 ENC2（会话密钥），仅在本地/对端均确认 ENCREADY 后启用；否则回退现有 ENC（RSA 包裹）。
 接收消息：优先识别 ENC2 路径；落回 ENC 路径；对 sid/ctr 做简单去重/窗口检查以抑制重放。
 UI/提示:
 首次建会话提示“已与 X 建立加密会话（指纹 fp=...）”；指纹不匹配明显告警。

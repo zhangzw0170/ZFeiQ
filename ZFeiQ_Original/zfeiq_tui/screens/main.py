@@ -94,6 +94,51 @@ class MainScreen(Screen):
         style = 'bold yellow' if is_system else 'bold green'
         pre = '系统' if is_system else f'{sender}@{ip}'
         self.query_one('#chat_log', RichLog).write(f"[dim]{ts}[/] [{style}]{pre}[/]: {text}")
+        if not is_system:
+            self.post_encryption_update()
+
+    def post_encryption_update(self):
+        try:
+            self.update_header()
+            self.refresh_ui()
+        except Exception:
+            pass
+
+    def post_file_offer(self, sender: str, name: str, size: int):
+        try:
+            self.post_backend_message(sender, '-', f"文件提供: {name} ({size} bytes)", True)
+        except Exception:
+            pass
+
+    def post_offers_updated(self):
+        try:
+            self.post_backend_message('系统', '-', '附件列表已更新', True)
+            self.refresh_ui()
+        except Exception:
+            pass
+
+    def post_nodes_updated(self):
+        try:
+            self.refresh_ui()
+        except Exception:
+            pass
+
+    @on(ChatTextArea.Submitted)
+    def _on_text_submitted(self, event: ChatTextArea.Submitted):
+        text = (event.value or '').strip()
+        if not text:
+            return
+        if not self.target_id:
+            self.post_backend_message('系统', '-', '请先选择会话目标', True)
+            return
+        if self.target_id == 'all':
+            self.client.send_text('all', text)
+        else:
+            self.client.send_text(self.target_id, text)
+        try:
+            self.query_one('#msg_input', TextArea).focus()
+        except Exception:
+            pass
 
     # selection
     def on_list_view_selected(self, event: ListView.Selected):
@@ -111,7 +156,23 @@ class MainScreen(Screen):
         self.update_header(); self.query_one('#msg_input').focus()
 
     def update_header(self):
-        txt = '未选择' if not self.target_id else f"{self.target_display} [{self.target_status}] ({self.target_ip})"
+        if not self.target_id:
+            txt = '未选择'
+        else:
+            enc_flag = ''
+            try:
+                zcli = self.client.zcli
+                if zcli and self.target_ip and self.target_ip != 'all' and hasattr(zcli, '_sessions'):
+                    if zcli._sessions.get(self.target_ip):
+                        enc_flag = ' · 通讯已加密'
+                    else:
+                        # 仅在加密模式下显示未加密提示
+                        mode = getattr(zcli, 'encrypt_mode', 'on')
+                        if mode and mode != 'off':
+                            enc_flag = ' · 未加密'
+            except Exception:
+                pass
+            txt = f"{self.target_display} [{self.target_status}] ({self.target_ip}){enc_flag}"
         self.query_one('#chat_header', Label).update(txt)
 
     # refresh

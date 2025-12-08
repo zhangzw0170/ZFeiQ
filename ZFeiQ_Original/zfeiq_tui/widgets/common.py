@@ -7,7 +7,7 @@ from textual.message import Message
 from textual.screen import ModalScreen
 from textual.binding import Binding
 from textual.containers import Container, Horizontal
-from textual.widgets import Label, DirectoryTree, Input, ListView, ListItem, TextArea
+from textual.widgets import Label, DirectoryTree, Input, ListView, ListItem, TextArea, Button, Select
 
 class ChatTextArea(TextArea):
     class Submitted(Message):
@@ -89,3 +89,58 @@ class SelectionModal(ModalScreen):
         label = event.item.query_one(Label)
         if label: self.callback(str(label.renderable))
         self.dismiss()
+
+class EncryptSettingsModal(ModalScreen):
+    BINDINGS=[Binding("enter","confirm","保存",priority=True), Binding("escape","cancel","取消",priority=True)]
+    def __init__(self, mode: str, cipher_on: bool, edtag_on: bool, callback: Callable[[str,bool,bool],None]):
+        super().__init__()
+        self._mode = mode if mode in ("off","on","strict") else "on"
+        self._cipher = bool(cipher_on)
+        self._edtag = bool(edtag_on)
+        self._callback = callback
+
+    def compose(self) -> ComposeResult:
+        with Container(classes="modal-box modal-md"):
+            yield Label("加密设置", classes="modal-title")
+            yield Label("模式", classes="modal-label")
+            yield Select((("关闭","off"),("启用","on"),("严格","strict")), value=self._mode, id="sel_mode")
+            yield Label("显示原始密文 (cipher)", classes="modal-label")
+            yield Select((("关闭","off"),("开启","on")), value="on" if self._cipher else "off", id="sel_cipher")
+            yield Label("显示 [E-D OK]", classes="modal-label")
+            yield Select((("关闭","off"),("开启","on")), value="on" if self._edtag else "off", id="sel_edtag")
+            with Horizontal():
+                yield Button("保存", id="btn_save")
+                yield Button("取消", id="btn_cancel")
+            yield Label("回车保存 / Esc 取消", classes="key-hint")
+
+    def on_mount(self):
+        try:
+            self.query_one("#sel_mode", Select).focus()
+        except Exception:
+            pass
+
+    def action_confirm(self):
+        try:
+            self._submit()
+        finally:
+            self.dismiss()
+
+    def action_cancel(self):
+        self.dismiss()
+
+    @on(Button.Pressed, "#btn_save")
+    def _on_save(self):
+        self.action_confirm()
+
+    @on(Button.Pressed, "#btn_cancel")
+    def _on_cancel(self):
+        self.action_cancel()
+
+    def _submit(self):
+        try:
+            mode = self.query_one("#sel_mode", Select).value or "on"
+            cipher = self.query_one("#sel_cipher", Select).value == "on"
+            edtag = self.query_one("#sel_edtag", Select).value == "on"
+            self._callback(mode, cipher, edtag)
+        except Exception:
+            pass

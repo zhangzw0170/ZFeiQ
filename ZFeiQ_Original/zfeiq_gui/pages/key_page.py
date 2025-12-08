@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-from PyQt5 import QtWidgets, QtGui
+from PyQt5 import QtWidgets, QtGui, QtCore
 
 
 class KeyPage(QtWidgets.QWidget):
@@ -106,6 +106,47 @@ class KeyPage(QtWidgets.QWidget):
     def set_backend(self, backend) -> None:
         """Attach GuiBackend (or object exposing `zcli`) to this widget."""
         self._backend = backend
+        self._sync_encryption_toggles()
+
+    def _sync_encryption_toggles(self) -> None:
+        cipher_on = False
+        edtag_on = False
+        try:
+            getter = getattr(self._backend, 'get_encrypt_show_cipher', None) if self._backend else None
+            if callable(getter):
+                cipher_on = bool(getter())
+            else:
+                z = getattr(self._backend, 'zcli', None) if self._backend else None
+                cipher_on = bool(getattr(z, 'encrypt_show_cipher', False)) if z else False
+        except Exception:
+            cipher_on = False
+        try:
+            getter_ed = getattr(self._backend, 'get_encrypt_edtag', None) if self._backend else None
+            if callable(getter_ed):
+                edtag_on = bool(getter_ed())
+            else:
+                z = getattr(self._backend, 'zcli', None) if self._backend else None
+                edtag_on = bool(getattr(z, 'encrypt_edtag', False)) if z else False
+        except Exception:
+            edtag_on = False
+        try:
+            blocker_cipher = QtCore.QSignalBlocker(self.chk_show_cipher)
+        except Exception:
+            blocker_cipher = None
+        try:
+            self.chk_show_cipher.setChecked(cipher_on)
+        except Exception:
+            pass
+        blocker_cipher = None
+        try:
+            blocker_edtag = QtCore.QSignalBlocker(self.chk_show_edtag)
+        except Exception:
+            blocker_edtag = None
+        try:
+            self.chk_show_edtag.setChecked(edtag_on)
+        except Exception:
+            pass
+        blocker_edtag = None
 
     def refresh_fingerprint(self) -> None:
         """Load/ensure keys via backend and update fingerprint display."""
@@ -223,10 +264,14 @@ class KeyPage(QtWidgets.QWidget):
         try:
             if not self._backend:
                 return
-            z = getattr(self._backend, 'zcli', None)
-            if not z:
-                return
-            z.encrypt_show_cipher = bool(checked)
+            setter = getattr(self._backend, 'set_encrypt_show_cipher', None)
+            if callable(setter):
+                setter(bool(checked))
+            else:
+                z = getattr(self._backend, 'zcli', None)
+                if not z:
+                    return
+                z.encrypt_show_cipher = bool(checked)
         except Exception:
             pass
 
@@ -234,9 +279,13 @@ class KeyPage(QtWidgets.QWidget):
         try:
             if not self._backend:
                 return
-            z = getattr(self._backend, 'zcli', None)
-            if not z:
-                return
-            z.encrypt_edtag = bool(checked)
+            setter = getattr(self._backend, 'set_encrypt_edtag', None)
+            if callable(setter):
+                setter(bool(checked))
+            else:
+                z = getattr(self._backend, 'zcli', None)
+                if not z:
+                    return
+                z.encrypt_edtag = bool(checked)
         except Exception:
             pass

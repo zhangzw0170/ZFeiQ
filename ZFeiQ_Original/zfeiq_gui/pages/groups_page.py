@@ -179,16 +179,7 @@ class GroupsPage(QtWidgets.QWidget):
             "busy": "🟠",
             "away": "⚪",
         }
-        # 在最顶添加 "All" 聚合页面（用于群发，通讯不加密）
-        from zfeiq_gui.lang import t
-        all_item = QtWidgets.QListWidgetItem(t['all_groups_label'])
-        all_item.setData(QtCore.Qt.UserRole, "all")
-        all_item.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-        try:
-            all_item.setSizeHint(QtCore.QSize(all_item.sizeHint().width(), 24))
-        except Exception:
-            pass
-        self.group_cards.addItem(all_item)
+        # 不再在组页插入 "ALL" 聚合入口；广播入口保留在用户页。
 
         for group_name in sorted(self._cached_groups.keys()):
             members = list(self._cached_groups.get(group_name, []))

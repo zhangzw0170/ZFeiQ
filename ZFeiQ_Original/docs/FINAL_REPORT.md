@@ -189,3 +189,202 @@
 
 ## 14. 结语
 ZFeiQ 在 Alpha 5.2 已满足课程核心要求，并以稳健的架构与简化的加密设计实现跨平台互通与可演示的边缘 AI 能力。本文档覆盖所有关键点的机理与取舍，便于后续维护、答辩与演进。
+
+---
+
+# Gemini 版本的最终报告
+
+这是一个非常详尽的 FINAL_REPORT.md，基于你提供的所有源代码文件进行了深度解析。随后附带了四个视角的评价与建议。
+FINAL_REPORT.md
+ZFeiQ 项目最终技术报告
+
+项目版本： Alpha 5.2 核心架构： Python (CLI Core) + PyQt5 (GUI) / Textual (TUI) 目标平台： Windows / Linux (重点适配 RK3566/Ubuntu Kylin 嵌入式环境)
+1. 项目概述 (Executive Summary)
+
+ZFeiQ 是一个基于 Python 开发的局域网即时通信系统。它不仅实现了经典的 IPMSG（飞秋/飞鸽传书）协议以保证与现有生态的互通性，还在其之上构建了一套现代化的安全层（Level B 加密），并针对瑞芯微 RK3566 边缘计算平台集成了 NPU 加速的 OCR（光学字符识别）功能。项目采用前后端分离的架构设计，核心逻辑封装在 CLI 层，支持 GUI 和 TUI 两种用户界面。
+2. 系统架构设计 (System Architecture)
+
+系统采用分层架构，确保核心逻辑的可复用性与界面的独立性。
+代码段
+
+graph TD
+    User[用户] --> GUI[GUI (PyQt5)]
+    User --> TUI[TUI (Textual)]
+    User --> CLI_Shell[CLI 交互层]
+    
+    GUI --> Backend[GuiBackend (Adapter)]
+    TUI --> ClientAdapter[ClientAdapter]
+    
+    Backend --> CLI_Core[ZFeiQCli (核心逻辑)]
+    ClientAdapter --> CLI_Core
+    CLI_Shell --> CLI_Core
+    
+    subgraph Core_Modules [核心模块]
+        CLI_Core --> Transport[UDP Transport]
+        CLI_Core --> Protocol[Protocol Parser/Builder]
+        CLI_Core --> Crypto[Crypto Engine (HKDF/AES-GCM)]
+        CLI_Core --> FileTransfer[TCP File Server/Client]
+        CLI_Core --> State[State Management (Registry/History)]
+        CLI_Core --> OCR[OCR Engine (RKNN/ONNX)]
+    end
+    
+    Transport --> Network((局域网 UDP/2425))
+    FileTransfer --> NetworkTCP((局域网 TCP/2425+))
+
+2.1 核心组件解析
+
+    zfeiq_cli (核心库): 承载所有业务逻辑，包括网络收发、协议解析、加密握手、文件传输调度。它不依赖任何 UI 库，可独立运行。
+
+    zfeiq_gui (桌面端): 基于 PyQt5，通过 GuiBackend 将核心的事件（如收到消息）转换为 Qt 信号（Signals），实现界面异步刷新。
+
+    zfeiq_tui (终端版): 基于 Textual 框架，专为无桌面环境或 SSH 远程连接场景设计，通过 ClientAdapter 驱动核心。
+
+    PPOCRv4 / zfeiq_ocr: 独立的 OCR 推理模块，支持根据硬件环境自动选择 RKNN (NPU) 或 ONNX Runtime (CPU) 后端。
+
+3. 详细运行机理 (Operating Mechanisms)
+3.1 网络传输层 (transport.py)
+
+    UDP 通信:
+
+        绑定策略: 在 Windows 上，socket 绑定到具体网卡 IP 以避免多网卡广播冲突；在 Linux 上，绑定到 0.0.0.0 以确保能收到所有广播包，发送时通过 iface_ip 辅助判断。
+
+        广播地址计算: 不简单使用 255.255.255.255，而是根据子网掩码（Prefix）计算定向广播地址（例如 192.168.1.255），以适应更复杂的网络拓扑。
+
+        接收线程: 启动名为 zfeiq-recv 的守护线程，循环执行 recvfrom(65535)，收到数据后通过回调函数分发给 CLI 层。
+
+    TCP 通信 (文件传输):
+
+        端口复用: 默认使用 2425 端口作为文件服务端口（兼容标准 IPMSG），同时支持随机临时端口（Ephemeral Ports）用于非标准文件传输。
+
+3.2 协议层 (protocol.py)
+
+    报文结构: 严格遵循 IPMSG 格式 Ver:PacketNo:User:Host:Command:Extension。
+
+        Ver: 版本号，固定为 "1"。
+
+        PacketNo: 毫秒级时间戳 + 随机数，用于去重和 ACK 确认。
+
+        Command: 32位整数，低8位为功能号（上线、发消息等），高24位为选项位（如 IPMSG_SENDCHECKOPT 要求回执）。
+
+        Extension: 扩展区域，承载消息正文、文件列表或加密元数据。
+
+    兼容性处理: 优先尝试 UTF-8 解码，失败回退到 GBK/Latin-1，完美解决与旧版“飞秋”互通时的乱码问题。
+
+3.3 安全与加密机制 (Level B Implementation) - crypto.py & cli.py
+
+ZFeiQ 5.2 引入了基于会话的加密方案，解决了传统 RSA 逐条加密性能低且无前向安全的问题。
+
+    公钥交换 (IPMSG_GETPUBKEY):
+
+        节点上线时广播携带 cap=enc 能力位。
+
+        首次通信前，双方通过 IPMSG 扩展协议交换 RSA-3072 公钥。
+
+        指纹验证: 计算公钥的 SHA-256 指纹，与广播报文中的指纹比对，防止简单的中间人欺骗。
+
+    会话握手 (HKDF-only KX):
+
+        KX1: 发起方生成 32 字节随机种子 seedA，明文发送（Level B 设计，依赖后续签名或更高层级保护，当前侧重性能与防重放）。
+
+        KX2: 接收方生成 seedB，回复给发起方。
+
+        密钥派生: 双方按 IP 字典序拼接 seedA 和 seedB 得到 IKM，通过 HKDF-SHA256 派生出 32 字节的会话密钥 SessionKey 和 会话ID sid。
+
+    消息加密 (AES-GCM):
+
+        封装: ENC;sid=...;ctr=...;tag=...;b64=...
+
+        算法: AES-256-GCM。
+
+        防重放: 维护一个 recv_window 滑动窗口，记录接收到的计数器 ctr。
+
+        Nonce: 不随包传输，而是基于 SHA256(sid + ctr) 确定性派生，极大节省了带宽并防止了 Nonce 重用攻击。
+
+3.4 文件传输机理 (filetransfer.py)
+
+实现了两种传输模式：
+
+    IPMSG 兼容模式:
+
+        发送方在 UDP 报文 Extension 中附加文件元数据（以 \0 分隔）。
+
+        接收方解析元数据，发起 TCP 连接到发送方的 2425 端口。
+
+        发送方通过 IPMSG_GETFILEDATA 命令识别请求，发送文件流。
+
+    内部高速模式:
+
+        发送方创建一个临时的 SingleFileServer，监听随机端口。
+
+        通过 UDP 发送 FILE_OFFER 专有指令，包含端口号。
+
+        接收方直连该端口下载。这绕过了 IPMSG 协议的一些限制。
+
+3.5 边缘 AI (OCR) 实现
+
+    硬件感知: 启动时检测系统架构 (platform.machine()) 和依赖库。
+
+    RKNN 路径: 若检测到 aarch64 且存在 rknn_toolkit_lite2，则加载 .rknn 模型，直接调用 NPU 进行推理。
+
+    Fallback 路径: 若在 PC 上，自动回退到 CPU 运行（使用 ONNX 模型），确保代码“一次编写，到处运行”。
+
+    调用流: CLI 命令 /ocr -> ZFeiQOcr 单例 -> 预处理图片 -> 推理 -> 后处理文字坐标 -> 输出结果。
+
+3.6 GUI 实现细节 (zfeiq_gui)
+
+    前后端解耦: GuiBackend 类继承自 QObject，它劫持了 CLI 的 _on_recv 回调。当 UDP 线程收到数据时，Backend 并不直接操作 UI（这会导致崩溃），而是发射 pyqtSignal。Qt 的主事件循环捕获信号后，安全地更新 UI 组件。
+
+    优化策略: 针对 RK3566 较弱的 GPU，代码中包含 ZFEIQ_FORCE_SOFTGL 环境变量检测，强制使用软件渲染 OpenGL，并禁用了复杂的 UI 动画以提升响应速度。
+
+4. 建议与评价 (Perspectives & Advice)
+4.1 开发者自述 (My AI Perspective)
+
+评价: 代码结构非常清晰，模块化做得很好。特别是将 cli 核心逻辑完全剥离，使得 GUI 和 TUI 可以共用同一套大脑，这是非常成熟的工程实践。加密部分的 Level B 实现虽然使用了明文交换种子（HKDF-only），但在局域网信任域内是一个很好的性能与安全的平衡点。
+
+建议:
+
+    并发安全: _sessions 和 history 等字典在多线程（UDP接收线程 vs 主线程）下访问，虽然 Python 有 GIL，但对于复合操作仍建议加 threading.Lock。
+
+    异常处理: 文件传输的 download_file 循环中，异常捕获较宽泛，建议针对 ConnectionResetError 等网络异常做更细致的重试逻辑。
+
+    测试覆盖: 目前测试脚本集中在 tests/ 目录，建议引入 pytest 并增加对 crypto.py 的单元测试覆盖率。
+
+4.2 答辩老师视角 (Thesis Defense Teacher)
+
+评价: "这个项目完整度很高，不仅实现了基本的即时通信，还结合了具体的硬件平台（RK3566）做了特色功能（OCR）。你提到的加密协议 Level B 设计，虽然不是业界标准的 TLS，但体现了你对密码学原语（HKDF, AES-GCM, Nonce派生）的理解和运用，这点在本科/硕士生项目中是加分项。"
+
+建议 (刁钻问题预警):
+
+    创新点: "除了复刻飞秋，你的核心创新点是什么？" -> 回答策略: 重点强调 跨架构适配（x86/ARM）、轻量级加密协议设计 以及 边缘侧 NPU 的异构计算应用。
+
+    安全性: "KX1/KX2 明文交换种子如何防止中间人攻击？" -> 回答策略: 坦诚说明当前是基于“首次信任（TOFU）”或带外验证指纹的模型，Level B 侧重于会话的前向保密（部分）和防重放，而非强认证。
+
+    性能: "在板子上跑 OCR 会卡顿吗？" -> 回答策略: 展示 NPU vs CPU 的推理耗时对比数据（你的代码里有计时逻辑）。
+
+4.3 甲方视角 (Client / End User)
+
+评价: "功能倒是挺全的，能发文件，能截图，还能识别文字，这在办公场景挺实用。特别是那个‘通讯已加密’的提示，让人感觉很安全。但是，界面（GUI）看起来还是有点像工程师用的工具，不够‘现代化’。"
+
+建议:
+
+    易用性: "能不能做一个‘一键安装包’？现在还要装 Python 环境、pip install，对我们要部署的非技术员工太难了。" -> 建议打包为 exe/AppImage。
+
+    UI 美化: 现在的界面比较朴素，建议增加头像上传功能（目前似乎只是预留接口），并优化聊天气泡的样式。
+
+    稳定: "我在断网或者 IP 变了的时候，它能自动重连吗？" -> 确认 _rebind 逻辑在用户无感知的层面是否足够健壮。
+
+4.4 上市公司 CEO 视角 (CEO Perspective)
+
+评价: "ZFeiQ 切中了一个细分市场：政企内部安全通信。现在很多企业不允许使用微信/钉钉传文件，飞秋又太老旧且不安全。你的产品支持国产化信创环境（麒麟系统 + 瑞芯微芯片），这非常符合当前的国产替代大趋势。"
+
+建议:
+
+    商业模式: 不要只做 IM。要把 OCR、文件传输打包成“安全办公协作套件”。
+
+    护城河: 代码里的加密协议是私有的（虽然兼容 IPMSG），这是好事也是坏事。好事是可以卖“安全网关”，坏事是生态封闭。建议开发一个“网关版”，可以审计所有加密流量，这对企业客户非常有吸引力。
+
+    扩展性: 既然已经跑通了 NPU，下一步能不能做本地会议录音转写？这也是 NPU 的强项，且办公需求巨大。
+
+总结: ZFeiQ 是一个技术栈全面、工程实现扎实且具有鲜明硬件特色的优秀项目。它不仅仅是一个聊天软件，更是一个验证边缘计算、网络安全协议和跨平台 UI 开发的完整实验场。
+
+---

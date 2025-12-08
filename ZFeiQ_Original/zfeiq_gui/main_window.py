@@ -408,6 +408,19 @@ class MainWindow(QtWidgets.QMainWindow):
                     self._chat_page.username_label.setText(name)
                     self._chat_page.ip_label.setText(f"IP：{ip}")
                     try:
+                        # 同步显示对端实际状态（online/busy/away）并应用颜色指示
+                        raw = getattr(node, 'status', 'online')
+                        lang = getattr(getattr(backend, 'zcli', None), 'language', 'zhCN')
+                        status_map = {
+                            'zhCN': {'online':'在线','busy':'忙碌','away':'离开'},
+                            'enUS': {'online':'online','busy':'busy','away':'away'},
+                            'esES': {'online':'En línea','busy':'Ocupado','away':'Ausente'},
+                        }
+                        disp = status_map.get(lang, status_map['zhCN']).get(raw, raw)
+                        self._chat_page.set_user_status(name, disp, raw)
+                    except Exception:
+                        pass
+                    try:
                         enc_on = bool(getattr(backend, 'is_encrypted_target', lambda tid: False)(target_id))
                         self._chat_page.set_encryption_state(enc_on)
                     except Exception:
@@ -1009,6 +1022,12 @@ class MainWindow(QtWidgets.QMainWindow):
             # 监听加密状态变化，刷新当前聊天目标头部（更新加密指示）
             try:
                 backend.encryption_changed.connect(lambda: _refresh_target_header(self._chat_page.current_target_id()))
+            except Exception:
+                pass
+            # 显示握手/加密事件到窗口底栏
+            try:
+                if hasattr(backend, 'enc_log'):
+                    backend.enc_log.connect(lambda msg: self.statusBar().showMessage(msg, 4000))
             except Exception:
                 pass
             # 密钥管理页绑定

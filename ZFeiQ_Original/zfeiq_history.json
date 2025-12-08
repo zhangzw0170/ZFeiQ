@@ -1,0 +1,338 @@
+[
+{
+"ts": 1764857528.7370763,
+"direction": "in",
+"user": "rasp",
+"ip": "172.20.10.7",
+"target": "me",
+"text": "ENC;sid=TwZm/yGbkDU=;ctr=1;tag=RKhWmW7DiL26aCjPg8AQhQ==;b64=Rn6QdNvOJqrzHi9G"
+},
+{
+"ts": 1764857537.115154,
+"direction": "in",
+"user": "rasp",
+"ip": "172.20.10.7",
+"target": "me",
+"text": "ENC;sid=TrGXLCeCoWc=;ctr=1;tag=zrG1SaNNZjJTCZ+wWzfFtg==;b64=4O2PXozrtoHLZA=="
+},
+{
+"ts": 1764857545.6616879,
+"direction": "in",
+"user": "rasp",
+"ip": "172.20.10.7",
+"target": "me",
+"text": "ENC;sid=TrGXLCeCoWc=;ctr=2;tag=kgUCDarmp6GJx4AFdxp3cw==;b64=CbKr+w=="
+},
+{
+"ts": 1764857551.1374896,
+"direction": "out",
+"user": "win",
+"ip": "172.20.10.2",
+"target": "ip:172.20.10.7",
+"text": "nihaoshijie"
+},
+{
+"ts": 1764858420.1259089,
+"direction": "in",
+"user": "rk_zzw0170",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=3O+LaLPRXME=;ctr=1;tag=KWoxGVAe9+n4cPLXL0OWhw==;b64=5NWLKm5YwYC0xA=="
+},
+{
+"ts": 1764858426.8307703,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "dfgaf"
+},
+{
+"ts": 1764858433.6489596,
+"direction": "in",
+"user": "rk_zzw0170",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=MzP0psb+Mhw=;ctr=1;tag=+KVlgn+i9afgl5rOTG/KXQ==;b64=Dl6vnvNyrys7OQ=="
+},
+{
+"ts": 1764858827.643181,
+"direction": "out",
+"user": "win_zzw0170",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "hello encrypted message from WIN-PC to RK3566"
+},
+{
+"ts": 1764858839.4977145,
+"direction": "out",
+"user": "win_zzw0170",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "[ENC-TEST]"
+},
+{
+"ts": 1764858848.7851768,
+"direction": "out",
+"user": "win_zzw0170",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "hello encrypted message from WIN-PC to RK3566"
+},
+{
+"ts": 1764858904.648045,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "123456"
+},
+{
+"ts": 1764858911.2369735,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=cMrDxG/whZM=;ctr=1;tag=MSlnOSOATlAV0BgjNdSreQ==;b64=gdMQUlBR"
+},
+{
+"ts": 1764858921.3348029,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=cMrDxG/whZM=;ctr=2;tag=y6jXHaY5jB1CoB5c2oXqRA==;b64=hkudzU1J"
+},
+{
+"ts": 1764858976.7265549,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=1YXNE6ThAkA=;ctr=1;tag=UVArjbxjoDXjEA4UYyPPvA==;b64=5F1+3yC8"
+},
+{
+"ts": 1764858980.9138951,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "123456"
+},
+{
+"ts": 1764859224.0166628,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=2QAEnijD8ss=;ctr=1;tag=rjP/tX4b91lxrH9l/Q/0Ag==;b64=Ce1EAspX/8sKbQ=="
+},
+{
+"ts": 1764859230.5361097,
+"direction": "out",
+"user": "w",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "123456"
+},
+{
+"ts": 1764859236.706093,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=2QAEnijD8ss=;ctr=2;tag=a/E1oX4DMLq5/YxIqAL6Kw==;b64=L/U/pEJ6"
+},
+{
+"ts": 1764859369.416902,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=izPwXbW1xVs=;ctr=1;tag=nsgTtXWwUwNRnawSgT/3cQ==;b64=CJZipT5UXeYUFA=="
+},
+{
+"ts": 1764859374.396006,
+"direction": "out",
+"user": "w",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "123456"
+},
+{
+"ts": 1764859378.2552786,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=izPwXbW1xVs=;ctr=2;tag=HvtH7+FmCmnYE81TCP66jg==;b64=Vadfzl07"
+},
+{
+"ts": 1764859901.9821312,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=g6P2gkDQSSI=;ctr=1;tag=RY9uV7VJROK4z0BeJ+ffPA==;b64=1tPu"
+},
+{
+"ts": 1764859912.486011,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=aO3YCbAsvCI=;ctr=1;tag=DV+A7M622KSi40ANMhYn8Q==;b64=fU0G0+FcN8Mpig=="
+},
+{
+"ts": 1764859922.6078467,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=aO3YCbAsvCI=;ctr=2;tag=ngkMOzoYnWJp4Vo2DI3CcQ==;b64=LVs2LsOc"
+},
+{
+"ts": 1764859925.311475,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "123123"
+},
+{
+"ts": 1764860788.1873498,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=e8Prg0b5vxM=;ctr=1;tag=bPyz0JbGIBzSDJxSBnJJ1g==;b64=UI3RRyqur+8P9w=="
+},
+{
+"ts": 1764860793.939457,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "123456"
+},
+{
+"ts": 1764860801.2921329,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=e8Prg0b5vxM=;ctr=2;tag=Mqo2w+QGRi3ttUMCWo+6tw==;b64=UMYzVlA/"
+},
+{
+"ts": 1764860803.2550972,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=e8Prg0b5vxM=;ctr=3;tag=IemUJjXdPDi8eI8bOgNlaQ==;b64=Dk2OoXL1"
+},
+{
+"ts": 1764861070.552755,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=jvbgoDx4ogw=;ctr=1;tag=rxWnSOVUEx6qmmF5iOKTMA==;b64=Ax/ReFDnSmtp1h9u"
+},
+{
+"ts": 1764861078.3042114,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "123456"
+},
+{
+"ts": 1764861231.5927913,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "hello world"
+},
+{
+"ts": 1764861246.7309568,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=rrdHcXF75Rc=;ctr=1;tag=i1YO8Olp/zuSYaE7YSzIxg==;b64=FtDxDfo9Ba0WYlCP8w=="
+},
+{
+"ts": 1764861373.8118408,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=hzPa2HwHrr8=;ctr=1;tag=edA4HDg3g8aBwHRprCsEoA==;b64=OwE="
+},
+{
+"ts": 1764861377.4258292,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=hzPa2HwHrr8=;ctr=2;tag=Ggl28HjACQzTNTvonvkVaw==;b64=HklLGBw="
+},
+{
+"ts": 1764861397.1077576,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "sasd"
+},
+{
+"ts": 1764861402.2646646,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "sasdfgadf"
+},
+{
+"ts": 1764861577.4935436,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "how"
+},
+{
+"ts": 1764861760.349449,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "ljhjnb"
+},
+{
+"ts": 1764861973.4731107,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=nPxdqG8NeMI=;ctr=1;tag=31khpxwGoafGjwueZ0+bLQ==;b64=/acCleXE"
+},
+{
+"ts": 1764861980.0028365,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=nPxdqG8NeMI=;ctr=2;tag=ovIc3ki/LCoa59b7YfhDzA==;b64=4s+2PQ=="
+},
+{
+"ts": 1764861981.8987134,
+"direction": "out",
+"user": "/win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "sdafdv"
+}
+]

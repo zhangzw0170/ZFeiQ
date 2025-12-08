@@ -7,7 +7,7 @@ from textual.binding import Binding
 
 from .screens.login import LoginScreen
 from .screens.main import MainScreen
-from .widgets.common import MessageModal
+from .widgets.common import MessageModal, SelectionModal, InputModal, EncryptSettingsModal
 from .services.client import ClientAdapter
 
 class ZFeiQTuiApp(App):
@@ -26,6 +26,10 @@ class ZFeiQTuiApp(App):
     # high-level API used by screens
     def login(self, username: str, bind_ip: str):
         self.client.on_message = self._on_backend_message
+        self.client.on_encryption_changed = self._on_encryption_changed
+        self.client.on_file_offer = self._on_file_offer
+        self.client.on_offers_updated = self._on_offers_updated
+        self.client.on_nodes_updated = self._on_nodes_updated
         self.client.start(username, bind_ip)
         self._main = MainScreen(self.client)
         self.switch_screen(self._main)
@@ -52,11 +56,33 @@ class ZFeiQTuiApp(App):
         self.push_screen(MessageModal('帮助 / Help', help_text))
 
     def show_settings(self):
-        self.push_screen(MessageModal('设置', '设置页尚未实现'))
+        mode, cipher, edtag = self.client.get_encrypt_settings()
+        def _apply(new_mode: str, cipher_on: bool, edtag_on: bool):
+            self.client.set_encrypt_mode(new_mode)
+            self.client.set_encrypt_cipher_print(cipher_on)
+            self.client.set_encrypt_edtag(edtag_on)
+            self.notify(f"加密模式:{new_mode} cipher:{'开' if cipher_on else '关'} ED:{'开' if edtag_on else '关'}")
+        self.push_screen(EncryptSettingsModal(mode, cipher, edtag, _apply))
 
     def _on_backend_message(self, sender: str, ip: str, text: str, is_system: bool=False):
         if self._main:
             self.call_from_thread(self._main.post_backend_message, sender, ip, text, is_system)
+
+    def _on_encryption_changed(self):
+        if self._main:
+            self.call_from_thread(self._main.post_encryption_update)
+
+    def _on_file_offer(self, sender: str, name: str, size: int):
+        if self._main:
+            self.call_from_thread(self._main.post_file_offer, sender, name, size)
+
+    def _on_offers_updated(self):
+        if self._main:
+            self.call_from_thread(self._main.post_offers_updated)
+
+    def _on_nodes_updated(self):
+        if self._main:
+            self.call_from_thread(self._main.post_nodes_updated)
 
     @work(thread=True)
     def run_ocr_worker(self, path: str):

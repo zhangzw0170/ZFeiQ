@@ -16,13 +16,15 @@ class GuiBackend(QObject):
     file_progress = pyqtSignal(str, int)  # offer_id, bytes
     file_saved = pyqtSignal(str, str)     # offer_id, path
     encryption_changed = pyqtSignal()     # emitted after encrypt mode / session state changes
+    enc_log = pyqtSignal(str)             # human-readable encryption/handshake logs for status bar
 
     def __init__(self, port: int = 2425, bind_ip: Optional[str] = None):
         super().__init__()
         self.zcli = ZFeiQCli(port=port, bind_ip=bind_ip)
         # GUI 模式：静音用户向控制台的输出，仅保留日志
         try:
-            self.zcli.ui_silent = True
+            # 默认打开到命令行的加密日志输出（满足用户要求）
+            self.zcli.ui_silent = False
         except Exception:
             pass
         # keep original recv handler
@@ -31,6 +33,9 @@ class GuiBackend(QObject):
         self._active_downloads: Dict[str, threading.Event] = {}
         self._ui_theme = "light"  # light | dark
         self._ui_avatar = ""      # avatar image path (PNG/JPG)
+        # 握手节流：避免短时间内重复发起 KX1，导致会话状态不一致
+        self._kx_last: Dict[str, float] = {}
+        self._kx_inflight: Set[str] = set()
         # Screenshot dir under project root (ZFeiQ_Original)
         PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
         self._screenshot_dir = ensure_dir('screenshots')  # 截图保存目录
@@ -55,15 +60,15 @@ class GuiBackend(QObject):
                 src_ip = addr[0]
                 if base == IPMSG_SENDMSG:
                     text = ext.split("\0", 1)[0] if ext else ""
-                    # 握手/会话相关：收到 KX1/KX2/ENC2/ENC 时通知界面刷新加密状态
+                    # 握手/会话相关：收到 KX1/KX2/ENC2/ENC 时，仅通知界面刷新一次加密状态
                     try:
-                        if text.startswith("KX1;") or text.startswith("KX2;") or text.startswith("ENC2;") or text.startswith("ENC;"):
+                        if text.startswith("KX1;") or text.startswith("KX2;") or text.startswith("ENC2;") or text.startswith("ENC;") or text.startswith("ENCREADY;"):
                             self.encryption_changed.emit()
                     except Exception:
                         pass
                     # 对握手原文 KX1/KX2：不作为普通消息展示
                     try:
-                        if text.startswith("KX1;") or text.startswith("KX2;"):
+                        if text.startswith("KX1;") or text.startswith("KX2;") or text.startswith("ENCREADY;"):
                             text = ""
                     except Exception:
                         pass
@@ -72,19 +77,19 @@ class GuiBackend(QObject):
                         if text.startswith("ENC2;") or text.startswith("ENC;"):
                             last_plain = None
                             try:
-                                hist = self.zcli.history.get(src_ip)
-                                for ts, d, t in reversed(hist):
-                                    if d == "in" and t and not t.startswith("["):
-                                        last_plain = t
-                                        break
+                                hist = self.zcli.history.get(src_ip) if self.zcli.history else None
+                                if hist:
+                                    for ts, d, t in reversed(hist):
+                                        if d == "in" and t and not t.startswith("["):
+                                            last_plain = t
+                                            break
                             except Exception:
                                 last_plain = None
                             if last_plain:
                                 self.message_signal.emit(user, src_ip, last_plain)
                                 self._record("in", user=user, ip=src_ip, target="me", text=last_plain)
-                            # 若 CLI 历史中没有找到可用明文，则保留 text，交由后续逻辑：
-                            # - 如果 CLI 解密失败，text 通常为 "[加密消息解密失败]"，也会进入聊天框，便于排查；
-                            # - 若 text 仍为 ENC*/原始帧，则由下方过滤逻辑阻止其作为普通消息展示。
+                                text = ""
+                            # 若 CLI 历史中没有找到可用明文，则保留 text，交由下游（如 ChatPage）展示占位
                     except Exception:
                         pass
                     # emit message for UI：仅普通文本（包括 "[加密消息解密失败]" 这类占位提示）
@@ -133,17 +138,47 @@ class GuiBackend(QObject):
                 elif base == IPMSG_GETFILEDATA:
                     # ignore
                     pass
+                else:
+                    # 非聊天类包（BR_ENTRY/BR_ABSENCE/BR_EXIT/ANSENTRY/ANSLIST/GETLIST 等）到达后，通知 GUI 刷新用户/组状态
+                    try:
+                        self.nodes_updated.emit()
+                    except Exception:
+                        pass
                 pass
             except Exception:
                 pass
 
         # monkeypatch
         self.zcli._on_recv = _wrapped_on_recv
+        # hook handshake event to also emit GUI status logs
+        try:
+            self._orig_handshake_event = getattr(self.zcli, '_handshake_event', None)
+        except Exception:
+            self._orig_handshake_event = None
+        if self._orig_handshake_event:
+            def _wrapped_handshake(ip: str, text: str):
+                try:
+                    self._orig_handshake_event(ip, text)
+                except Exception:
+                    pass
+                try:
+                    self.enc_log.emit(f"[ENC] {text}")
+                except Exception:
+                    pass
+            try:
+                self.zcli._handshake_event = _wrapped_handshake  # type: ignore[attr-defined]
+            except Exception:
+                pass
 
     def start(self):
         # load persisted state before start
         self._load_state()
         self.zcli.start()
+        try:
+            # 启动后立即刷新一次节点状态（包含在线/离开），避免等待定时器
+            self.nodes_updated.emit()
+        except Exception:
+            pass
         # GUI 启动后，根据当前加密模式立即刷新能力与会话，避免必须“登录前启用”才能生效
         try:
             mode = getattr(self.zcli, 'encrypt_mode', 'on')
@@ -176,6 +211,11 @@ class GuiBackend(QObject):
     # proxy methods
     def login(self, name: str):
         self.zcli.cmd_login(name)
+        try:
+            # 登录后立即广播一次当前状态并刷新 UI（online/busy/away）
+            self.nodes_updated.emit()
+        except Exception:
+            pass
         # 登录后若开启加密，立即刷新加密能力并尝试握手，提升 CLI-GUI 互通成功率
         try:
             if getattr(self.zcli, 'encrypt_mode', 'off') in ('on','strict'):
@@ -194,6 +234,11 @@ class GuiBackend(QObject):
 
     def discover(self, target_ip: Optional[str] = None):
         self.zcli.cmd_discover(target_ip)
+        try:
+            # 发现后刷新用户/组状态（包括在线计数），再尝试推进会话
+            self.nodes_updated.emit()
+        except Exception:
+            pass
         # 发现后若开启加密，尝试基于最新在线表推进会话建立
         try:
             if getattr(self.zcli, 'encrypt_mode', 'off') in ('on','strict'):
@@ -239,14 +284,12 @@ class GuiBackend(QObject):
                     self.offers_updated.emit()
                 except Exception:
                     pass
-            # cleanup thread record
+                try:
+                    self._active_downloads.pop(oid, None)
+                except Exception:
+                    pass
             try:
                 self._threads.remove(threading.current_thread())
-            except Exception:
-                pass
-            # cleanup stop event record
-            try:
-                self._active_downloads.pop(oid, None)
             except Exception:
                 pass
 
@@ -433,6 +476,8 @@ class GuiBackend(QObject):
                     status=self.zcli.status,
                     encoding=self.zcli.encoding,
                     encrypt_mode=getattr(self.zcli, 'encrypt_mode', 'on'),
+                    encrypt_show_cipher=bool(getattr(self.zcli, 'encrypt_show_cipher', False)),
+                    encrypt_edtag=bool(getattr(self.zcli, 'encrypt_edtag', False)),
                     keepalive=self.zcli.keepalive_interval,
                     expire=self.zcli.expire_seconds,
                     bind_ip=self.zcli.local_ip if getattr(self.zcli, '_bind_locked', False) else "",
@@ -511,6 +556,16 @@ class GuiBackend(QObject):
                 # 默认启用加密
                 try:
                     self.zcli.encrypt_mode = 'on'
+                except Exception:
+                    pass
+            if "encrypt_show_cipher" in cfg:
+                try:
+                    self.zcli.encrypt_show_cipher = bool(cfg.get("encrypt_show_cipher"))
+                except Exception:
+                    pass
+            if "encrypt_edtag" in cfg:
+                try:
+                    self.zcli.encrypt_edtag = bool(cfg.get("encrypt_edtag"))
                 except Exception:
                     pass
             if cfg.get("download_dir"):
@@ -609,6 +664,32 @@ class GuiBackend(QObject):
         except Exception:
             pass
 
+    def get_encrypt_show_cipher(self) -> bool:
+        try:
+            return bool(getattr(self.zcli, 'encrypt_show_cipher', False))
+        except Exception:
+            return False
+
+    def set_encrypt_show_cipher(self, enabled: bool):
+        try:
+            self.zcli.encrypt_show_cipher = bool(enabled)
+            self._flush_state_async()
+        except Exception:
+            pass
+
+    def get_encrypt_edtag(self) -> bool:
+        try:
+            return bool(getattr(self.zcli, 'encrypt_edtag', False))
+        except Exception:
+            return False
+
+    def set_encrypt_edtag(self, enabled: bool):
+        try:
+            self.zcli.encrypt_edtag = bool(enabled)
+            self._flush_state_async()
+        except Exception:
+            pass
+
     def get_pubkey_fingerprint(self) -> str:
         try:
             self._ensure_local_keys()
@@ -656,7 +737,13 @@ class GuiBackend(QObject):
             if target_id.startswith("ip:"):
                 ip = target_id[3:]
                 sess = getattr(self.zcli, "_sessions", {}).get(ip)
-                if sess and sess.get("key") and sess.get("sid"):
+                try:
+                    checker = getattr(self.zcli, "_session_can_encrypt", None)
+                    if callable(checker):
+                        return bool(checker(ip))
+                except Exception:
+                    pass
+                if sess and sess.get("key") and sess.get("sid") and sess.get("local_ready") and sess.get("peer_ready"):
                     return True
                 return False
             # group/all not encrypted per-session at present
@@ -681,6 +768,8 @@ class GuiBackend(QObject):
             peer_pub = getattr(self.zcli, '_peer_pubkeys', {}).get(ip)
             if peer_pub:
                 try:
+                    if not self._should_start_kx(ip):
+                        return
                     # 优先使用 CLI 暴露的显式接口：不依赖 encrypt_mode，仅按会话状态触发
                     force_kx = getattr(self.zcli, 'force_start_kx', None)
                     if callable(force_kx):
@@ -688,6 +777,8 @@ class GuiBackend(QObject):
                     else:
                         if not self.zcli._ensure_session(ip):
                             self.zcli._start_kx(ip)
+                    # 清理 in-flight 标记（延时），避免紧接着的重复触发
+                    self._clear_kx_inflight_later(ip)
                 except Exception:
                     pass
             else:
@@ -731,11 +822,13 @@ class GuiBackend(QObject):
                         purge(ip)
                     if not has_sess(ip):
                         # 同样优先使用显式的强制 KX 接口
-                        force_kx = getattr(self.zcli, 'force_start_kx', None)
-                        if callable(force_kx):
-                            force_kx(ip)
-                        else:
-                            self.zcli._start_kx(ip)
+                        if self._should_start_kx(ip):
+                            force_kx = getattr(self.zcli, 'force_start_kx', None)
+                            if callable(force_kx):
+                                force_kx(ip)
+                            else:
+                                self.zcli._start_kx(ip)
+                            self._clear_kx_inflight_later(ip)
                 except Exception:
                     pass
             # 在给定超时内轮询等待会话建立
@@ -806,9 +899,40 @@ class GuiBackend(QObject):
                     # 若已有公钥但未建立会话，发起 KX1
                     try:
                         if not self.zcli._ensure_session(ip):
-                            self.zcli._start_kx(ip)
+                            if self._should_start_kx(ip):
+                                self.zcli._start_kx(ip)
+                                self._clear_kx_inflight_later(ip)
                     except Exception:
                         pass
+        except Exception:
+            pass
+
+    # ---- KX1 防抖/节流 ----
+    def _should_start_kx(self, ip: str, min_interval: float = 3.0) -> bool:
+        try:
+            now = time.time()
+            last = float(self._kx_last.get(ip, 0.0))
+            if ip in self._kx_inflight:
+                return False
+            if now - last < max(0.5, min_interval):
+                return False
+            self._kx_last[ip] = now
+            self._kx_inflight.add(ip)
+            return True
+        except Exception:
+            return True
+
+    def _clear_kx_inflight_later(self, ip: str, delay: float = 1.5) -> None:
+        try:
+            def _clear():
+                try:
+                    self._kx_inflight.discard(ip)
+                except Exception:
+                    pass
+            th = threading.Timer(max(0.2, delay), _clear)
+            th.daemon = True
+            th.start()
+            self._threads.append(th)
         except Exception:
             pass
 

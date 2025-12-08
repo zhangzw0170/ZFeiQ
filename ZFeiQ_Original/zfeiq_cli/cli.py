@@ -204,7 +204,9 @@ class ZFeiQCli:
         self.registry = NodeRegistry()
         self.pending = PendingAck()
         self.history = ChatHistory()
-        # sessions: ip -> {key: bytes, sid: bytes(8), send_ctr: int, recv_ctr: int, recv_window: set[int], last_ts: float}
+        # sessions: ip -> {key: bytes, sid: bytes(8), send_ctr: int, recv_ctr: int, recv_window: set[int], last_ts: float,
+        #                     local_seed?: bytes, local_ready: bool, peer_ready: bool, ready_sent: bool,
+        #                     ready_announced: bool, await_peer_notice: bool, _first_enc2_sent?: bool}
         self._sessions = {}
         # encryption settings
         # 默认改为 on，便于用户无需手动开启即可进行公钥交换与加密通讯
@@ -279,7 +281,7 @@ class ZFeiQCli:
         ext = text
         try:
             if self.encrypt_mode in ("on", "strict"):
-                if self._ensure_session(ip):
+                if self._session_can_encrypt(ip):
                     s = self._sessions.get(ip) or {}
                     ctr = int(s.get("send_ctr") or 0) + 1
                     s["send_ctr"] = ctr
@@ -295,11 +297,22 @@ class ZFeiQCli:
                     except Exception:
                         pass
                 else:
-                    # 触发 HKDF-only 握手；严格模式下暂不发送
-                    self._start_kx(ip)
+                    if self._ensure_session(ip):
+                        # 我们已有密钥但对端尚未确认，确保发送 ready 帧并提示等待
+                        self._send_enc_ready(ip, notify=False, force=True)
+                        self._session_mark_waiting(ip)
+                    else:
+                        # 触发 HKDF-only 握手；严格模式下暂不发送
+                        self._start_kx(ip)
+                        if self.encrypt_mode == "strict":
+                            try:
+                                self._handshake_event(ip, f"尚无 ENC2 会话，已发起与 {ip} 的 HKDF 握手；严格模式下不发送")
+                            except Exception:
+                                pass
+                            return
                     if self.encrypt_mode == "strict":
                         try:
-                            self._handshake_event(ip, f"尚无 ENC2 会话，已发起与 {ip} 的 HKDF 握手；严格模式下不发送")
+                            self._handshake_event(ip, f"等待 {ip} 确认 ENC 会话，严格模式下暂不发送")
                         except Exception:
                             pass
                         return
@@ -367,6 +380,74 @@ class ZFeiQCli:
         s = self._sessions.get(ip) or {}
         return bool(isinstance(s.get('key'), (bytes, bytearray)) and isinstance(s.get('sid'), (bytes, bytearray)))
 
+    def _session_can_encrypt(self, ip: str) -> bool:
+        s = self._sessions.get(ip) or {}
+        return bool(
+            isinstance(s.get('key'), (bytes, bytearray))
+            and isinstance(s.get('sid'), (bytes, bytearray))
+            and bool(s.get('local_ready'))
+            and bool(s.get('peer_ready'))
+        )
+
+    def _session_mark_waiting(self, ip: str, session: Optional[dict] = None) -> None:
+        try:
+            s = session if session is not None else self._sessions.get(ip)
+            if not s:
+                return
+            if not s.get('local_ready'):
+                return
+            if s.get('await_peer_notice'):
+                return
+            s['await_peer_notice'] = True
+            self._sessions[ip] = s
+            self._handshake_event(ip, f"已派生 ENC 会话，等待 {ip} 确认加密就绪")
+        except Exception:
+            pass
+
+    def _send_enc_ready(self, ip: str, session: Optional[dict] = None, *, notify: bool = True, force: bool = False) -> None:
+        try:
+            s = session if session is not None else self._sessions.get(ip)
+            if not s:
+                return
+            sid = s.get('sid')
+            if not isinstance(sid, (bytes, bytearray)):
+                return
+            if s.get('ready_sent') and not force:
+                # 已发送过确认帧，除非显式 force，否则无需重复发送
+                return
+            text = f"ENCREADY;sid={b64e(sid)}"
+            pkt = build_packet(self.username or "?", self.hostname, IPMSG_SENDMSG, text, encoding=self.encoding)
+            self.transport.send_unicast(ip, pkt)
+            s['ready_sent'] = True
+            s.setdefault('local_ready', True)
+            # 若对端尚未确认，继续等待；否则关闭等待标记以避免误导日志
+            if s.get('peer_ready'):
+                s['await_peer_notice'] = False
+            else:
+                s['await_peer_notice'] = True
+                if notify:
+                    self._handshake_event(ip, f"已通知 {ip} 会话就绪，等待对端确认")
+            self._sessions[ip] = s
+            self._session_announce_ready(ip, s)
+        except Exception:
+            pass
+
+    def _session_announce_ready(self, ip: str, session: Optional[dict] = None) -> None:
+        """Emit a single log once双方已确认 ENC 会话可用。"""
+        try:
+            s = session if session is not None else self._sessions.get(ip)
+            if not isinstance(s, dict):
+                return
+            if s.get('ready_announced'):
+                return
+            if bool(s.get('local_ready')) and bool(s.get('peer_ready')):
+                s['ready_announced'] = True
+                s['await_peer_notice'] = False
+                self._sessions[ip] = s
+                self._handshake_event(ip, f"与 {ip} 的加密通讯已启用")
+        except Exception:
+            pass
+
     def _start_kx(self, ip: str, port_override: Optional[int] = None) -> None:
         """Send KX1 (HKDF-only): exchange random seeds in clear text.
 
@@ -406,7 +487,15 @@ class ZFeiQCli:
             except Exception:
                 self.transport.send_unicast(ip, pkt)
             # cache local seed until peer responds
-            self._sessions[ip] = {"local_seed": seed, "last_ts": time.time()}
+            self._sessions[ip] = {
+                "local_seed": seed,
+                "last_ts": time.time(),
+                "local_ready": False,
+                "peer_ready": False,
+                "ready_sent": False,
+                "ready_announced": False,
+                "await_peer_notice": False,
+            }
             self._handshake_event(ip, f"发送 KX1 到 {ip}")
         except Exception as e:
             try:
@@ -890,6 +979,9 @@ class ZFeiQCli:
 
         # 会话握手：KX1/KX2（级别B）
         if base == IPMSG_SENDMSG and (ext or "").startswith("KX1;"):
+            # 【新增】若本机加密已关闭，直接无视握手请求，阻断会话建立
+            if self.encrypt_mode == "off":
+                return
             # 忽略来自本机任一 IP 的握手包
             try:
                 local_ips = {ip for ip, _ in (_win_list_ipv4_addrs() if os.name == "nt" else _linux_list_ipv4_addrs())}
@@ -936,13 +1028,55 @@ class ZFeiQCli:
                 key = hkdf_sha256(ikm, info=b"zfeiq-aes256gcm", length=32)
                 import hashlib
                 sid = hashlib.sha256(ikm).digest()[:8]
-                self._sessions[src_ip] = {"key": key, "sid": sid, "send_ctr": 0, "recv_ctr": 0, "recv_window": set(), "last_ts": time.time(), "local_seed": seedB}
+                self._sessions[src_ip] = {
+                    "key": key,
+                    "sid": sid,
+                    "send_ctr": 0,
+                    "recv_ctr": 0,
+                    "recv_window": set(),
+                    "last_ts": time.time(),
+                    "local_seed": seedB,
+                    "local_ready": True,
+                    "peer_ready": False,
+                    "ready_sent": False,
+                    "ready_announced": False,
+                    "await_peer_notice": False,
+                }
                 if self.debug:
                     print(f"[DBG] session established with {src_ip} sid={b64e(sid)}")
                     self._print_prompt(suppress_next=False)
-                self._handshake_event(src_ip, f"与 {src_ip} 的会话已建立，可使用 ENC 加密通讯")
+                self._send_enc_ready(src_ip)
             except Exception:
                 pass
+            return
+        if base == IPMSG_SENDMSG and (ext or "").startswith("ENCREADY;"):
+            try:
+                fields = dict(x.split("=",1) for x in (seg.strip() for seg in ext.split(";") ) if "=" in x)
+                sid_bytes = b64d(fields.get("sid","")) if fields.get("sid") else None
+            except Exception:
+                sid_bytes = None
+            sess = self._sessions.get(src_ip)
+            if sess and isinstance(sid_bytes, (bytes, bytearray)) and isinstance(sess.get("sid"), (bytes, bytearray)):
+                try:
+                    if sess.get("sid") == sid_bytes:
+                        if not sess.get("peer_ready"):
+                            sess["peer_ready"] = True
+                            sess["await_peer_notice"] = False
+                            self._handshake_event(src_ip, f"{src_ip} 已确认 ENC 会话就绪")
+                        if sess.get("local_ready"):
+                            self._send_enc_ready(src_ip, sess, notify=False)
+                        self._session_announce_ready(src_ip, sess)
+                        self._sessions[src_ip] = sess
+                    else:
+                        if self.debug:
+                            print(f"[DBG] ENCREADY sid mismatch from {src_ip}")
+                            self._print_prompt(suppress_next=False)
+                except Exception:
+                    pass
+            else:
+                if self.debug:
+                    print(f"[DBG] ENCREADY from {src_ip} ignored: no matching session")
+                    self._print_prompt(suppress_next=False)
             return
         if base == IPMSG_SENDMSG and (ext or "").startswith("KX2;"):
             # 忽略来自本机任一 IP 的握手包
@@ -996,11 +1130,23 @@ class ZFeiQCli:
                 key = hkdf_sha256(ikm, info=b"zfeiq-aes256gcm", length=32)
                 import hashlib
                 sid = hashlib.sha256(ikm).digest()[:8]
-                self._sessions[src_ip] = {"key": key, "sid": sid, "send_ctr": 0, "recv_ctr": 0, "recv_window": set(), "last_ts": time.time()}
+                self._sessions[src_ip] = {
+                    "key": key,
+                    "sid": sid,
+                    "send_ctr": 0,
+                    "recv_ctr": 0,
+                    "recv_window": set(),
+                    "last_ts": time.time(),
+                    "local_ready": True,
+                    "peer_ready": False,
+                    "ready_sent": False,
+                    "ready_announced": False,
+                    "await_peer_notice": False,
+                }
                 if self.debug:
                     print(f"[DBG] session established with {src_ip} sid={b64e(sid)}")
                     self._print_prompt(suppress_next=False)
-                self._handshake_event(src_ip, f"收到 KX2 来自 {src_ip}，会话已建立，可使用 ENC 加密通讯")
+                self._send_enc_ready(src_ip)
             except Exception as e:
                 if self.debug:
                     print(f"[DBG] failed to process KX2 from {src_ip}: {e}")
@@ -1149,10 +1295,10 @@ class ZFeiQCli:
             # 会话加密：统一解析 ENC;sid=...（原 ENC2 语义）
             if text.startswith("ENC;"):
                 try:
-                    # 加密关闭时，直接忽略 ENC2（仍回 ACK，不噪声提示）
-                    if self.encrypt_mode == "off":
-                        text = ""
-                        raise RuntimeError("enc-off-ignore")
+                    # 【修改】注释掉下面 3 行，允许被动解密（只要手里有密钥）
+                    # if self.encrypt_mode == "off":
+                    #    text = ""
+                    #    raise RuntimeError("enc-off-ignore")
                     fields = dict(x.split("=",1) for x in (seg.strip() for seg in text.split(";") ) if "=" in x)
                     sid = b64d(fields.get("sid",""))
                     ctr = int(fields.get("ctr","0"))
