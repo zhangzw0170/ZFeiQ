@@ -123,6 +123,17 @@ class SettingsDialog(QDialog):
             # 回退到默认两个选项（带本地化标签）
             self.cmb_theme.clear()
             self.cmb_theme.addItem(L('theme_light'), 'light')
+            # 回显当前 core 的设置（持久化保存在 config.json）
+            try:
+                show_cipher = bool(getattr(self.bridge.core, 'show_cipher', False))
+                self.chk_raw.setChecked(show_cipher)
+            except Exception:
+                pass
+            try:
+                lvl = getattr(self.bridge.core, 'log_level', 'INFO')
+                self.chk_log_debug.setChecked(str(lvl).upper() == 'DEBUG')
+            except Exception:
+                pass
             self.cmb_theme.addItem(L('theme_dark'), 'dark')
             try:
                 theme = getattr(self.bridge.core, 'theme', 'light')
@@ -395,6 +406,18 @@ class SettingsDialog(QDialog):
             self.bridge.core.registry.upsert(self.bridge.core.local_ip, name, self.bridge.core.hostname, status)
         except Exception:
             pass
+        # Apply debug flags to core runtime
+        try:
+            try:
+                self.bridge.core.show_cipher = bool(self.chk_raw.isChecked())
+            except Exception:
+                pass
+            try:
+                self.bridge.core.log_level = 'DEBUG' if self.chk_log_debug.isChecked() else 'INFO'
+            except Exception:
+                pass
+        except Exception:
+            pass
         # 持久化配置
         try:
             # 更新 core 的内部配置对象（若有）并保存
@@ -406,6 +429,15 @@ class SettingsDialog(QDialog):
                 cfg['language'] = getattr(self.bridge.core, 'language', 'zhCN')
                 cfg['theme'] = getattr(self.bridge.core, 'theme', 'light')
                 cfg['encrypt_mode'] = getattr(self.bridge.core, 'encrypt_mode', 'on')
+                # debug flags
+                try:
+                    cfg['show_cipher'] = bool(self.chk_raw.isChecked())
+                except Exception:
+                    pass
+                try:
+                    cfg['log_level'] = 'DEBUG' if self.chk_log_debug.isChecked() else 'INFO'
+                except Exception:
+                    pass
                 if path_dl:
                     cfg['download_dir'] = path_dl
                 if path_sh:
@@ -453,6 +485,32 @@ class SettingsDialog(QDialog):
 
         self.bridge.sig_log.emit("INFO", f"设置已保存: {name}")
         self.accept()
+
+    def keyPressEvent(self, event):
+        """按键事件：在非多行文本控件获得焦点时，按 Enter 保存设置。
+
+        保持 Shift+Enter 在多行控件（如果出现）可用于换行。
+        """
+        try:
+            if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+                # 如果焦点在多行浏览器/编辑器上，保持默认行为
+                fw = self.focusWidget()
+                from PyQt5.QtWidgets import QTextEdit, QTextBrowser
+                if isinstance(fw, (QTextEdit, QTextBrowser)):
+                    return super().keyPressEvent(event)
+
+                # 仅在无修饰键时触发保存（避免 Alt/Ctrl+Enter 的特殊用途）
+                if event.modifiers() == Qt.NoModifier:
+                    try:
+                        self._save_and_close()
+                    except Exception:
+                        pass
+                    return
+
+        except Exception:
+            pass
+
+        return super().keyPressEvent(event)
 
     def _on_theme_changed(self, theme_code: str):
         """Apply minimal theme styles to Settings dialog widgets."""
