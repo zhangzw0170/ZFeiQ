@@ -1,5 +1,199 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Auto-test environment & diagnostic collector for NZFeiQ demos.
+
+This script performs non-root environment checks useful for
+diagnosing local single-host multi-node demo failures. It collects
+the following artifacts under `NZFeiQ/test/artifacts/YYYYmmdd_HHMMSS/`:
+
+- `ip_addr_lo.txt` : output of `ip addr show lo`
+- `bind_checks.txt` : results of trying to bind UDP to common demo
+  addresses/ports
+- `config.json` : copy of `common/config.json` if present
+- `files_check.txt` : presence checks for key repo files
+- optionally: demo stdout/stderr files when --run-demos is used
+
+Usage (from repo root):
+  python3 NZFeiQ/test/auto_test_requirements.py            # run checks only
+  python3 NZFeiQ/test/auto_test_requirements.py --run-demos --demo-timeout 20
+
+The script avoids requiring root; for kernel-level packet captures
+use the manual command suggested in `TEST.md` (tcpdump requires sudo).
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime
+import json
+import os
+import socket
+import subprocess
+import sys
+from pathlib import Path
+
+
+def run_cmd(cmd, cwd=None, timeout=10):
+    try:
+        p = subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+        return p.returncode, p.stdout, p.stderr
+    except subprocess.TimeoutExpired:
+        return 124, '', 'TIMEOUT'
+
+
+def ensure_dir(p: Path):
+    p.mkdir(parents=True, exist_ok=True)
+
+
+def try_bind(addr: str, port: int, family=socket.AF_INET) -> tuple[bool, str]:
+    s = None
+    try:
+        s = socket.socket(family, socket.SOCK_DGRAM)
+        s.settimeout(1.0)
+        s.bind((addr, port))
+        return True, 'OK'
+    except Exception as e:
+        return False, str(e)
+    finally:
+        if s:
+            s.close()
+
+
+def copy_if_exists(src: Path, dst: Path):
+    if src.exists():
+        with src.open('rb') as fsrc, dst.open('wb') as fdst:
+            fdst.write(fsrc.read())
+        return True
+    return False
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--run-demos', action='store_true', help='Run demo scripts after checks (may spawn processes)')
+    parser.add_argument('--demo-timeout', type=int, default=15, help='Timeout secs for each demo run')
+    args = parser.parse_args()
+
+    ts = datetime.datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    artifacts = Path('NZFeiQ') / 'test' / 'artifacts' / ts
+    ensure_dir(artifacts)
+
+    print('Artifacts directory:', artifacts)
+
+    # 1) Basic info
+    with (artifacts / 'env.txt').open('w') as f:
+        f.write('python: ' + sys.executable + '\n')
+        f.write('python_version: ' + sys.version.replace('\n', ' ') + '\n')
+        f.write('cwd: ' + os.getcwd() + '\n')
+
+    # 2) ip addr show lo
+    rc, out, err = run_cmd('ip addr show lo')
+    with (artifacts / 'ip_addr_lo.txt').open('w') as f:
+        f.write(out)
+        if err:
+            f.write('\n### STDERR ###\n')
+            f.write(err)
+
+    # 3) loopback alias checks
+    loop_missing = []
+    present = out
+    for i in range(2, 7):
+        ip = f'127.0.0.{i}'
+        ok = ip in present
+        with (artifacts / 'bind_checks.txt').open('a') as f:
+            f.write(f'check loopback alias {ip}: {ok}\n')
+        if not ok:
+            loop_missing.append(ip)
+
+    # 4) try binding common demo addresses/ports
+    # demo uses UDP 2425 by default
+    demo_port = 2425
+    addrs_to_try = ['127.0.0.1'] + [f'127.0.0.{i}' for i in range(2, 7)]
+    with (artifacts / 'bind_checks.txt').open('a') as f:
+        f.write('\n-- bind attempts --\n')
+        for a in addrs_to_try:
+            ok, msg = try_bind(a, demo_port)
+            f.write(f'bind {a}:{demo_port} -> {ok} ({msg})\n')
+
+    # 5) copy config.json
+    cfg_src = Path('common') / 'config.json'
+    if copy_if_exists(cfg_src, artifacts / 'config.json'):
+        try:
+            with (artifacts / 'config.json').open('r') as f:
+                cfg = json.load(f)
+            with (artifacts / 'files_check.txt').open('a') as f:
+                f.write('config.log_level: ' + str(cfg.get('log_level')) + '\n')
+        except Exception as e:
+            with (artifacts / 'files_check.txt').open('a') as f:
+                f.write('config.json parse error: ' + str(e) + '\n')
+    else:
+        with (artifacts / 'files_check.txt').open('a') as f:
+            f.write('common/config.json: MISSING\n')
+
+    # 6) check repo files
+    must_have = [
+        Path('NZFeiQ') / 'core' / 'engine.py',
+        Path('NZFeiQ') / 'core' / 'transport.py',
+        Path('NZFeiQ') / 'core' / 'session.py',
+        Path('NZFeiQ') / 'test' / 'demo_p2p_secure_loopback.py',
+        Path('NZFeiQ') / 'test' / 'demo_filetransfer.py',
+    ]
+    with (artifacts / 'files_check.txt').open('a') as f:
+        for p in must_have:
+            f.write(f'{p}: {p.exists()}\n')
+
+    # 7) optionally run demos (captured)
+    if args.run_demos:
+        demo_scripts = [
+            'NZFeiQ/test/demo_p2p_secure_loopback.py',
+            'NZFeiQ/test/demo_filetransfer.py',
+            'NZFeiQ/test/demo_groups_6users.py',
+        ]
+        for ds in demo_scripts:
+            if not Path(ds).exists():
+                with (artifacts / 'demo_runs.txt').open('a') as f:
+                    f.write(f'{ds}: MISSING\n')
+                continue
+            outf = artifacts / (Path(ds).stem + '.out.txt')
+            errf = artifacts / (Path(ds).stem + '.err.txt')
+            print('Running demo:', ds)
+            try:
+                p = subprocess.Popen([sys.executable, ds], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                try:
+                    so, se = p.communicate(timeout=args.demo_timeout)
+                except subprocess.TimeoutExpired:
+                    p.kill()
+                    so, se = p.communicate(timeout=5)
+                    se = (se or '') + '\n--- TIMEOUT ---'
+                with outf.open('w') as f:
+                    f.write(so or '')
+                with errf.open('w') as f:
+                    f.write(se or '')
+            except Exception as e:
+                with (artifacts / 'demo_runs.txt').open('a') as f:
+                    f.write(f'error running {ds}: {e}\n')
+
+    # 8) final summary
+    summary = []
+    summary.append('artifacts: ' + str(artifacts))
+    summary.append('loopback_missing: ' + ','.join(loop_missing) if loop_missing else 'loopback_missing: none')
+    summary.append('recommendation:')
+    if loop_missing:
+        summary.append(' - add loopback aliases (127.0.0.2..127.0.0.6) or run demos in multi-port mode')
+        summary.append(" - run: sudo timeout 10 tcpdump -i lo udp port 2425 -w /tmp/lo2425.pcap")
+    else:
+        summary.append(' - capture tcpdump while running demos and check for KX1/KX2/Offer packets')
+
+    with (artifacts / 'summary.txt').open('w') as f:
+        f.write('\n'.join(summary) + '\n')
+
+    print('\n'.join(summary))
+    print('\nArtifacts saved to', artifacts)
+
+
+if __name__ == '__main__':
+    main()
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 ZFeiQ Requirements Auto-Verification Script (Fixed)
 ===================================================

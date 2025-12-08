@@ -60,6 +60,36 @@ class MainWindow(QMainWindow):
 
         self.stack.addWidget(self.login_page)
 
+        # 如果配置中存在用户名并且开启了自动登录，则在短延迟后尝试自动登录并切换到聊天页，
+        # 这样可以给后台 Bridge 线程一点时间来启动 core.transport 等依赖项，避免在核心尚未就绪时创建聊天页导致异常。
+        try:
+            if getattr(self.bridge.core, 'username', None) and getattr(self.bridge.core, 'auto_login', False):
+                try:
+                    from PyQt5.QtCore import QTimer
+                    def _attempt_auto_login():
+                        try:
+                            self.bridge.login(self.bridge.core.username)
+                        except Exception:
+                            pass
+                        try:
+                            self.switch_to_chat()
+                        except Exception:
+                            pass
+                    # 延迟 600ms 再尝试（在大多数系统上足够让 Bridge 启动 core）
+                    QTimer.singleShot(600, _attempt_auto_login)
+                except Exception:
+                    # 回退到立即尝试（保底）
+                    try:
+                        self.bridge.login(self.bridge.core.username)
+                    except Exception:
+                        pass
+                    try:
+                        self.switch_to_chat()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
         # 2. 聊天页先留空 (Lazy Load)
         self.chat_page = None
 

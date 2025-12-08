@@ -17,6 +17,34 @@
 - **首次启动生成密钥**:
 	- 执行 CLI 会自动在 `common/keys/identity.bin` 生成 X25519 身份密钥。
 
+### 本地多回环测试（单机模拟多节点）
+
+若要在一台机器上模拟多个 P2P 节点（当前 `test/` 脚本使用不同回环地址如 `127.0.0.2`、`127.0.0.3` 等），需要在宿主机上临时添加回环别名并允许本地回环间通信。
+
+- 添加回环别名（需要 sudo）:
+```bash
+sudo ip addr add 127.0.0.2/8 dev lo
+sudo ip addr add 127.0.0.3/8 dev lo
+sudo ip addr add 127.0.0.4/8 dev lo
+sudo ip addr add 127.0.0.5/8 dev lo
+sudo ip addr add 127.0.0.6/8 dev lo
+ip addr show dev lo | grep 127.0.0
+```
+
+- 说明: 上述命令在重启后不会持久化；若不希望或无法执行 sudo，请参见下方“替代：单主机多端口模式”。
+
+- 运行 demo（在仓库根目录）：
+```bash
+cd NZFeiQ
+python3 test/demo_p2p_secure_loopback.py
+python3 test/demo_filetransfer.py
+python3 test/demo_groups_6users.py
+python3 test/auto_test_requirements.py
+```
+
+已验证行为：若回环别名正确添加，demo 能启动多个节点并进行 discover/file/group 测试；若仍有丢包/发现失败，请检查防火墙或本机网络策略。
+
+
 ```bash
 /usr/bin/python3 NZFeiQ/cli/main.py
 ```
@@ -262,3 +290,20 @@ exit
 
 ---
 如需将日志等级持久化到 `config.json`、或扩展自动化脚本输出更详细断言，请告知，我将追加实现与文档。
+
+
+## Notes: Enabling DEBUG and recent test run
+
+I changed `common/config.json` to set `"log_level": "DEBUG"` and re-ran the built-in demos from the repository (`test/demo_p2p_secure_loopback.py`, `test/demo_filetransfer.py`, `test/demo_groups_6users.py`, `test/auto_test_requirements.py`) to surface handshake and transport debug logs.
+
+Result: switching to `DEBUG` did not by itself fix the observed failures (missing Cipher OUT/IN, file Offer not received, group message drops). The DEBUG setting is useful because it allows session/transport debug events to be emitted, but the demos still showed missing/failed messages — indicating the problem is likely at the transport/socket routing or race conditions rather than purely log verbosity.
+
+Practical notes:
+- To force DEBUG at runtime without changing config, in CLI run: `log level DEBUG` (or have demos send that command to created CLIs).
+- If you want full session/transport trace, also enable `debug cipher on` in each CLI session to show cipher lines when encryption occurs.
+
+Next steps suggested:
+- Capture a `tcpdump -i lo udp port 2425` during a demo run to verify whether UDP packets (KX1/KX2/ENCREADY/Offer) are being emitted/received at the kernel level.
+- If UDP packets are present on `lo`, add temporary DEBUG prints in `core/transport.py` to log socket bind/recv results to determine whether the application is receiving them.
+
+---

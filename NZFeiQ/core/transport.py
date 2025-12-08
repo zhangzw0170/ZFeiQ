@@ -126,7 +126,13 @@ class UdpTransport:
         if not self.sock:
             raise RuntimeError("transport not started")
         try:
-            self._sock.sendto(data, (ip, int(port)))
-        except Exception:
-            # fallback to default port
-            self._sock.sendto(data, (ip, self.port))
+            # use the active socket; previously referenced `self._sock` which is undefined
+            self.sock.sendto(data, (ip, int(port)))
+        except Exception as e:
+            # log and attempt fallback to default port
+            self._log(f"[DEBUG] send_unicast_port to {ip}:{port} failed: {e}; falling back to default port {self.port}")
+            try:
+                self.sock.sendto(data, (ip, self.port))
+            except Exception as e2:
+                # If fallback also fails, log and give up
+                self._log(f"[DEBUG] fallback send_unicast_port to {ip}:{self.port} failed: {e2}")

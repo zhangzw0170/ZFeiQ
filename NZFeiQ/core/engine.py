@@ -32,11 +32,13 @@ from .crypto import (
     dump_x25519_private_key
 )
 
-CONFIG_DIR = "common"
+# Use repository-root-based config directory to avoid behavior changing with cwd.
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+CONFIG_DIR = os.path.join(REPO_ROOT, "common")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 GROUPS_FILE = os.path.join(CONFIG_DIR, "groups.json")
 KEYS_DIR = os.path.join(CONFIG_DIR, "keys")
-DOWNLOAD_DIR_DEFAULT = os.path.join(os.getcwd(), "common", "downloads")
+DOWNLOAD_DIR_DEFAULT = os.path.join(CONFIG_DIR, "downloads")
 QUICK_TEXTS_FILE = os.path.join(CONFIG_DIR, "quick_texts.txt")
 
 class ZFeiQCore:
@@ -54,6 +56,8 @@ class ZFeiQCore:
         self.encrypt_mode: str = "on"
         self.encoding: str = "utf-8"
         self.download_dir: str = DOWNLOAD_DIR_DEFAULT
+        # 是否在启动时自动使用保存的用户名登录
+        self.auto_login: bool = False
         
         self.groups: Dict[str, List[str]] = {}         
         self.quick_texts: List[str] = [] # 常用语列表缓存
@@ -119,7 +123,8 @@ class ZFeiQCore:
         self.transport.start()
         self._start_background_tasks()
         self._emit(EV_LOG_INFO, msg=f"Core started on {self.local_ip}:{self.transport.port}")
-        if self.username:
+        # 仅当配置中存在用户名且用户选择了自动登录时，启动时自动登录
+        if self.username and getattr(self, 'auto_login', False):
             self.login(self.username)
 
     def stop(self):
@@ -537,6 +542,11 @@ class ZFeiQCore:
                         self.visible_groups = set(d.get('visible_groups', []))
                     except Exception:
                         self.visible_groups = set()
+                    # 自动登录选项
+                    try:
+                        self.auto_login = bool(d.get('auto_login', False))
+                    except Exception:
+                        self.auto_login = False
         except: pass
 
     def _load_groups(self):
@@ -563,6 +573,9 @@ class ZFeiQCore:
                 'log_level': getattr(self, 'log_level', 'INFO'),
                 # 保存用户对群组可见性的偏好（可选）
                 'visible_groups': sorted(list(getattr(self, 'visible_groups', set())))
+                ,
+                # 自动登录偏好
+                'auto_login': bool(getattr(self, 'auto_login', False))
             }
             with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
                 json.dump(d, f, indent=2)
