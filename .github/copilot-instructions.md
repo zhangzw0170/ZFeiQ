@@ -1,78 +1,58 @@
-`.github/copilot-instructions.md` — ZFeiQ AI 代理快速上手
+.github/copilot-instructions.md — ZFeiQ AI agent quick start
 
-目的：让 AI 代理能在最短时间内安全、可审地修改仓库，重点提示高风险区域、常用命令、以及项目特有约定。
+目的
+- 为 AI 编码代理提供可直接执行的、仓库特定的开发启动说明：可运行命令、关键阅读顺序、以及对高风险区域的约束（尤其是协议/加密/持久化）。
 
-**快速命令**
-- **启动 GUI**: `python3 NZFeiQ/gui/main.py`
-- **启动 CLI**: `python3 NZFeiQ/cli/main.py [--bind 127.0.0.X] [--port 2425]`
-- **关键演示/回归**: `python3 test/demo_p2p_secure_loopback.py`, `python3 test/demo_filetransfer.py`, `python3 test/auto_test_requirements.py`
+快速命令（最有用）
+- 启动 GUI：`python3 NZFeiQ/gui/main.py`
+- 启动 CLI：`python3 NZFeiQ/cli/main.py [--bind 127.0.0.X] [--port 2425]`
+- 回归 / 演示脚本（在仓库根目录运行）：
+  - `python3 test/demo_p2p_secure_loopback.py` — 握手 / 加密回归（首选）
+  - `python3 test/demo_filetransfer.py` — 文件传输演示
+  - `python3 test/auto_test_requirements.py` — 多节点环境检查
 
-**必须阅读的核心文件（快速理解系统）**
-- `NZFeiQ/core/engine.py` — `ZFeiQCore`：节点发现、事件分发与持久化（系统中枢）。
-- `NZFeiQ/core/session.py`, `NZFeiQ/core/crypto.py` — 会话与加密（握手 FSM、密钥派生、加密流），改动属高风险。
-- `NZFeiQ/core/transport.py` — UDP 广播/单播与接口选择（网络层实现）。
-- `NZFeiQ/core/protocol.py` — 报文构建/解析；扩展字段 `ext` 使用 `\0` 分隔，任何格式改动需兼容说明。
-- `NZFeiQ/core/state.py` — 节点与状态序列化，注意并发访问。
-- `NZFeiQ/core/events.py` — 事件常量与载荷格式。
+概要架构（快速上手）
+- `NZFeiQ/core/` 是系统核心：`engine.py` 负责节点发现、事件分发与持久化，是把 CLI/GUI 与网络、存储连接起来的单一编排点。
+- `session.py` + `crypto.py` 实现握手状态机及加密流：此处改动风险高，须附回归脚本与日志。
+- `protocol.py` 负责报文编解码（注意 `ext` 字段使用 `\\0` 分隔符，勿破坏线序兼容）。
+- `transport.py` 处理 UDP 广播/单播与网卡选择；文件传输使用独立端口/重试逻辑。
 
-**项目约定与限制（务必遵守）**
-- **私钥/密钥**：`common/keys/` 下不要提交真实密钥。如需修改密钥格式，必须附示例密钥与回归脚本。
-- **配置 schema**：`common/config.json` 与 `common/groups.json` 的 schema 变更需同时更新引擎的 `_load_*` / `_save_*` 实现。
-- **报文兼容性优先**：修改 `protocol.py` 或任何会影响线上兼容性的改动，需提供兼容策略、回归脚本并在 PR 中列明影响范围。
+优先阅读的文件（按顺序）
+- `NZFeiQ/core/engine.py` — 系统编排与事件总线。
+- `NZFeiQ/core/session.py`、`NZFeiQ/core/crypto.py` — 握手/密钥/流加密实现（高风险）。
+- `NZFeiQ/core/protocol.py` — 报文格式与 `ext` 分隔约定。
+- `NZFeiQ/core/transport.py` — UDP 与接口选择逻辑。
+- `NZFeiQ/core/state.py` — 节点/会话序列化与并发注意点。
+- `NZFeiQ/core/events.py` — 事件名与载荷契约（CLI/GUI 依赖此处接口）。
 
-**常见开发模式（示例）**
-- 增加事件：编辑 `NZFeiQ/core/events.py` → 在 `NZFeiQ/core/engine.py` 广播 → 在 `NZFeiQ/cli/shell.py` 或 `NZFeiQ/gui/bridge.py` 添加处理器。
-- 新 CLI：在 `NZFeiQ/cli/shell.py` 增加解析与 handler，调用 `ZFeiQCore` API。
+项目特有约定
+- 密钥与密文：`common/keys/` 与 `NZFeiQ/common/keys/` 存放示例密钥；切勿提交真实私钥。修改密钥格式必须附示例与回归脚本（放在 `test/`）。
+- 配置模式：`common/config.json` 与 `common/groups.json` 是 schema 源，改变 schema 时必须同步修改 `engine.py` 的 `_load_*` / `_save_*`。
+- 事件驱动集成：使用 `ZFeiQCore.set_event_handler(handler)` 注册回调，事件由 `Event(type, data)` 表示；变更事件需同时更新 `NZFeiQ/cli/shell.py` 与 `NZFeiQ/gui/bridge.py`。
+- 兼容性：线下有 `legacy/` 目录包含旧实现，仅在对比或迁移时参考，主线代码在 `NZFeiQ/`。
 
-**调试/回归要点**
-- 验证握手/加密：运行 `python3 test/demo_p2p_secure_loopback.py` 并保存握手日志供审查。
-- 跟踪日志关键词：`[DEBUG] send_broadcast`, `cipher`, `handshake`。
-- 文件传输问题：阅读 `NZFeiQ/core/filetransfer.py` 的 `_attach_map`、端口与重试实现。
+高风险变更清单（必须遵守）
+1. 任何对 `session.py`、`crypto.py`、或 `protocol.py` 的修改都必须：
+   - 提交回归脚本（优先使用 `test/demo_p2p_secure_loopback.py`）
+   - 附上握手成功的日志片段（能证明互通）
+2. 持久化/配置 schema 变化需同步更新 `common/*.json` 与 `engine.py` 的加载/保存函数。
+3. 在 PR 描述中列出受影响模块、向后兼容策略与回滚计划。
 
-**PR 要求（高风险改动）**
-- 对 `session.py` / `crypto.py` / `protocol.py` 的改动必须同时包含：回归脚本、示例运行日志、兼容说明与受影响模块清单。
+调试与常见故障定位
+- 搜索日志关键字：`[DEBUG] send_broadcast`、`cipher`、`handshake` 来追踪网络/加密流程。
+- 文件传输问题：检查 `NZFeiQ/core/filetransfer.py` 的端口分配、`_attach_map` 与重试逻辑。
+- 并发/状态问题：优先查看 `NZFeiQ/core/state.py` 与 `engine.py` 的锁与调用路径。
 
-如需我把某个模块（例如 `session`、`protocol` 或 `filetransfer`）的事件清单、握手日志样例或回归脚本模版加入本文件，请指出要补充的模块。
-ZFeiQ — AI Coding Agent 操作手册（简版）
-```instructions
-ZFeiQ — AI 编码代理 使用指南（精简）
+集成点示例
+- CLI ↔ 引擎：`NZFeiQ/cli/shell.py` 通过 `ZFeiQCore` API 发起操作并接收事件。
+- GUI ↔ 引擎：`NZFeiQ/gui/bridge.py` 与 `NZFeiQ/gui/main.py` 把 UI 事件映射为 `ZFeiQCore` 事件，修改事件契约时两端必须同步。
 
-目标：让 AI 代理在首小时内可安全、可审地修改仓库，避免破坏握手/协议或跨组件不兼容的改动。
+测试建议
+- 优先添加小而专注的 demo 脚本到 `test/`（比大型集成测试更易回归与审查）。
+- 使用 `test/demo_p2p_secure_loopback.py` 作为握手/加密回归的 canonical 测试，并在 PR 中附上运行命令与关键日志片段。
 
-**架构速览**
-- **引擎核心：** `NZFeiQ/core/engine.py`（`ZFeiQCore`）负责节点发现、事件分发与持久化；CLI/GUI 通过事件与其交互。
-- **会话/加密：** `NZFeiQ/core/session.py` 与 `NZFeiQ/core/crypto.py`，实现握手 FSM（KX1→KX2→ENCREADY）、X25519+HKDF、ChaCha20-Poly1305。此处改动属高风险，必须附回归脚本与握手日志。
-- **传输：** `NZFeiQ/core/transport.py`（`UdpTransport`）管理 UDP 广播/单播与接口选择；日志关键字包括 `[DEBUG] send_broadcast`。
-- **状态/节点：** `NZFeiQ/core/state.py`（`NodeRegistry`）集中节点信息与序列化；并发访问请注意线程安全。
+需要更多或更具体的说明？
+- 告诉我你要修改的模块（如 `session`、`protocol`、`filetransfer`），我会补充：受影响事件列表、示例日志片段与回归脚本模版。
 
-**关键工作流 / 常用命令**
-- 启动 CLI（交互）： `python3 NZFeiQ/cli/main.py [--bind 127.0.0.X] [--port 2425]`
-- 启动 GUI： `python3 NZFeiQ/gui/main.py`
-- 回归/演示脚本：
-	- 加密回归： `python3 test/demo_p2p_secure_loopback.py`
-	- 文件传输 demo： `python3 test/demo_filetransfer.py`
-	- 多节点自动校验： `python3 test/auto_test_requirements.py`
-
-**项目约定与注意事项（针对 AI 代理）**
-- 配置/持久化：`common/config.json`、`common/groups.json`。若变更 schema，务必同步引擎的 `_load_*` / `_save_*` 实现。
-- 密钥：`common/keys/`，禁止提交真实密钥；变更格式需提供示例密钥与回归脚本。
-- 报文兼容性：报文构建/解析在 `NZFeiQ/core/protocol.py`，扩展区 `ext` 用 `\0` 分隔。任何格式变更需附兼容策略与测试。
-- 事件驱动：事件常量在 `NZFeiQ/core/events.py`，引擎通过 `ZFeiQCore.set_event_handler(handler)` 广播 `Event(type, data)`；查看 `NZFeiQ/cli/shell.py` 与 `NZFeiQ/gui/bridge.py`。
-
-**高风险改动流程（必遵）**
-1. 在本地运行 `python3 test/demo_p2p_secure_loopback.py` 验证握手/加密改动。
-2. 如改报文格式，提交兼容说明与回归脚本（示例：复用 `test/demo_*`）。
-3. 在 PR 描述中列出受影响模块和回归测试步骤。
-
-**代码模式与示例**
-- 增加事件：编辑 `core/events.py` → 在 `core/engine.py` 广播 → 更新 `NZFeiQ/cli/shell.py` 与 `NZFeiQ/gui/bridge.py` 的处理。
-- 新 CLI 命令：在 `NZFeiQ/cli/shell.py` 增加解析与 handler，使用 `ZFeiQCore` 的 API 发起操作（参见已实现命令）。
-
-**调试/快速定位技巧**
-- 搜日志关键字：`[DEBUG] send_broadcast`、`cipher` 相关条目用于追踪广播与握手。
-- 文件传输：参考 `NZFeiQ/core/filetransfer.py` 的 `_attach_map`、端口保留与重试逻辑。
-
-如需更详细事件清单、握手日志样例或具体回归指导，请指出希望补充的模块或 demo（例如：`session`、`protocol`、`filetransfer`）。
-
-```
-如需更细的事件清单、握手日志示例或脚本说明，请反馈要点，我会补充对应片段与验证步骤。
+---
+(保留简洁风格：专注于可发现的仓库模式与可运行命令，避免空泛建议)

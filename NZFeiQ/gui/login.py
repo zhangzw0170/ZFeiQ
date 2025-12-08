@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit, 
-                             QPushButton, QMessageBox, QGraphicsDropShadowEffect)
+                             QPushButton, QMessageBox, QGraphicsDropShadowEffect, QCheckBox)
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QPixmap
 import os
@@ -79,12 +79,28 @@ class LoginPage(QWidget):
 
         # 用户名输入
         self.inp_name = QLineEdit()
+        # 若 core 中已有保存的用户名，作为回显
+        try:
+            self.inp_name.setText(getattr(self.bridge.core, 'username', '') or '')
+        except Exception:
+            pass
         self.inp_name.setPlaceholderText("请输入您的昵称")
         self.inp_name.setFixedHeight(45)
         # 样式由主题决定，稍后通过 _apply_theme 设置
         self.inp_name.setStyleSheet("")
         self.inp_name.returnPressed.connect(self._do_login)
         card_layout.addWidget(self.inp_name)
+
+        # 自动登录选项
+        try:
+            self.chk_auto_login = QCheckBox("启动时自动登录")
+            try:
+                self.chk_auto_login.setChecked(bool(getattr(self.bridge.core, 'auto_login', False)))
+            except Exception:
+                pass
+            card_layout.addWidget(self.chk_auto_login)
+        except Exception:
+            self.chk_auto_login = None
 
         # 登录按钮
         self.btn_login = QPushButton("立即登录")
@@ -152,6 +168,17 @@ class LoginPage(QWidget):
             
         # 1. 调用后台登录接口
         self.bridge.login(name)
+        # 保存自动登录偏好（持久化）
+        try:
+            if hasattr(self, 'chk_auto_login') and self.chk_auto_login is not None:
+                setattr(self.bridge.core, 'auto_login', bool(self.chk_auto_login.isChecked()))
+            # 保存配置到磁盘
+            try:
+                self.bridge.core._save_config()
+            except Exception:
+                pass
+        except Exception:
+            pass
         
         # 2. 发射信号，通知 Window 切换到聊天页
         self.sig_login_success.emit()

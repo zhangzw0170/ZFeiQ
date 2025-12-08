@@ -14,8 +14,10 @@ from gui.styles import SUPPORTED_THEMES
 # 尝试导入版本号
 try:
     from core import __version__ as CORE_VERSION
+    from core import __last_update__ as CORE_LAST_UPDATE
 except ImportError:
     CORE_VERSION = "Unknown"
+    CORE_LAST_UPDATE = "Unknown"
 
 class SettingsDialog(QDialog):
     def __init__(self, bridge, parent=None):
@@ -94,7 +96,17 @@ class SettingsDialog(QDialog):
         elif 'away' in curr: idx = 2
         self.cmb_status.setCurrentIndex(idx)
         fl_user.addRow(f"{L('lbl_status')}:", self.cmb_status)
-        
+        # 启动时自动登录选项（与 Login 页共享设置）
+        try:
+            self.chk_auto_login = QCheckBox("启动时自动登录")
+            try:
+                self.chk_auto_login.setChecked(bool(getattr(self.bridge.core, 'auto_login', False)))
+            except Exception:
+                pass
+            fl_user.addRow("", self.chk_auto_login)
+        except Exception:
+            self.chk_auto_login = None
+
         fl_user.addRow(f"{L('lbl_bound_ip')}:", QLabel(self.my_info.get('ip', 'Unknown')))
         
         layout.addWidget(grp_user)
@@ -301,7 +313,10 @@ class SettingsDialog(QDialog):
         form = QFormLayout()
         form.setSpacing(10)
         form.addRow(f"{L('lbl_core_version')}:", QLabel(CORE_VERSION))
-        form.addRow(f"{L('lbl_last_update')}:", QLabel("2025-12-05"))
+        try:
+            form.addRow(f"{L('lbl_last_update')}:", QLabel(CORE_LAST_UPDATE))
+        except Exception:
+            form.addRow(f"{L('lbl_last_update')}:", QLabel("Unknown"))
         
         sys_info = f"{platform.system()} {platform.release()} ({platform.machine()})"
         form.addRow(f"{L('lbl_system_platform')}:", QLabel(sys_info))
@@ -442,6 +457,16 @@ class SettingsDialog(QDialog):
                     cfg['download_dir'] = path_dl
                 if path_sh:
                     cfg['screenshot_dir'] = path_sh
+                # 自动登录偏好
+                try:
+                    cfg['auto_login'] = bool(self.chk_auto_login.isChecked()) if hasattr(self, 'chk_auto_login') and self.chk_auto_login is not None else bool(getattr(self.bridge.core, 'auto_login', False))
+                except Exception:
+                    cfg['auto_login'] = bool(getattr(self.bridge.core, 'auto_login', False))
+                try:
+                    # keep core in sync
+                    setattr(self.bridge.core, 'auto_login', bool(cfg.get('auto_login', False)))
+                except Exception:
+                    pass
                 setattr(self.bridge.core, 'config', cfg)
             self.bridge.core._save_config()
         except Exception:
