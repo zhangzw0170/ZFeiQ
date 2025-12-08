@@ -1,0 +1,314 @@
+[
+{
+"ts": 1764853119.0817845,
+"direction": "out",
+"user": "w",
+"ip": "172.26.88.222",
+"target": "ip:172.26.88.222",
+"text": "编码自检：中文✓ English✓ Emoji😀 αßé"
+},
+{
+"ts": 1764853119.089565,
+"direction": "in",
+"user": "w",
+"ip": "172.26.88.222",
+"target": "me",
+"text": "编码自检：中文✓ English✓ Emoji😀 αßé"
+},
+{
+"ts": 1764860214.3178499,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=15BctqRul+U=;ctr=1;tag=cLI3H6LghdMVlRRu88imug==;b64=K5fAtn0h7mxemts="
+},
+{
+"ts": 1764860230.6364322,
+"direction": "out",
+"user": "iwn",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "hello world"
+},
+{
+"ts": 1764864620.844368,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=ggNP6efJSJk=;ctr=1;tag=Dn0FaZasnV+USybe2N47tQ==;b64=Bg=="
+},
+{
+"ts": 1764864631.4212227,
+"direction": "out",
+"user": "w",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "[ENC-TEST]"
+},
+{
+"ts": 1764864637.8208666,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "123"
+},
+{
+"ts": 1764864663.5750427,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "123"
+},
+{
+"ts": 1764864691.277702,
+"direction": "out",
+"user": "w",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "enc?"
+},
+{
+"ts": 1764864748.0905986,
+"direction": "out",
+"user": "w",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "hello enc from WSL-PC to RK"
+},
+{
+"ts": 1764864769.0213268,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "hello enc from RK to WSL-PC"
+},
+{
+"ts": 1764897413.180139,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ENC;sid=aOGgVwRmMBU=;ctr=1;tag=+3hVNKvErku8l31UYKZUhw==;b64=HrJsRdU/nbPgF0w="
+},
+{
+"ts": 1764897440.9561517,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "123456"
+},
+{
+"ts": 1764897444.5828328,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "wint"
+},
+{
+"ts": 1764897454.8484085,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "hello world"
+},
+{
+"ts": 1764897460.3914127,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "hello world"
+},
+{
+"ts": 1764897598.755793,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "123"
+},
+{
+"ts": 1764897602.406088,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "123456"
+},
+{
+"ts": 1764897755.3593514,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:172.26.103.217",
+"text": "🥳"
+},
+{
+"ts": 1764898026.588298,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "123456"
+},
+{
+"ts": 1764898044.222452,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "123"
+},
+{
+"ts": 1764898049.596057,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "123"
+},
+{
+"ts": 1764898052.3936286,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "123"
+},
+{
+"ts": 1764898061.433876,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "dsfas dfo"
+},
+{
+"ts": 1764898083.1752677,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "ENcr"
+},
+{
+"ts": 1764898087.3300664,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "Encr"
+},
+{
+"ts": 1764898091.5887818,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "dsafqa"
+},
+{
+"ts": 1764898095.33893,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ghth"
+},
+{
+"ts": 1764898097.2557375,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "thtrhtr"
+},
+{
+"ts": 1764898098.2564447,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "gwerver"
+},
+{
+"ts": 1764898099.2453165,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "g gf"
+},
+{
+"ts": 1764898100.8622167,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "gfhwetv"
+},
+{
+"ts": 1764898102.5159597,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "ervw ey r"
+},
+{
+"ts": 1764899377.2326105,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "123456"
+},
+{
+"ts": 1764899384.745548,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "hello world"
+},
+{
+"ts": 1764899417.444841,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "hello"
+},
+{
+"ts": 1764899420.3265247,
+"direction": "out",
+"user": "win",
+"ip": "192.168.1.102",
+"target": "ip:192.168.1.10",
+"text": "hello too"
+},
+{
+"ts": 1764909638.9979315,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "在吗？"
+},
+{
+"ts": 1764909736.3393714,
+"direction": "in",
+"user": "rk",
+"ip": "192.168.1.10",
+"target": "me",
+"text": "hello world"
+}
+]
