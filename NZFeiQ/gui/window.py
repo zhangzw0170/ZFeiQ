@@ -121,3 +121,30 @@ class MainWindow(QMainWindow):
         
         # 可以在这里根据屏幕大小决定是否最大化
         # self.showMaximized()
+
+    def keyPressEvent(self, event):
+        """全局按键处理：支持 F11 切换全屏，Esc 退出全屏。"""
+        try:
+            from PyQt5.QtCore import Qt
+            if event.key() == Qt.Key_F11:
+                if self.isFullScreen():
+                    self.showNormal()
+                else:
+                    # 在全屏时隐藏状态栏以获取沉浸式体验
+                    try:
+                        self.statusBar().hide()
+                    except Exception:
+                        pass
+                    self.showFullScreen()
+                return
+            if event.key() == Qt.Key_Escape and self.isFullScreen():
+                try:
+                    self.showNormal()
+                    self.statusBar().show()
+                except Exception:
+                    pass
+                return
+        except Exception:
+            pass
+
+        return super().keyPressEvent(event)

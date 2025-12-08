@@ -14,7 +14,6 @@ from PyQt5.QtCore import QUrl
 from gui.lang import L
 from gui.styles import CHAT_COLOR_ME_ENC, CHAT_COLOR_RX_ENC, CHAT_COLOR_UNENC_BG, CHAT_COLOR_UNENC_BORDER, get_color
 
-
 def _hex_to_rgb(hex_str: str):
     """Convert '#RRGGBB' or 'RRGGBB' to (r,g,b) ints. Returns (0,0,0) on error."""
     if not hex_str:
@@ -146,26 +145,28 @@ class UserDelegate(QStyledItemDelegate):
         painter.drawText(text_x, ip_y, ip_str)
 
         status = data.get('status', 'offline')
-        try:
-            status_color = QColor(get_color('STATUS_OFFLINE', theme_code))
-            if status == 'online':
-                status_color = QColor(get_color('STATUS_ONLINE', theme_code))
-            elif status == 'busy':
-                status_color = QColor(get_color('STATUS_BUSY', theme_code))
-            elif status == 'away':
-                status_color = QColor(get_color('STATUS_AWAY', theme_code))
-        except Exception:
-            status_color = QColor("#999")
-            if status == 'online': status_color = QColor("#2ecc71")
-            elif status == 'busy': status_color = QColor("#e74c3c")
-            elif status == 'away': status_color = QColor("#f39c12")
-        
-        status_size = 12
-        s_rect = QRect(avatar_rect.right() - 8, avatar_rect.bottom() - 8, status_size, status_size)
-        
-        painter.setPen(QPen(Qt.white, 2))
-        painter.setBrush(QBrush(status_color))
-        painter.drawEllipse(s_rect)
+        # Only draw status badge for personal users (not groups)
+        if data.get('type') != 'group':
+            try:
+                status_color = QColor(get_color('STATUS_OFFLINE', theme_code))
+                if status == 'online':
+                    status_color = QColor(get_color('STATUS_ONLINE', theme_code))
+                elif status == 'busy':
+                    status_color = QColor(get_color('STATUS_BUSY', theme_code))
+                elif status == 'away':
+                    status_color = QColor(get_color('STATUS_AWAY', theme_code))
+            except Exception:
+                status_color = QColor("#999")
+                if status == 'online': status_color = QColor("#2ecc71")
+                elif status == 'busy': status_color = QColor("#e74c3c")
+                elif status == 'away': status_color = QColor("#f39c12")
+            
+            status_size = 12
+            s_rect = QRect(avatar_rect.right() - 8, avatar_rect.bottom() - 8, status_size, status_size)
+            
+            painter.setPen(QPen(Qt.white, 2))
+            painter.setBrush(QBrush(status_color))
+            painter.drawEllipse(s_rect)
 
         painter.restore()
 
@@ -806,6 +807,11 @@ class ChatPage(QWidget):
             self.bridge.sig_theme_changed.connect(self._on_theme_changed)
         except Exception:
             pass
+        # 群组变更：刷新用户列表并处理当前选择被删除的情况
+        try:
+            self.bridge.sig_groups_changed.connect(self._on_groups_changed)
+        except Exception:
+            pass
         # 加密状态变更及时反映到 UI
         try:
             self.bridge.sig_enc_state.connect(self._on_enc_state)
@@ -983,10 +989,32 @@ class ChatPage(QWidget):
             target_ip = (self.current_target.get('ip') if self.current_target else 'all') or 'all'
             enc = False if (not target_ip or target_ip == 'all') else self._is_encrypted_with(target_ip)
             self._set_encrypt_label(enc)
-            # 同步当前目标的在线状态到右上显示
+            # 同步当前目标的显示到右上：若为群组，显示 "在线/总数"，否则显示单用户状态
             try:
-                stat = (self.current_target.get('status') if self.current_target else '') or ''
-                self._set_status_label(stat)
+                if self.current_target and self.current_target.get('type') == 'group':
+                    # compute online count among group members
+                    try:
+                        group_name = self.current_target.get('name')
+                        members = []
+                        try:
+                            members = self.bridge.get_group_members(group_name) if self.bridge else []
+                        except Exception:
+                            members = []
+                        total = len(members)
+                        online = 0
+                        try:
+                            nodes = self.bridge.core.registry.list_nodes() if self.bridge and getattr(self.bridge, 'core', None) else []
+                            online = sum(1 for n in nodes if n.username in members)
+                        except Exception:
+                            online = 0
+                        self.lbl_status.setText(f"{online}/{total}")
+                        # keep style consistent
+                        self.lbl_status.setStyleSheet(f"color: {get_color('SECONDARY_TEXT', getattr(self, '_current_theme', 'light'))}; background: rgba(0,0,0,0); border: none; padding:2px 6px; font-size:12px;")
+                    except Exception:
+                        self._set_status_label('')
+                else:
+                    stat = (self.current_target.get('status') if self.current_target else '') or ''
+                    self._set_status_label(stat)
             except Exception:
                 self._set_status_label('')
         except Exception:
@@ -1038,27 +1066,47 @@ class ChatPage(QWidget):
             except Exception:
                 pass
             try:
-                # 发送按钮可能是一个普通按钮或 ToolButton
                 if hasattr(self, 'btn_send'):
                     self.btn_send.setText(L('send_button'))
             except Exception:
                 pass
             # 更新当前标题（广播/群组/用户）
+            if not self.current_target or self.current_target.get('type') == 'all':
+                self.lbl_title.setText(L('broadcast_hall'))
+            elif self.current_target.get('type') == 'group':
+                name = self.current_target.get('name')
+                self.lbl_title.setText(f"{L('group_prefix')}{name}")
+            else:
+                name = self.current_target.get('name')
+                ip = self.current_target.get('ip')
+                self.lbl_title.setText(f"{name} ({ip})")
+        except Exception:
             try:
-                if not self.current_target or self.current_target.get('type') == 'all':
-                    self.lbl_title.setText(L('broadcast_hall'))
-                elif self.current_target.get('type') == 'group':
-                    name = self.current_target.get('name')
-                    self.lbl_title.setText(f"{L('group_prefix')}{name}")
-                else:
-                    name = self.current_target.get('name')
-                    ip = self.current_target.get('ip')
-                    self.lbl_title.setText(f"{name} ({ip})")
+                self.lbl_title.setText(L('broadcast_hall'))
             except Exception:
-                try:
-                    self.lbl_title.setText(L('broadcast_hall'))
-                except Exception:
-                    pass
+                pass
+
+    def _on_groups_changed(self):
+        """Handle changes to groups: refresh list and if current group was deleted, switch to broadcast."""
+        try:
+            # Refresh user list to reflect group additions/deletions
+            self._refresh_users()
+            # If current target was a group but no longer exists, reset to 'all'
+            if self.current_target and self.current_target.get('type') == 'group':
+                gname = self.current_target.get('name')
+                groups = [g[0] for g in (self.bridge.get_groups() if self.bridge else [])]
+                if gname not in groups:
+                    # switch to broadcast
+                    self.current_target = {'ip': 'all', 'name': L('broadcast_hall'), 'type': 'all'}
+                    try:
+                        self.lbl_title.setText(L('broadcast_hall'))
+                    except Exception:
+                        self.lbl_title.setText('所有人')
+                    # update status/encrypt labels
+                    self._set_status_label('')
+                    self._set_encrypt_label(False)
+                    # refresh users again to ensure UI consistency
+                    self._refresh_users()
         except Exception:
             pass
 
@@ -1352,9 +1400,24 @@ class ChatPage(QWidget):
         self._refresh_users()
 
     def _open_group_manager(self):
-        """占位：组管理界面（待实现）"""
-        # 目前作为占位函数，避免 UI 按钮失效
-        self._append_sys_msg(L('group_mgr_placeholder'))
+        """打开群组管理对话框（集成版）"""
+        # 动态导入 GroupManagerDialog，避免在模块加载时增加额外依赖
+        try:
+            from gui.group_manager import GroupManagerDialog
+        except Exception:
+            self._append_sys_msg(L('group_mgr_placeholder'))
+            return
+
+        try:
+            dlg = GroupManagerDialog(self)
+            dlg.exec_()
+            try:
+                self._refresh_users()
+            except Exception:
+                pass
+        except Exception as e:
+            print(f"[GroupManager Error] {e}")
+            self._append_sys_msg(L('group_mgr_placeholder'))
 
     # --- 工具栏槽函数 ---
     def _on_btn_emoji(self):

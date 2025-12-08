@@ -1,3 +1,38 @@
+`.github/copilot-instructions.md` — ZFeiQ AI 代理快速上手
+
+目的：让 AI 代理能在最短时间内安全、可审地修改仓库，重点提示高风险区域、常用命令、以及项目特有约定。
+
+**快速命令**
+- **启动 GUI**: `python3 NZFeiQ/gui/main.py`
+- **启动 CLI**: `python3 NZFeiQ/cli/main.py [--bind 127.0.0.X] [--port 2425]`
+- **关键演示/回归**: `python3 test/demo_p2p_secure_loopback.py`, `python3 test/demo_filetransfer.py`, `python3 test/auto_test_requirements.py`
+
+**必须阅读的核心文件（快速理解系统）**
+- `NZFeiQ/core/engine.py` — `ZFeiQCore`：节点发现、事件分发与持久化（系统中枢）。
+- `NZFeiQ/core/session.py`, `NZFeiQ/core/crypto.py` — 会话与加密（握手 FSM、密钥派生、加密流），改动属高风险。
+- `NZFeiQ/core/transport.py` — UDP 广播/单播与接口选择（网络层实现）。
+- `NZFeiQ/core/protocol.py` — 报文构建/解析；扩展字段 `ext` 使用 `\0` 分隔，任何格式改动需兼容说明。
+- `NZFeiQ/core/state.py` — 节点与状态序列化，注意并发访问。
+- `NZFeiQ/core/events.py` — 事件常量与载荷格式。
+
+**项目约定与限制（务必遵守）**
+- **私钥/密钥**：`common/keys/` 下不要提交真实密钥。如需修改密钥格式，必须附示例密钥与回归脚本。
+- **配置 schema**：`common/config.json` 与 `common/groups.json` 的 schema 变更需同时更新引擎的 `_load_*` / `_save_*` 实现。
+- **报文兼容性优先**：修改 `protocol.py` 或任何会影响线上兼容性的改动，需提供兼容策略、回归脚本并在 PR 中列明影响范围。
+
+**常见开发模式（示例）**
+- 增加事件：编辑 `NZFeiQ/core/events.py` → 在 `NZFeiQ/core/engine.py` 广播 → 在 `NZFeiQ/cli/shell.py` 或 `NZFeiQ/gui/bridge.py` 添加处理器。
+- 新 CLI：在 `NZFeiQ/cli/shell.py` 增加解析与 handler，调用 `ZFeiQCore` API。
+
+**调试/回归要点**
+- 验证握手/加密：运行 `python3 test/demo_p2p_secure_loopback.py` 并保存握手日志供审查。
+- 跟踪日志关键词：`[DEBUG] send_broadcast`, `cipher`, `handshake`。
+- 文件传输问题：阅读 `NZFeiQ/core/filetransfer.py` 的 `_attach_map`、端口与重试实现。
+
+**PR 要求（高风险改动）**
+- 对 `session.py` / `crypto.py` / `protocol.py` 的改动必须同时包含：回归脚本、示例运行日志、兼容说明与受影响模块清单。
+
+如需我把某个模块（例如 `session`、`protocol` 或 `filetransfer`）的事件清单、握手日志样例或回归脚本模版加入本文件，请指出要补充的模块。
 ZFeiQ — AI Coding Agent 操作手册（简版）
 ```instructions
 ZFeiQ — AI 编码代理 使用指南（精简）

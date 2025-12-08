@@ -182,13 +182,33 @@ class ZFeiQCore:
     # --- 截图 ---
     def capture_screen(self, save_path: str = "") -> Optional[str]:
         """调用系统工具截图并保存 (CLI 使用，GUI 建议使用 SnippingTool)"""
+        # 默认将截图保存到仓库下的 common/screenshots，避免写到用户主目录或根目录
+        try:
+            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            default_screens_dir = os.path.join(repo_root, CONFIG_DIR, "screenshots")
+        except Exception:
+            default_screens_dir = os.path.join(os.getcwd(), CONFIG_DIR, "screenshots")
+
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        # 如果传入的是目录或为空，则把文件写到默认目录下
         if not save_path:
-            ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            save_dir = os.path.join(self.download_dir, "screenshots")
+            save_dir = default_screens_dir
             self._ensure_dir(save_dir)
-            save_path = os.path.join(save_dir, f"screenshot_{ts}.png")
-        
-        self._ensure_dir(os.path.dirname(save_path))
+            save_path = os.path.join(save_dir, f'screenshot_{ts}.png')
+        else:
+            # 如果传入的是目录，追加文件名
+            try:
+                if os.path.isdir(save_path):
+                    self._ensure_dir(save_path)
+                    save_path = os.path.join(save_path, f'screenshot_{ts}.png')
+                else:
+                    # 确保父目录存在
+                    parent = os.path.dirname(save_path) or default_screens_dir
+                    self._ensure_dir(parent)
+            except Exception:
+                # 最后回退到默认路径
+                self._ensure_dir(default_screens_dir)
+                save_path = os.path.join(default_screens_dir, f'screenshot_{ts}.png')
         try:
             sys_plat = platform.system()
             if sys_plat == "Windows":
@@ -201,16 +221,22 @@ class ZFeiQCore:
                     self._emit(EV_LOG_ERR, msg="Screenshot failed: Pillow not installed")
                     return None
             elif sys_plat == "Linux":
+                # 尝试多种截图工具，优先使用 scrot（已在 RK 平台安装），其次尝试 gnome-screenshot, grim
                 try:
                     subprocess.run(["scrot", save_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     return save_path
-                except:
+                except Exception:
                     try:
-                        subprocess.run(["gnome-screenshot", "-f", save_path], check=True, stdout=subprocess.DEVNULL)
+                        subprocess.run(["gnome-screenshot", "-f", save_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                         return save_path
-                    except:
-                        self._emit(EV_LOG_ERR, msg="Screenshot failed: install scrot or gnome-screenshot")
-                        return None
+                    except Exception:
+                        try:
+                            # Wayland 下常用的工具
+                            subprocess.run(["grim", save_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            return save_path
+                        except Exception:
+                            self._emit(EV_LOG_ERR, msg="Screenshot failed: install scrot or gnome-screenshot or grim")
+                            return None
             else:
                 self._emit(EV_LOG_ERR, msg=f"Screenshot not supported on {sys_plat}")
                 return None
@@ -225,12 +251,74 @@ class ZFeiQCore:
             self._save_groups()
             self._emit(EV_LOG_INFO, msg=f"Group '{name}' created")
 
+    def rename_group(self, old_name: str, new_name: str) -> bool:
+        """重命名群组，保留成员列表并持久化。返回 True 表示成功，False 表示失败（例如 old 不存在或 new 已存在）。"""
+        try:
+            if not old_name or not new_name: return False
+            if old_name == new_name: return False
+            if old_name not in self.groups: return False
+            if new_name in self.groups: return False
+            self.groups[new_name] = self.groups.pop(old_name)
+            self._save_groups()
+            self._emit(EV_LOG_INFO, msg=f"Group '{old_name}' renamed to '{new_name}'")
+            return True
+        except Exception as e:
+            self._emit(EV_LOG_ERR, msg=f"Rename group failed: {e}")
+            return False
+
+    def delete_group(self, name: str) -> bool:
+        """删除整个群组并持久化，返回 True 成功。"""
+        try:
+            if name in self.groups:
+                self.groups.pop(name, None)
+                self._save_groups()
+                self._emit(EV_LOG_INFO, msg=f"Group '{name}' deleted")
+                return True
+            return False
+        except Exception as e:
+            self._emit(EV_LOG_ERR, msg=f"Delete group failed: {e}")
+            return False
+
     def add_to_group(self, group_name: str, username: str):
         if group_name not in self.groups: self.create_group(group_name)
         if username not in self.groups[group_name]:
             self.groups[group_name].append(username)
             self._save_groups()
             self._emit(EV_LOG_INFO, msg=f"Added {username} to {group_name}")
+
+    def add_members(self, group_name: str, usernames: list) -> int:
+        """向组中批量添加成员，返回实际新增成员数量。"""
+        if not usernames: return 0
+        if group_name not in self.groups: self.create_group(group_name)
+        added = 0
+        for u in usernames:
+            if u not in self.groups[group_name]:
+                self.groups[group_name].append(u)
+                added += 1
+        if added:
+            self._save_groups()
+            self._emit(EV_LOG_INFO, msg=f"Added {added} members to {group_name}")
+        return added
+
+    def remove_from_group(self, group_name: str, username: str) -> bool:
+        """从组中移除单个成员并持久化，返回 True 表示已移除。"""
+        try:
+            if group_name in self.groups and username in self.groups[group_name]:
+                self.groups[group_name].remove(username)
+                self._save_groups()
+                self._emit(EV_LOG_INFO, msg=f"Removed {username} from {group_name}")
+                return True
+            return False
+        except Exception as e:
+            self._emit(EV_LOG_ERR, msg=f"Remove from group failed: {e}")
+            return False
+
+    def get_group_members(self, group_name: str):
+        """返回指定组的成员列表（副本）。"""
+        try:
+            return list(self.groups.get(group_name, []))
+        except Exception:
+            return []
 
     def send_group_msg(self, group_name: str, text: str):
         if group_name not in self.groups:
@@ -435,6 +523,20 @@ class ZFeiQCore:
                     self.encoding = d.get('encoding', self.encoding)
                     setattr(self, 'language', d.get('language', getattr(self, 'language', 'zhCN')))
                     setattr(self, 'theme', d.get('theme', getattr(self, 'theme', 'light')))
+                    # debug flags persisted in config
+                    try:
+                        self.show_cipher = bool(d.get('show_cipher', False))
+                    except Exception:
+                        self.show_cipher = False
+                    try:
+                        self.log_level = d.get('log_level', getattr(self, 'log_level', 'INFO'))
+                    except Exception:
+                        self.log_level = getattr(self, 'log_level', 'INFO')
+                    # 可选：哪些群组在用户列表中可见（持久化）
+                    try:
+                        self.visible_groups = set(d.get('visible_groups', []))
+                    except Exception:
+                        self.visible_groups = set()
         except: pass
 
     def _load_groups(self):
@@ -456,6 +558,11 @@ class ZFeiQCore:
                 'encoding': getattr(self, 'encoding', 'utf-8'),
                 'language': getattr(self, 'language', 'zhCN'),
                 'theme': getattr(self, 'theme', 'light'),
+                # debug flags
+                'show_cipher': bool(getattr(self, 'show_cipher', False)),
+                'log_level': getattr(self, 'log_level', 'INFO'),
+                # 保存用户对群组可见性的偏好（可选）
+                'visible_groups': sorted(list(getattr(self, 'visible_groups', set())))
             }
             with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
                 json.dump(d, f, indent=2)

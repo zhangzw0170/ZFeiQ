@@ -33,6 +33,8 @@ class Bridge(QThread):
     sig_lang_changed = pyqtSignal(str)
     # 主题变更: (theme_code)
     sig_theme_changed = pyqtSignal(str)
+    # 群组变更: (no payload)  GUI 可请求拉取
+    sig_groups_changed = pyqtSignal()
     
     # 文件要约: (offer_id, sender_name, filename, size)
     sig_file_offer = pyqtSignal(str, str, str, int)
@@ -261,13 +263,135 @@ class Bridge(QThread):
                 "status": n.status
             })
         # 群组 (从 Core 的 groups 字典读取)
-        for gname, members in self.core.groups.items():
-            nodes.append({
-                "type": "group",
-                "name": gname,
-                "count": len(members)
-            })
+        # Respect visibility preference if present (core.visible_groups)
+        try:
+            visible = getattr(self.core, 'visible_groups', None)
+            for gname, members in self.core.groups.items():
+                if visible is None or (gname in visible):
+                    nodes.append({
+                        "type": "group",
+                        "name": gname,
+                        "count": len(members)
+                    })
+        except Exception:
+            for gname, members in self.core.groups.items():
+                nodes.append({"type": "group", "name": gname, "count": len(members)})
         return nodes
+
+    # --- Group management helpers (GUI -> Core) ---
+    def get_groups(self):
+        """返回 core.groups 的快照，格式为 list of (name, count)"""
+        try:
+            return [(gname, len(members)) for gname, members in self.core.groups.items()]
+        except Exception:
+            return []
+
+    def set_group_visibility(self, group_name: str, visible: bool):
+        """设置某个群组是否在用户列表中可见（持久化到 core config）"""
+        try:
+            vg = getattr(self.core, 'visible_groups', None)
+            if vg is None:
+                vg = set(self.core.groups.keys())
+            if visible:
+                vg.add(group_name)
+            else:
+                vg.discard(group_name)
+            self.core.visible_groups = vg
+            # persist
+            try:
+                self.core._save_config()
+            except Exception:
+                pass
+            try:
+                self.sig_groups_changed.emit()
+            except Exception:
+                pass
+            return True
+        except Exception:
+            return False
+
+    def get_group_members(self, group_name: str):
+        try:
+            return list(self.core.groups.get(group_name, []))
+        except Exception:
+            return []
+
+    def create_group(self, name: str):
+        try:
+            self.core.create_group(name)
+            # emit change signal so GUI can refresh
+            try:
+                self.sig_groups_changed.emit()
+            except Exception:
+                pass
+            return True
+        except Exception:
+            return False
+
+    def add_to_group(self, group_name: str, username: str):
+        try:
+            self.core.add_to_group(group_name, username)
+            try:
+                self.sig_groups_changed.emit()
+            except Exception:
+                pass
+            return True
+        except Exception:
+            return False
+
+    def remove_from_group(self, group_name: str, username: str):
+        try:
+            ok = False
+            # Prefer core API if available
+            if hasattr(self.core, 'remove_from_group'):
+                ok = self.core.remove_from_group(group_name, username)
+            else:
+                if group_name in self.core.groups and username in self.core.groups[group_name]:
+                    self.core.groups[group_name].remove(username)
+                    ok = True
+            if ok:
+                try:
+                    self.sig_groups_changed.emit()
+                except Exception:
+                    pass
+            return bool(ok)
+        except Exception:
+            return False
+
+    def rename_group(self, old: str, new: str) -> bool:
+        try:
+            if hasattr(self.core, 'rename_group'):
+                ok = self.core.rename_group(old, new)
+            else:
+                # fallback: naive dict rename
+                if old in self.core.groups and new not in self.core.groups:
+                    self.core.groups[new] = self.core.groups.pop(old)
+                    ok = True
+                else:
+                    ok = False
+            if ok:
+                try:
+                    self.sig_groups_changed.emit()
+                except Exception:
+                    pass
+            return bool(ok)
+        except Exception:
+            return False
+
+    def delete_group(self, name: str) -> bool:
+        try:
+            if hasattr(self.core, 'delete_group'):
+                ok = self.core.delete_group(name)
+            else:
+                ok = False
+            if ok:
+                try:
+                    self.sig_groups_changed.emit()
+                except Exception:
+                    pass
+            return bool(ok)
+        except Exception:
+            return False
 
     def get_my_info(self):
         return {
