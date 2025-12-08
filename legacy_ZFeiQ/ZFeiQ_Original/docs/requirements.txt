@@ -1,0 +1,7 @@
+cryptography>=46.0
+
+
+# fonts-noto-color-emoji
+# System dependencies (not pip):
+# - scrot : command-line screenshot utility used on many Linux desktops for region captures
+#   Install on Debian/Ubuntu: `sudo apt install scrot`
