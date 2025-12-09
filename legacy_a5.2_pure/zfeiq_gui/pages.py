@@ -160,13 +160,13 @@ class UsersListPage(QtWidgets.QWidget):
         for text, meta in items:
             it = QtWidgets.QListWidgetItem(text)
             it.setData(QtCore.Qt.UserRole, meta)
-                try:
-                    f = it.font()
-                    base = QtWidgets.QApplication.font().pointSize() or f.pointSize()
-                    f.setPointSize(base + 1)
-                    it.setFont(f)
-                except Exception:
-                    pass
+            try:
+                f = it.font()
+                base = QtWidgets.QApplication.font().pointSize() or f.pointSize()
+                f.setPointSize(base + 1)
+                it.setFont(f)
+            except Exception:
+                pass
             self.list.addItem(it)
         self._apply_filter()
         try:
@@ -202,7 +202,7 @@ class UsersListPage(QtWidgets.QWidget):
             txt = it.text() if hasattr(it, "text") else ""
             visible = (q in txt.lower()) if q else True
             if hasattr(it, "setHidden"):
-                it.setHidden(!visible)
+                it.setHidden(not visible)
 
     def apply_language(self, t: Dict[str, str]) -> None:
         try:
@@ -367,26 +367,32 @@ class GroupsPage(QtWidgets.QWidget):
         self.members_list.clear()
         for u in members:
             it = QtWidgets.QListWidgetItem(u)
-                try:
-                    f = it.font()
-                    base = QtWidgets.QApplication.font().pointSize() or f.pointSize()
-                    f.setPointSize(base + 1)
-                    it.setFont(f)
-                except Exception:
-                    pass
+            try:
+                f = it.font()
+                base = QtWidgets.QApplication.font().pointSize() or f.pointSize()
+                f.setPointSize(base + 1)
+                it.setFont(f)
+            except Exception:
+                pass
             self.members_list.addItem(it)
 
     def _current_group(self) -> str:
         it = self.group_cards.currentItem()
-                try:
-                    f = it.font()
-                    base = QtWidgets.QApplication.font().pointSize() or f.pointSize()
-                    # Ensure a reasonable minimum base so items don't appear too small
-                    base = max(base, 11)
-                    f.setPointSize(base + 1)
-                    it.setFont(f)
-                except Exception:
-                    pass
+        if not it:
+            return ""
+        try:
+            f = it.font()
+            base = QtWidgets.QApplication.font().pointSize() or f.pointSize()
+            # Ensure a reasonable minimum base so items don't appear too small
+            base = max(base, 11)
+            f.setPointSize(base + 1)
+            it.setFont(f)
+        except Exception:
+            pass
+        try:
+            return it.data(QtCore.Qt.UserRole) or ""
+        except Exception:
+            return ""
     sigCancel = QtCore.pyqtSignal(str)
     sigPickDir = QtCore.pyqtSignal()
     sigApplyDir = QtCore.pyqtSignal(str)
@@ -533,7 +539,7 @@ class InfoPage(QtWidgets.QWidget):
         layout.addWidget(self.lbl_mask)
         layout.addWidget(self.lbl_count)
         layout.addWidget(self.nodes, 1)
-       btn_disc.clicked.connect(lambda: self.sigDiscover.emit(self.disc_ip.text().strip()))
+        btn_disc.clicked.connect(lambda: self.sigDiscover.emit(self.disc_ip.text().strip()))
 
     def set_net_info(self, info: Dict):
         self.lbl_local.setText(f"本机：{info.get('local_ip','-')} / {info.get('iface_prefix','-')}")
