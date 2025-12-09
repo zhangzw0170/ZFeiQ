@@ -1483,13 +1483,12 @@ class ChatPage(QWidget):
         except Exception:
             target_ip = 'all'
 
-        # 反馈给用户并调用 bridge 的异步截图方法（线程轻量）
-        self._append_sys_msg(L('screen_placeholder'))
+        # 启动异步区域截图（尝试框选），若有目标则传入以便后续处理
         try:
-            self.bridge.capture_screen(send_target=(target_ip if target_ip != 'all' else ''))
+            self.bridge.capture_screen(send_target=(target_ip if target_ip != 'all' else ''), region=True)
         except Exception:
-            # 回退行为：提示失败
-            self._append_sys_msg(L('screen_placeholder'))
+            # 回退：若触发失败，静默处理（不再显示占位文案）
+            pass
 
     def _on_btn_quick(self):
         """弹出常用语菜单"""

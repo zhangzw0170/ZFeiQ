@@ -8,6 +8,7 @@ import subprocess
 import re
 import ipaddress
 import platform
+import shutil
 import datetime
 from typing import Optional, Callable, Dict, List, Set, Tuple
 
@@ -185,8 +186,10 @@ class ZFeiQCore:
         return result
 
     # --- 截图 ---
-    def capture_screen(self, save_path: str = "") -> Optional[str]:
-        """调用系统工具截图并保存 (CLI 使用，GUI 建议使用 SnippingTool)"""
+    def capture_screen(self, save_path: str = "", region: bool = False) -> Optional[str]:
+        """调用系统工具截图并保存 (CLI 使用，GUI 建议使用 SnippingTool)
+        region: 如果为 True，则尝试发起交互式区域选择（例如 scrot -s / gnome-screenshot -a / grim+slurp）。
+        """
         # 默认将截图保存到仓库下的 common/screenshots，避免写到用户主目录或根目录
         try:
             repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -226,7 +229,35 @@ class ZFeiQCore:
                     self._emit(EV_LOG_ERR, msg="Screenshot failed: Pillow not installed")
                     return None
             elif sys_plat == "Linux":
-                # 尝试多种截图工具，优先使用 scrot（已在 RK 平台安装），其次尝试 gnome-screenshot, grim
+                # 如果请求区域选择，优先尝试 scrot -s / gnome-screenshot -a / grim+slurp
+                if region:
+                    # scrot -s 支持交互框选
+                    try:
+                        subprocess.run(["scrot", "-s", save_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        return save_path
+                    except Exception:
+                        pass
+
+                    # gnome-screenshot 的区域参数
+                    try:
+                        subprocess.run(["gnome-screenshot", "-a", "-f", save_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        return save_path
+                    except Exception:
+                        pass
+
+                    # Wayland: 使用 slurp 获取几何信息再用 grim 截取
+                    try:
+                        if shutil.which('slurp') and shutil.which('grim'):
+                            geom = subprocess.check_output(['slurp']).decode().strip()
+                            if geom:
+                                subprocess.run(['grim', '-g', geom, save_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                return save_path
+                    except Exception:
+                        pass
+
+                    # 如果区域选择失败，回退到全屏截图逻辑
+
+                # 全屏截图（默认路径）
                 try:
                     subprocess.run(["scrot", save_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     return save_path

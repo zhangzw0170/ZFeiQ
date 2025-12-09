@@ -83,16 +83,16 @@ class Bridge(QThread):
         except Exception as e:
             self.sig_log.emit("ERROR", f"Core 异常退出: {e}")
 
-    def capture_screen(self, send_target: str = ""):
+    def capture_screen(self, send_target: str = "", region: bool = False):
         """
         异步触发核心截图命令，完成后通过信号通知 GUI。
 
         send_target: 可选的目标 IP（为空或 'all' 表示不发送）。
         """
-        def _worker(target_ip: str):
+        def _worker(target_ip: str, region_flag: bool):
             try:
                 # Only capture and return path; do NOT auto-send (BC: user requested save-then-ask)
-                path = self.core.capture_screen()
+                path = self.core.capture_screen(region=region_flag)
                 if path:
                     # Emit screenshot done with no automatic send target
                     try:
@@ -110,7 +110,7 @@ class Bridge(QThread):
                 except Exception:
                     pass
 
-        t = threading.Thread(target=_worker, args=(send_target or '',), daemon=True)
+        t = threading.Thread(target=_worker, args=(send_target or '', region), daemon=True)
         t.start()
 
     def stop(self):
