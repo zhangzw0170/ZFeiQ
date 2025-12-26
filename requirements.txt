@@ -1,0 +1,27 @@
+# Consolidated minimal runtime requirements for NZFeiQ
+# Derived and simplified from docs/requirements.txt
+# Use pip to install: python3 -m pip install -r requirements.txt
+
+# Core GUI/runtime
+PyQt5>=5.14.1
+cryptography>=46.0.0
+pillow>=10.0.0
+numpy>=1.24.0
+opencv-python>=4.5
+
+# Networking / util
+requests>=2.22.0
+netifaces>=0.10.4
+psutil>=5.8.0
+
+# File and system helpers
+PyYAML>=5.3.1
+python-dotenv>=0.21.0
+
+# Dev/test
+pytest>=7.0.0
+
+# Notes:
+# - Some optional or platform-specific packages (e.g., RKNN toolkits, dbus-python, PyGObject)
+#   are intentionally omitted here. Add them per-target in deployment instructions.
+# - If you need the full environment snapshot used on an embedded target, see docs/requirements.txt
