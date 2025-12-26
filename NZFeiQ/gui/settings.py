@@ -321,7 +321,7 @@ class SettingsDialog(QDialog):
         sys_info = f"{platform.system()} {platform.release()} ({platform.machine()})"
         form.addRow(f"{L('lbl_system_platform')}:", QLabel(sys_info))
 
-        python_info = f"{platform.python_version()} (Qt 5)"
+        python_info = f"Python {platform.python_version()} (Qt 5)"
         form.addRow(f"{L('lbl_runtime')}:", QLabel(python_info))
         
         layout.addLayout(form)

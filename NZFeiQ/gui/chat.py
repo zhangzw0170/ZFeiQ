@@ -1809,22 +1809,7 @@ class ChatPage(QWidget):
     def _on_screenshot_done(self, path: str, sent_target: str):
         """截图保存成功后的回调。若已自动发送到目标，则同时在本地聊天中添加已发送的文件气泡。"""
         try:
-            # 不自动发送：在聊天框中添加一个本地文件卡片（status='local'）以便用户查看/手动发送
-            filename = os.path.basename(path)
-            size = os.path.getsize(path) if os.path.isfile(path) else 0
-            msg_data = {
-                'type': MSG_TYPE_FILE,
-                'user': '我',
-                'filename': filename,
-                'total': size,
-                'current': 0,
-                'status': 'local', # 本地已保存，未发送
-                'is_me': True,
-                'time': datetime.datetime.now().strftime("%H:%M"),
-                'local_path': path
-            }
-            self.chat_model.add_message(msg_data)
-            self.chat_list.scrollToBottom()
+            # 不在聊天窗口显示截图（因为本质上未发送），仅在底栏显示保存成功及路径
             self._append_sys_msg(L('screen_saved').format(path=path))
         except Exception:
             try:
