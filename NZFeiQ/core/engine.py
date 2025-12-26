@@ -554,7 +554,18 @@ class ZFeiQCore:
                     self.username = d.get('username')
                     self.status = d.get('status', 'online')
                     self.encrypt_mode = d.get('encrypt_mode', 'on')
-                    self.download_dir = d.get('download_dir', self.download_dir)
+                    # Load download_dir from config, but validate it exists on this host.
+                    cfg_dl = d.get('download_dir', None)
+                    if isinstance(cfg_dl, str) and cfg_dl:
+                        # Prefer configured path only if it's present on this system.
+                        if os.path.exists(cfg_dl):
+                            self.download_dir = cfg_dl
+                        else:
+                            # If configured path does not exist (e.g. absolute path from another machine),
+                            # fallback to repository-relative default so it adapts to current environment.
+                            self.download_dir = DOWNLOAD_DIR_DEFAULT
+                    else:
+                        self.download_dir = d.get('download_dir', self.download_dir)
                     # 新增：编码/语言/主题（可选项）
                     self.encoding = d.get('encoding', self.encoding)
                     setattr(self, 'language', d.get('language', getattr(self, 'language', 'zhCN')))
@@ -737,14 +748,34 @@ class ZFeiQCore:
                 handled = False
                 if self.encrypt_mode != "off":
                     sess = self._get_session(src_ip)
+                    # process_packet handles handshake/control texts (KX1/KX2/ENCREADY)
                     if sess.process_packet(text, lambda t: self.transport.send_unicast(src_ip, self._build_packet(IPMSG_SENDMSG, t))):
-                        self._emit(EV_ENC_STATE, peer=src_ip, state="ESTABLISHED"); handled = True
+                        # Session processing handled this control message (e.g. KX1/KX2/ENCREADY)
+                        handled = True
+                        # Emit ENC_STATE was already emitted above by this codepath when appropriate
                     elif text.startswith("ENC;") or text.startswith("ENC2;"):
-                        if self.show_cipher: self._emit(EV_LOG_INFO, msg=f"Cipher IN: {text}")
-                        try: text = sess.decrypt_msg(text)
-                        except Exception as e: text = "[Decrypt Failed]"; self._emit(EV_LOG_ERR, msg=str(e))
-                if handled and (cmd & IPMSG_SENDCHECKOPT):
-                    self.transport.send_unicast(src_ip, self._build_packet(IPMSG_RECVMSG, str(head['packet_no'])))
+                        # Encrypted payload: optionally log raw cipher when user requested
+                        if self.show_cipher:
+                            self._emit(EV_LOG_INFO, msg=f"Cipher IN: {text}")
+                        try:
+                            text = sess.decrypt_msg(text)
+                        except Exception as e:
+                            text = "[Decrypt Failed]"
+                            self._emit(EV_LOG_ERR, msg=str(e))
+                # If the session code has already handled this packet (handshake/control),
+                # do not present it as a normal chat message. If requested, emit as a log
+                # entry instead when show_cipher/debug is enabled.
+                if handled:
+                    if self.show_cipher:
+                        try:
+                            self._emit(EV_LOG_INFO, msg=f"Control IN (handled): {text}")
+                        except Exception:
+                            pass
+                    if (cmd & IPMSG_SENDCHECKOPT):
+                        try:
+                            self.transport.send_unicast(src_ip, self._build_packet(IPMSG_RECVMSG, str(head['packet_no'])))
+                        except Exception:
+                            pass
                     return
                 if (cmd & IPMSG_FILEATTACHOPT):
                     try:

@@ -1,0 +1,38 @@
+
+NZFeiQ
+├─cli                             // 命令行
+│   ├─shell.py                    // 交互壳
+│   ├─main.py                     // 入口脚本
+│   └─__init__.py                 // 包初始化
+├─core                            // 核心
+│   ├─ocr.py                      // 文字识别
+│   ├─session.py                  // 会话管理
+│   ├─state.py                    // 状态存储
+│   ├─transport.py                // 网络传输
+│   ├─screenshot.py               // 截屏
+│   ├─protocol.py                 // 协议
+│   ├─crypto.py                   // 加密
+│   ├─engine.py                   // 引擎
+│   ├─filetransfer.py             // 文件传输
+│   ├─events.py                   // 事件
+│   └─__init__.py                 // 包初始化
+├─test                            // 测试
+│   ├─demo_filetransfer.py        // 传输示例
+│   ├─auto_test_requirements.py   // 测试依赖
+│   ├─demo_p2p_secure_loopback.py // P2P示例
+│   └─demo_groups_6users.py       // 群组示例
+└─gui                             // 界面
+    ├─settings.py                 // 设置
+    ├─assets                      // 资源
+    │   └─zfeiq_icon_128x128.ico  // 图标
+    ├─bridge.py                   // 桥接
+    ├─emote_widget.py             // 表情控件
+    ├─lang.py                     // 多语言
+    ├─window.py                   // 主窗口
+    ├─login.py                    // 登录
+    ├─styles.py                   // 样式
+    ├─main.py                     // 入口脚本
+    ├─chat.py                     // 聊天界面
+    ├─emoji_widget.py             // emoji控件
+    └─group_manager.py            // 群管理
+

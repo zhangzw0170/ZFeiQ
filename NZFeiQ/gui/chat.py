@@ -582,8 +582,8 @@ class ChatPage(QWidget):
         left_layout.addWidget(self.search_box)
         # 用户列表背景设为透明，让面板背景承接，避免突兀的白色块
         self.user_list.setStyleSheet("background: transparent;")
-        left_layout.addWidget(self.user_list)
-        left_layout.addStretch()
+        # 让用户列表在垂直方向上可扩展以填满左侧面板
+        left_layout.addWidget(self.user_list, 1)
 
         # 左下角：设置 & 组管理
         left_bottom = QWidget()
@@ -612,6 +612,7 @@ class ChatPage(QWidget):
 
         lb_layout.addWidget(self.btn_group)
         lb_layout.addWidget(self.btn_settings)
+        # left_bottom 保持贴底显示
         left_layout.addWidget(left_bottom)
         left_panel.setMinimumWidth(200)
         left_panel.setMaximumWidth(350)
@@ -1274,6 +1275,102 @@ class ChatPage(QWidget):
         except Exception:
             self._set_encrypt_label(False)
             self._set_status_label('')
+        # Load history/messages for the selected target so the chat view shows only
+        # relevant messages (personal: messages with that IP; group: messages
+        # whose text starts with "[Group:<name>]" from group members)
+        try:
+            self._load_history_for_current_target()
+        except Exception:
+            pass
+
+    def _load_history_for_current_target(self):
+        """Replace chat model contents with history for current target."""
+        self.chat_model.beginResetModel()
+        self.chat_model.messages = []
+        self.chat_model.offer_map = {}
+        tgt = self.current_target or {}
+        ttype = tgt.get('type')
+        if ttype == 'group':
+            gname = tgt.get('name')
+            # gather members' IPs
+            members = []
+            try:
+                members = list(self.bridge.core.get_group_members(gname) or [])
+            except Exception:
+                members = []
+            # map usernames -> ips via registry
+            ips = []
+            try:
+                nodes = self.bridge.core.registry.list_nodes()
+                for n in nodes:
+                    if n.username in members:
+                        ips.append(n.ip)
+            except Exception:
+                ips = []
+            # collect history from those ips
+            entries = []
+            try:
+                for ip in ips:
+                    for ts, direction, text in self.bridge.core.history.get(ip):
+                        # only group-prefixed texts for this group
+                        if isinstance(text, str) and text.startswith(f"[Group:{gname}]"):
+                            entries.append((ts, direction, text, ip))
+            except Exception:
+                entries = []
+            # sort by timestamp
+            entries.sort(key=lambda x: x[0])
+            for ts, direction, text, ip in entries:
+                msg = {
+                    'type': MSG_TYPE_TEXT,
+                    'user': (self.bridge.core.registry.get_by_ip(ip).username if self.bridge.core.registry.get_by_ip(ip) else ip),
+                    'text': text,
+                    'is_me': (direction == 'out'),
+                    'encrypted': False,
+                    'time': datetime.datetime.fromtimestamp(ts).strftime('%H:%M')
+                }
+                self.chat_model.messages.append(msg)
+        else:
+            # personal or 'all' target
+            ip = tgt.get('ip')
+            if ip == 'all' or not ip:
+                # show nothing special (broadcast hall) — leave messages empty
+                pass
+            else:
+                try:
+                    entries = list(self.bridge.core.history.get(ip) or [])
+                    entries.sort(key=lambda x: x[0])
+                    # Fetch local group names to avoid showing group messages in personal chat
+                    try:
+                        local_groups = [g[0] for g in (self.bridge.get_groups() if self.bridge else [])]
+                    except Exception:
+                        local_groups = []
+
+                    for ts, direction, text in entries:
+                        # 如果该条历史是群组消息且本地存在该群组，则跳过，不在个人聊天中显示
+                        try:
+                            if isinstance(text, str) and text.startswith('[Group:'):
+                                end = text.find(']')
+                                if end != -1:
+                                    gname = text[7:end]
+                                    if gname in local_groups:
+                                        # skip showing this in personal chat
+                                        continue
+                        except Exception:
+                            pass
+
+                        msg = {
+                            'type': MSG_TYPE_TEXT,
+                            'user': (self.bridge.core.registry.get_by_ip(ip).username if self.bridge.core.registry.get_by_ip(ip) else ip),
+                            'text': text,
+                            'is_me': (direction == 'out'),
+                            'encrypted': False,
+                            'time': datetime.datetime.fromtimestamp(ts).strftime('%H:%M')
+                        }
+                        self.chat_model.messages.append(msg)
+                except Exception:
+                    pass
+        self.chat_model.endResetModel()
+        QTimer.singleShot(50, lambda: self.chat_list.scrollToBottom())
 
     def _on_chat_clicked(self, index: QModelIndex):
         """Handle clicks on chat items. If the item is a file message and the
@@ -1324,12 +1421,70 @@ class ChatPage(QWidget):
     def _do_send(self):
         text = self.input_edit.toPlainText().strip()
         if not text: return
-        
-        target = self.current_target['ip']
-        if self.current_target['type'] == 'group':
-            target = f"group:{self.current_target['name']}"
-            
-        self.bridge.send_text(target, text)
+        tgt = self.current_target or {}
+        # 防御性访问：current_target 可能来自多处，某些路径下缺少 'ip' 键
+        ttype = tgt.get('type')
+        tip = tgt.get('ip')
+
+        if ttype == 'group':
+            gname = tgt.get('name', '')
+            # 先解析群组成员并在当前在线列表中找到对应的 IP（只向在线成员单播）
+            members = []
+            try:
+                members = self.bridge.get_group_members(gname) if self.bridge else []
+            except Exception:
+                members = []
+
+            # build name -> ip map from current user list
+            online_ips = []
+            try:
+                ul = self.bridge.get_user_list() if self.bridge else []
+                name_to_ips = {}
+                for u in ul:
+                    if u.get('type') == 'user':
+                        uname = u.get('name')
+                        ip = u.get('ip')
+                        status = u.get('status', 'offline')
+                        if uname:
+                            # only include online users
+                            if status == 'online' and ip:
+                                name_to_ips.setdefault(uname, []).append(ip)
+
+                for m in members:
+                    # skip sending to self
+                    try:
+                        if getattr(self.bridge, 'core', None) and m == getattr(self.bridge.core, 'username', None):
+                            continue
+                    except Exception:
+                        pass
+                    ips = name_to_ips.get(m) or []
+                    for ip in ips:
+                        online_ips.append(ip)
+            except Exception:
+                online_ips = []
+
+            if not online_ips:
+                self._append_sys_msg(L('group_no_online', '群组中暂无在线成员'))
+            else:
+                group_text = f"[Group:{gname}] {text}"
+                sent_any = False
+                for ip in online_ips:
+                    try:
+                        self.bridge.send_text(ip, group_text)
+                        sent_any = True
+                    except Exception:
+                        pass
+                if not sent_any:
+                    self._append_sys_msg(L('send_fail', '发送失败'))
+        else:
+            # 当 ip 缺失或为广播时，使用 'all' 作为目标
+            target = tip if tip else 'all'
+
+            try:
+                self.bridge.send_text(target, text)
+            except Exception:
+                # 发送失败时给出用户提示，而不是抛出异常
+                self._append_sys_msg(L('send_fail', '发送失败'))
         self.input_edit.clear()
 
     def _send_file_action(self):
@@ -1363,6 +1518,64 @@ class ChatPage(QWidget):
             self.chat_list.scrollToBottom()
 
     def _on_msg_received(self, name, ip, text, is_me, is_enc):
+        # 判断消息是否属于当前选中的会话
+        try:
+            tgt = self.current_target or {}
+            ttype = tgt.get('type')
+            show = False
+
+            # 优先检查消息是否为群组消息格式: [Group:<gname>] <text>
+            gname_in_msg = None
+            if isinstance(text, str) and text.startswith('[Group:'):
+                end = text.find(']')
+                if end != -1:
+                    gname_in_msg = text[7:end]
+
+            if gname_in_msg:
+                # 若该群组存在于本地组列表，则优先把消息归入该群组
+                try:
+                    groups = [g[0] for g in (self.bridge.get_groups() if self.bridge else [])]
+                except Exception:
+                    groups = []
+
+                if gname_in_msg in groups:
+                    # 仅在当前选中为该群组或广播大厅时显示
+                    if ttype == 'group' and tgt.get('name') == gname_in_msg:
+                        show = True
+                        # 去掉前缀，便于群组视图显示真实文本
+                        try:
+                            text = text[end+1:].lstrip()
+                        except Exception:
+                            pass
+                    elif tgt.get('ip') == 'all' or tgt.get('type') == 'all':
+                        show = True
+                    else:
+                        # 群组存在但当前视图不是该群组，忽略在当前聊天窗口显示
+                        show = False
+                else:
+                    # 群组前缀但本地没有该群组，退回到常规逻辑并展示在当前对话
+                    gname_in_msg = None
+
+            if not gname_in_msg:
+                if ttype == 'group':
+                    gname = tgt.get('name')
+                    if isinstance(text, str) and text.startswith(f"[Group:{gname}]"):
+                        show = True
+                elif tgt.get('ip') == 'all' or tgt.get('type') == 'all':
+                    # Broadcast hall — show everything
+                    show = True
+                else:
+                    # personal chat: show if source ip matches OR (sent by me to that ip)
+                    tgt_ip = tgt.get('ip')
+                    if ip == tgt_ip:
+                        show = True
+
+            if not show:
+                return
+        except Exception:
+            # on error, be conservative and display the message
+            show = True
+
         msg_data = {
             'type': MSG_TYPE_TEXT,
             'user': name,
