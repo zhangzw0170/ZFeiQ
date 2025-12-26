@@ -1,3 +1,3 @@
 # ZFeiQ Core Package
-__version__ = "Alpha 6.1 (Reborn)"
-__last_update__ = "2025-12-08 17:44 UTC+8"
+__version__ = "Alpha 6.2"
+__last_update__ = "2025-12-26 20:23 UTC+8"

@@ -328,7 +328,8 @@ class SettingsDialog(QDialog):
         
         layout.addSpacing(20)
         btn_link = QPushButton(L('btn_open_repo'))
-        btn_link.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/YourRepo/NZFeiQ")))
+        btn_link.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(\
+            "https://github.com/zhangzw0170/ZFeiQ")))
         layout.addWidget(btn_link)
 
     def _regen_keys(self):
