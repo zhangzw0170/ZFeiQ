@@ -59,6 +59,9 @@ class ZFeiQCore:
         self.download_dir: str = DOWNLOAD_DIR_DEFAULT
         # 是否在启动时自动使用保存的用户名登录
         self.auto_login: bool = False
+
+        self.show_cipher = False
+        self.log_level = "INFO"
         
         self.groups: Dict[str, List[str]] = {}         
         self.quick_texts: List[str] = [] # 常用语列表缓存
@@ -99,9 +102,6 @@ class ZFeiQCore:
         self._stop_event = threading.Event()
         self._maint_thread: Optional[threading.Thread] = None
         self._retrans_thread: Optional[threading.Thread] = None
-        
-        self.show_cipher = False
-        self.log_level = "INFO"
 
     def set_event_handler(self, handler: Callable[[Event], None]):
         self.event_handler = handler
