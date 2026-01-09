@@ -1,2 +1,0 @@
-APP_VERSION = "Alpha 5.2"
-APP_LAST_UPDATE = "2025 / 12 / 03"
