@@ -1,88 +1,81 @@
-# ZFeiQ (Public Archive)
+# ZFeiQ
 
-> **⚠️ archive notice**  
-> 本项目原为 Linux 嵌入式课程设计（RK3566 平台）作品，现已完成其历史使命。  
-> 代码已停止积极维护。可以作为一个基于 Python/PyQt5 实现 IPMSG 协议与边缘 AI 结合的参考案例公开存档。  
-> **This project is no longer maintained.**
+A modern, secure LAN instant messenger inspired by IPMSG (Feige/Feiqiu), optimized for embedded Linux (RK3566) with edge AI capabilities.
 
----
+ZFeiQ 是一个现代化、高安全性的局域网即时通讯系统。致敬经典 IPMSG 协议，针对 RK3566 嵌入式平台优化，并集成了边缘 AI（OCR）能力。
 
-ZFeiQ 是一个现代化、高安全性的局域网即时通讯系统。它致敬了经典的 IPMSG（飞秋/飞鸽传书）协议，针对嵌入式设备（如 Rockchip RK3566）进行了优化，并集成了边缘 AI 能力。
+## Features
 
-本项目在核心层进行了彻底重构，引入了无服务器通讯、企业级加密协议栈、事件驱动架构以及基于 NPU 加速的 OCR 功能。
+- **Serverless P2P** — UDP broadcast/multicast node discovery, no central server required
+- **Encrypted sessions** — X25519 + HKDF + ChaCha20-Poly1305 (AEAD) with forward secrecy
+- **Group chat** — Multi-user group messaging with persistent membership
+- **File transfer** — TCP-based large file transfer with IPMSG-style offer/accept flow
+- **Edge OCR** — PPOCRv4 with NPU (RKNN) acceleration on RK3566, ONNX Runtime fallback on PC
+- **Rich media** — Emoji panel, custom emotes, screenshot capture
 
-## 🎯 项目背景与目标
+## Architecture
 
-本项目旨在使用 Python 在 Linux (RK3566/KylinOS) 环境下实现一个功能完备的局域网通讯软件。
-
-**核心要求与达成情况：**
-- ✅ **无服务器通讯**：基于 UDP 广播/组播实现节点发现与通信。
-- ✅ **聊天室/群组**：支持 P2P 私聊及多人群组聊天。
-- ✅ **即时搜索**：支持按用户、IP 等关键词搜索在线好友。
-- ✅ **文件传输**：支持大文件传输（TCP 通道）。
-- ✅ **多媒体功能**：支持发送表情包、截图以及 Emoji。
-- ✅ **边缘 AI 加速**：集成 PPOCRv4，调用 RK3566 NPU 实现本地图片文字识别（OCR）。
-
-## 🏗️ 架构概览
-
-项目采用分层架构设计，实现了核心逻辑与界面的解耦 (`NZFeiQ` 目录)：
-
-- **Core (`NZFeiQ/core`)**: 纯 Python 实现的协议核心，包含协议编解码、网络传输、加密会话、文件传输引擎、OCR 接口等。
-- **GUI (`NZFeiQ/gui`)**: 基于 PyQt5 的现代化图形界面。
-- **CLI (`NZFeiQ/cli`)**: 命令行交互界面，用于无头模式运行或调试。
-- **Legacy (`legacy_*`)**: 保留了早期的开发迭代版本作为参考。
-
-## 🚀 快速开始
-
-虽然本项目不再维护，但您仍可以运行它进行学习或测试。需要 Python 3.8+ 环境。
-
-### 1. 安装依赖
-
-```bash
-python3 -m pip install -r requirements.txt
-# 或者手动安装核心依赖
-python3 -m pip install PyQt5 pycryptodome numpy
+```
+NZFeiQ/
+├── core/           # Protocol, transport, crypto, sessions, file transfer, OCR
+├── gui/            # PyQt5 frontend with core-to-UI event bridge
+├── cli/            # Headless interactive shell
+└── test/           # Integration demo scripts
 ```
 
-### 2. 运行
+**Tech stack**: Python 3.8+, PyQt5, `cryptography` (X25519/ChaCha20-Poly1305), ONNX Runtime / RKNN Toolkit Lite2
 
-**图形界面 (GUI)**:
+**Dependencies**: PyQt5>=5.14, cryptography>=46.0, Pillow>=10.0, numpy>=1.24, opencv-python>=4.5, requests>=2.22, netifaces>=0.10, psutil>=5.8, PyYAML>=5.3, python-dotenv>=0.21, pytest>=7.0
+
+## Quick Start
+
 ```bash
+pip install -r requirements.txt
+
+# GUI
 python3 NZFeiQ/gui/main.py
-```
 
-**命令行界面 (CLI)**:
-```bash
+# CLI
 python3 NZFeiQ/cli/main.py
 ```
 
-### 3. OCR 说明
-OCR 功能依赖于 `resource/` 目录下的模型文件。在 RK3566 设备上，会自动尝试加载 `rknn_toolkit_lite2` 进行 NPU 推理；在 PC 上则回退至 CPU/ONNX Runtime 推理。
+### Testing
 
-## 🛡️ 安全特性
-
-不同于传统的明文 IPMSG，ZFeiQ 实现了一套可选的安全传输层：
-- **密钥交换**: X25519
-- **流加密**: ChaCha20-Poly1305
-- **身份验证**: 基于公钥的身份标识
-
-## 📁 目录结构
-
-```plaintext
-root/
-├── NZFeiQ/               # 重构后的主代码库 (New ZFeiQ)
-│   ├── core/             # 业务逻辑核心
-│   ├── gui/              # PyQt5 界面
-│   └── cli/              # 命令行工具
-├── legacy_*/             # 历史遗留代码 (参考用)
-├── resource/             # 静态资源与模型 (OCR等)
-├── docs/                 # 开发文档与设计说明
-└── test/                 # 测试脚本与演示
+```bash
+cd NZFeiQ
+python3 test/demo_p2p_secure_loopback.py   # Encrypted P2P handshake
+python3 test/demo_filetransfer.py           # File transfer
+python3 test/demo_groups_6users.py          # Group messaging
+python3 test/auto_test_requirements.py      # 3-node regression
 ```
 
-## 📝 声明
+Multi-node demos on a single machine require loopback aliases:
 
-本项目仅供学习交流使用。
-由于不再维护，对于 Issues 和 PR 可能不会进行响应，建议 Fork 后自行修改。
+```bash
+sudo ip addr add 127.0.0.2/8 dev lo
+sudo ip addr add 127.0.0.3/8 dev lo
+```
 
-**License**: MIT 
+## Documentation
+
+| Document | Content |
+|----------|---------|
+| `docs/SECURITY.md` | Crypto design, handshake flow, key derivation, known trade-offs |
+| `docs/TEST.md` | Test procedures, CLI commands, OCR verification, debug tips |
+| `docs/HANDSHAKE_AUTH.md` | Handshake authentication design and CI test examples |
+
+## AI Usage Disclosure
+
+This project was developed with the assistance of AI tools: **GPT**, **Gemini**, and **GLM**. AI was used for code generation, debugging, and documentation throughout the development process.
+
+本项目在开发过程中使用了 AI 辅助工具：**GPT**、**Gemini** 和 **GLM**。AI 参与了代码生成、调试和文档编写等环节。
+
+## Project Status
+
+Archived — originally a Linux embedded systems course project (RK3566 / KylinOS). No longer actively maintained. Issues and PRs may not receive responses; fork and modify as needed.
+
+Last functional update: 2026-01-08
+
+## License
+
+[MIT](LICENSE)
